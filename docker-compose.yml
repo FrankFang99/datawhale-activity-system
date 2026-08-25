@@ -1,0 +1,78 @@
+# ===================================================================
+# Datawhale 高校活动智能管理系统 · docker-compose（生产环境）
+# ===================================================================
+# Datawhale IT 一键部署：
+#   1) 准备 .env（参考 backend/.env.example）
+#   2) docker compose up -d
+#   3) 验证 http://localhost/api/health
+#
+# 子域名部署（如 activity.datawhale.cn）：
+#   - 在 nginx 上加 SSL 终止（certbot --nginx -d activity.datawhale.cn）
+#   - 改这个文件 ports: 前端从 80 → 127.0.0.1:8080
+#   - 反代 /activity/* 到前端 8080
+# ===================================================================
+
+services:
+  # -------- 后端 --------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: datawhale-backend:latest
+    container_name: datawhale-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # 容器内调用同 compose 内的 lark-cli 时需要明确
+      - LARK_NODE_PATH=/usr/local/bin/node
+      - NODE_ENV=production
+    volumes:
+      # 上传文件持久化（凭证/物料）
+      - backend-uploads:/app/uploads
+      # 日志持久化
+      - backend-logs:/app/logs
+    networks:
+      - datawhale-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # -------- 前端（自带 nginx 反代到后端） --------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # 子路径模式：VITE_DEPLOY_BASE=/activity/
+        # 默认根路径：VITE_DEPLOY_BASE=/
+        VITE_DEPLOY_BASE: /
+    image: datawhale-frontend:latest
+    container_name: datawhale-frontend
+    restart: unless-stopped
+    ports:
+      # 80 端口暴露给外部（生产环境建议改 127.0.0.1:8080 + 宿主 nginx 终止 SSL）
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - datawhale-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  backend-uploads:
+    driver: local
+  backend-logs:
+    driver: local
+
+networks:
+  datawhale-net:
+    driver: bridge

@@ -1,0 +1,92 @@
+# ===== Node / 构建产物 =====
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# ===== 敏感配置（绝对不能进交付）=====
+# 飞书 token / table id / 任何 base 配置
+backend/.env
+backend/.env.local
+backend/.env.production
+backend/.feishu_base.json
+data/feishu/
+
+# ===== 日志 =====
+*.log
+backend/err.log
+backend/out.log
+backend/server.log
+backend/server.err.log
+backend/debug_out.txt
+frontend/err.log
+frontend/out.log
+
+# ===== 临时 / 开发工具 =====
+# Mock 状态（v162/v163/v165 step 调试用）
+mock_*.ps1
+v*_mock_step*.json
+*_mock_step*.json
+confirmedAddress.json
+endTime.json
+startTime.json
+filter_no*.json
+reimb_fields.json
+stage_tasks_fields*.json
+role_with_user.json
+seed_no*.js
+trash.log
+test-output-*.log
+
+# backend dev 工具
+backend/snap_*.py
+backend/snap_*.png
+backend/seed_*.js
+backend/check_*.js
+backend/list_confirmed.js
+backend/dump_*.ts
+backend/test_norm.ts
+backend/field_excellent.json
+backend/tools/
+
+# frontend dev 工具
+frontend/snap_*.py
+tools/
+
+# Office 临时锁文件
+~*.xlsx
+~*.docx
+~*.pptx
+~*.xls
+~*.doc
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== 用户上传（不进版本控制）=====
+backend/uploads/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# ===== 截图工具输出 =====
+datawhale_screenshots/
+
+# ===== 交付隔离目录（开发期临时文件，待用户验证后手动删除）=====
+_to_delete/
+_trash/
+

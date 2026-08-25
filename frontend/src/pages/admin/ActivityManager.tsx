@@ -1,0 +1,500 @@
+/**
+ * 活动管理（PRD §4.2.3 · v6）— ADMIN / OPERATOR 专用
+ * 活动列表 + 创建/编辑表单 + 上架/下架/归档
+ *
+ * Frank 2026-08-22 20:25 反馈：
+ *   1. 所属系列 必填
+ *   2. 时间双轨：确定组织者前用模糊日期；确定组织者后用精确到天/小时 + 精确地址
+ *   3. 地点用下拉精确到"区"（省·市·区三级 Cascader）
+ */
+import { useEffect, useState } from 'react';
+import {
+  Card, Table, Tag, Button, Space, Modal, Form, Input, DatePicker, TimePicker, InputNumber, Select, Cascader, message, Typography, Popconfirm, Tabs, Alert,
+} from 'antd';
+import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons';
+import dayjs, { Dayjs } from 'dayjs';
+import { adminApi } from '../../services/api';
+
+const { Title, Text } = Typography;
+
+// v10 常用省·市·区级联数据（v1 简化：一线 + 新一线 + Datawhale 重点城市）
+const LOCATION_OPTIONS: Array<{ value: string; label: string; children: Array<{ value: string; label: string; children: Array<{ value: string; label: string }> }> }> = [
+  {
+    value: '北京', label: '北京',
+    children: [
+      { value: '海淀区', label: '海淀区', children: [
+        { value: '中关村', label: '中关村' },
+        { value: '学院路', label: '学院路' },
+        { value: '五道口', label: '五道口' },
+      ] },
+      { value: '朝阳区', label: '朝阳区', children: [
+        { value: '国贸', label: '国贸' },
+        { value: '望京', label: '望京' },
+        { value: 'CBD', label: 'CBD' },
+      ] },
+      { value: '昌平区', label: '昌平区', children: [
+        { value: '沙河高教园区', label: '沙河高教园区' },
+        { value: '朱辛庄', label: '朱辛庄' },
+      ] },
+    ],
+  },
+  {
+    value: '上海', label: '上海',
+    children: [
+      { value: '徐汇区', label: '徐汇区', children: [
+        { value: '徐家汇', label: '徐家汇' },
+        { value: '漕河泾', label: '漕河泾' },
+      ] },
+      { value: '闵行区', label: '闵行区', children: [
+        { value: '交大闵行校区', label: '交大闵行校区' },
+        { value: '莘庄', label: '莘庄' },
+      ] },
+      { value: '杨浦区', label: '杨浦区', children: [
+        { value: '复旦邯郸校区', label: '复旦邯郸校区' },
+        { value: '同济', label: '同济' },
+      ] },
+      { value: '浦东新区', label: '浦东新区', children: [
+        { value: '张江', label: '张江' },
+        { value: '陆家嘴', label: '陆家嘴' },
+      ] },
+    ],
+  },
+  {
+    value: '广州', label: '广州',
+    children: [
+      { value: '天河区', label: '天河区', children: [
+        { value: '五山', label: '五山（华工/华农）' },
+        { value: '岗顶', label: '岗顶' },
+      ] },
+      { value: '海珠区', label: '海珠区', children: [
+        { value: '中山大学南校区', label: '中山大学南校区' },
+        { value: '客村', label: '客村' },
+      ] },
+      { value: '番禺区', label: '番禺区', children: [
+        { value: '大学城', label: '大学城' },
+      ] },
+    ],
+  },
+  {
+    value: '深圳', label: '深圳',
+    children: [
+      { value: '南山区', label: '南山区', children: [
+        { value: '科技园', label: '科技园' },
+        { value: '西丽', label: '西丽' },
+      ] },
+      { value: '福田区', label: '福田区', children: [
+        { value: '华强北', label: '华强北' },
+        { value: '中心区', label: '中心区' },
+      ] },
+      { value: '龙岗区', label: '龙岗区', children: [
+        { value: '大运中心', label: '大运中心' },
+      ] },
+    ],
+  },
+  {
+    value: '杭州', label: '杭州',
+    children: [
+      { value: '西湖区', label: '西湖区', children: [
+        { value: '浙大玉泉校区', label: '浙大玉泉校区' },
+        { value: '古荡', label: '古荡' },
+      ] },
+      { value: '滨江区', label: '滨江区', children: [
+        { value: '高新', label: '高新' },
+      ] },
+    ],
+  },
+  {
+    value: '成都', label: '成都',
+    children: [
+      { value: '武侯区', label: '武侯区', children: [
+        { value: '川大望江校区', label: '川大望江校区' },
+      ] },
+      { value: '高新区', label: '高新区', children: [
+        { value: '天府软件园', label: '天府软件园' },
+      ] },
+    ],
+  },
+  {
+    value: '武汉', label: '武汉',
+    children: [
+      { value: '洪山区', label: '洪山区', children: [
+        { value: '光谷', label: '光谷' },
+      ] },
+    ],
+  },
+  {
+    value: '西安', label: '西安',
+    children: [
+      { value: '雁塔区', label: '雁塔区', children: [
+        { value: '交大兴庆校区', label: '交大兴庆校区' },
+      ] },
+    ],
+  },
+  {
+    value: '南京', label: '南京',
+    children: [
+      { value: '鼓楼区', label: '鼓楼区', children: [
+        { value: '南大鼓楼校区', label: '南大鼓楼校区' },
+      ] },
+    ],
+  },
+  {
+    value: '苏州', label: '苏州',
+    children: [
+      { value: '工业园区', label: '工业园区', children: [
+        { value: '独墅湖高教区', label: '独墅湖高教区' },
+      ] },
+    ],
+  },
+  {
+    value: '佛山', label: '佛山',
+    children: [
+      { value: '南海区', label: '南海区', children: [
+        { value: '千灯湖', label: '千灯湖' },
+      ] },
+    ],
+  },
+];
+
+const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
+  DRAFT:     { label: '草稿',     color: 'default' },
+  PENDING:   { label: '待确定',   color: 'default' },
+  PUBLISHED: { label: '已发布',   color: 'green' },
+  ONGOING:   { label: '进行中',   color: 'blue' },
+  FINISHED:  { label: '已结束',   color: 'default' },
+  ARCHIVED:  { label: '已归档',   color: 'default' },
+  CANCELLED: { label: '已取消',   color: 'red' },
+};
+
+interface Activity {
+  activityId: string;
+  title: string;
+  status: string;
+  series?: string;
+  startDate?: number;
+  endDate?: number;
+  startTime?: number;  // v10：精确开始时间（HH:MM ms since epoch）
+  endTime?: number;    // v10：精确结束时间
+  location?: string;   // 模糊地点（确认前）
+  confirmedAddress?: string;  // v10：精确地址（确认后）
+  maxParticipants?: number;
+  description?: string;
+  requirements?: string;
+  groupQrCode?: string;
+  coverImage?: string;  // v16.6 Frank 16:04 Comment 6：活动大厅封面图
+}
+
+const normStatus = (s: any): string => (Array.isArray(s) ? String(s[0] ?? '') : String(s ?? ''));
+
+export default function ActivityManager() {
+  const [list, setList] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState<Activity | null>(null);
+  const [form] = Form.useForm();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [filter, setFilter] = useState<string>('ALL');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await adminApi.listActivities();
+      setList(data.list.map((a: any) => ({ ...a, status: normStatus(a.status) })));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const onCreate = () => {
+    setEditing(null);
+    form.resetFields();
+    form.setFieldsValue({ maxParticipants: 50 });
+    setModalOpen(true);
+  };
+
+  const onEdit = (a: Activity) => {
+    setEditing(a);
+    form.setFieldsValue({
+      title: a.title,
+      series: a.series,
+      description: a.description,
+      // v10 地点：Cascader 数组格式（[省, 市, 区]），兼容老数据（字符串）
+      location: a.location?.includes('·') ? a.location.split('·') : a.location,
+      startDate: a.startDate ? dayjs(a.startDate) : undefined,
+      endDate: a.endDate ? dayjs(a.endDate) : undefined,
+      startTime: a.startTime ? dayjs(a.startTime) : undefined,
+      endTime: a.endTime ? dayjs(a.endTime) : undefined,
+      confirmedAddress: a.confirmedAddress,
+      maxParticipants: a.maxParticipants,
+      requirements: a.requirements,
+      groupQrCode: a.groupQrCode,
+      // v16.6 Frank 16:04 Comment 6：活动大厅图片背景不能用 → 运营能管理 coverImage
+      coverImage: a.coverImage,
+    });
+    setModalOpen(true);
+  };
+
+  const onSubmit = async () => {
+    const v = await form.validateFields();
+    // v10 地点：数组 → 字符串（如 ["北京", "海淀区", "中关村"] → "北京·海淀区·中关村"）
+    let locationStr = v.location;
+    if (Array.isArray(v.location)) {
+      locationStr = v.location.filter(Boolean).join('·');
+    }
+    const data: any = {
+      title: v.title,
+      series: v.series,
+      description: v.description,
+      location: locationStr,
+      startDate: v.startDate ? v.startDate.valueOf() : undefined,
+      endDate: v.endDate ? v.endDate.valueOf() : undefined,
+      // v10 精确时间：后端 schema 期望 HH:mm 字符串格式
+      startTime: v.startTime ? v.startTime.format('HH:mm') : undefined,
+      endTime: v.endTime ? v.endTime.format('HH:mm') : undefined,
+      confirmedAddress: v.confirmedAddress,
+      maxParticipants: v.maxParticipants,
+      requirements: v.requirements,
+      groupQrCode: v.groupQrCode,
+      // v16.6 Frank 16:04 Comment 6：活动大厅图片管理
+      coverImage: v.coverImage,
+    };
+    try {
+      if (editing) {
+        await adminApi.updateActivity(editing.activityId, data);
+        message.success('已更新');
+      } else {
+        await adminApi.createActivity(data);
+        message.success('已创建（草稿）');
+      }
+      setModalOpen(false);
+      load();
+    } catch { /* 拦截器 */ }
+  };
+
+  const onPublish = async (a: Activity) => {
+    try {
+      await adminApi.publishActivity(a.activityId);
+      message.success(`已上架：${a.title}`);
+      load();
+    } catch { /* */ }
+  };
+
+  const onUnpublish = async (a: Activity) => {
+    try {
+      await adminApi.unpublishActivity(a.activityId);
+      message.success(`已下架：${a.title}`);
+      load();
+    } catch { /* */ }
+  };
+
+  const onArchive = async (a: Activity) => {
+    try {
+      await adminApi.archiveActivity(a.activityId);
+      message.success(`已归档：${a.title}`);
+      load();
+    } catch { /* */ }
+  };
+
+  const filteredList = filter === 'ALL' ? list : list.filter((a) => a.status === filter);
+
+  return (
+    <div>
+      <Title level={3} style={{ marginBottom: 16 }}>活动管理</Title>
+      <Text type="secondary">运营/管理员创建、编辑、上架、下架活动（PRD §4.2.3）</Text>
+
+      <Card style={{ marginTop: 16 }}>
+        <Space style={{ marginBottom: 16 }} wrap>
+          <Button type="primary" icon={<PlusOutlined />} onClick={onCreate}>创建活动</Button>
+          <Tabs
+            size="small"
+            activeKey={filter}
+            onChange={setFilter}
+            items={[
+              { key: 'ALL', label: `全部 (${list.length})` },
+              { key: 'DRAFT', label: `草稿 (${list.filter((a) => a.status === 'DRAFT').length})` },
+              { key: 'PUBLISHED', label: `已发布 (${list.filter((a) => a.status === 'PUBLISHED').length})` },
+              { key: 'PENDING', label: `待确定 (${list.filter((a) => a.status === 'PENDING').length})` },
+              { key: 'ARCHIVED', label: `已归档 (${list.filter((a) => a.status === 'ARCHIVED').length})` },
+            ]}
+          />
+        </Space>
+
+        <Table
+          size="small"
+          rowKey="activityId"
+          loading={loading}
+          dataSource={filteredList}
+          pagination={{ pageSize: 20 }}
+          columns={[
+            { title: '活动 ID', dataIndex: 'activityId', width: 100 },
+            { title: '标题', dataIndex: 'title', width: 220 },
+            { title: '系列', dataIndex: 'series', width: 120, render: (s) => s ? <Tag color="purple">{s}</Tag> : '—' },
+            {
+              title: '状态',
+              dataIndex: 'status',
+              width: 90,
+              render: (s) => {
+                const d = STATUS_DISPLAY[s] ?? { label: s, color: 'default' };
+                return <Tag color={d.color}>{d.label}</Tag>;
+              },
+            },
+            {
+              title: '时间',
+              width: 180,
+              render: (_: any, a: Activity) =>
+                a.startDate ? `${dayjs(a.startDate).format('YYYY-MM-DD')} ~ ${dayjs(a.endDate).format('YYYY-MM-DD')}` : '—',
+            },
+            { title: '地点', dataIndex: 'location', width: 120 },
+            { title: '规模', dataIndex: 'maxParticipants', width: 60 },
+            {
+              title: '操作',
+              width: 280,
+              render: (_: any, a: Activity) => (
+                <Space size="small" wrap>
+                  <Button size="small" icon={<EditOutlined />} onClick={() => onEdit(a)}>编辑</Button>
+                  {a.status !== 'PUBLISHED' && (
+                    <Popconfirm title="确认上架？" onConfirm={() => onPublish(a)}>
+                      <Button size="small" type="primary" icon={<CheckCircleOutlined />}>上架</Button>
+                    </Popconfirm>
+                  )}
+                  {a.status === 'PUBLISHED' && (
+                    <Popconfirm title="确认下架？已有申请不受影响" onConfirm={() => onUnpublish(a)}>
+                      <Button size="small" icon={<StopOutlined />}>下架</Button>
+                    </Popconfirm>
+                  )}
+                  {a.status !== 'ARCHIVED' && (
+                    <Popconfirm title="确认归档？" onConfirm={() => onArchive(a)}>
+                      <Button size="small" icon={<InboxOutlined />}>归档</Button>
+                    </Popconfirm>
+                  )}
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Card>
+
+      <Modal
+        title={editing ? `编辑活动：${editing.title}` : '创建活动'}
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={onSubmit}
+        okText="保存"
+        cancelText="取消"
+        width={720}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="title" label="活动标题" rules={[{ required: true, max: 100 }]}>
+            <Input placeholder="例：AI+X 创造节 - 北京大学站" />
+          </Form.Item>
+          {/* Frank 2026-08-22 20:25：所属系列 必填 */}
+          <Form.Item name="series" label="所属系列" tooltip="如：AI+X 创造节" rules={[{ required: true, message: '请填写所属系列' }]}>
+            <Input placeholder="例：AI+X 创造节" />
+          </Form.Item>
+
+          {/* Frank 2026-08-22 20:25：时间双轨 · 模糊日期范围 */}
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message="时间双轨：还没确定组织者时填模糊日期范围；确定组织者后补充精确时间和精确地址"
+          />
+          <Space style={{ width: '100%' }} size="middle">
+            <Form.Item name="startDate" label="开始日期" style={{ flex: 1 }}>
+              <DatePicker style={{ width: '100%' }} placeholder="例：2024-10-16" />
+            </Form.Item>
+            <Form.Item name="endDate" label="结束日期" style={{ flex: 1 }}>
+              <DatePicker style={{ width: '100%' }} placeholder="例：2024-11-15" />
+            </Form.Item>
+          </Space>
+
+          {/* v10：确定组织者后的精确时间（HH:MM）+ 精确地址 */}
+          <Form.Item shouldUpdate={(p, c) => p.startDate !== c.startDate || p.endDate !== c.endDate} noStyle>
+            {() => {
+              const sd = form.getFieldValue('startDate');
+              const ed = form.getFieldValue('endDate');
+              const showPrecise = !!(sd && ed);
+              return showPrecise ? (
+                <>
+                  <Space style={{ width: '100%' }} size="middle">
+                    <Form.Item name="startTime" label="精确开始时间" style={{ flex: 1 }} tooltip="确认组织者后建议精确到小时/分钟">
+                      <TimePicker style={{ width: '100%' }} format="HH:mm" placeholder="例：14:00" />
+                    </Form.Item>
+                    <Form.Item name="endTime" label="精确结束时间" style={{ flex: 1 }}>
+                      <TimePicker style={{ width: '100%' }} format="HH:mm" placeholder="例：17:00" />
+                    </Form.Item>
+                  </Space>
+                  <Form.Item
+                    name="confirmedAddress"
+                    label="精确地址（可选）"
+                    tooltip="确定场所后补充填写（如：上海交大闵行校区 学术活动中心 3F-301）"
+                  >
+                    <Input placeholder="例：上海交大闵行校区 学术活动中心 3F-301" maxLength={200} />
+                  </Form.Item>
+                </>
+              ) : null;
+            }}
+          </Form.Item>
+
+          <Space style={{ width: '100%' }} size="middle">
+            {/* Frank 2026-08-22 20:25：地点用 Cascader 下拉，精确到区/商圈 */}
+            <Form.Item name="location" label="地点" style={{ flex: 1 }} tooltip="省·市·区/商圈三级级联">
+              <Cascader
+                options={LOCATION_OPTIONS}
+                placeholder="例：北京 / 海淀区 / 中关村"
+                showSearch
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item name="maxParticipants" label="最大参与人数" style={{ width: 160 }}>
+              <InputNumber min={1} max={500} style={{ width: '100%' }} />
+            </Form.Item>
+          </Space>
+          <Form.Item name="description" label="活动介绍">
+            <Input.TextArea rows={3} maxLength={2000} showCount />
+          </Form.Item>
+          <Form.Item name="requirements" label="申请要求">
+            <Input.TextArea rows={2} maxLength={1000} showCount />
+          </Form.Item>
+          <Form.Item
+            name="groupQrCode"
+            label="飞书群二维码 URL"
+            tooltip="运营在飞书云空间上传二维码图片后复制图片 URL 粘贴；接受 feishu.cn / larksuite.com 群链接、QR 图 URL、base64 QR 图（data:image/...;base64,...）"
+            rules={[
+              { required: true, message: '请填写飞书群二维码（必填，活动详情页扫码加群按钮依赖此字段）' },
+              {
+                pattern: /^(https:\/\/([\w-]+\.)?(feishu\.cn|larksuite\.com)\/|data:image\/(png|jpe?g|gif|webp);base64,|https:\/\/.+)/i,
+                message: '请填写有效的飞书群链接（feishu.cn 或 larksuite.com 域名）或飞书群 QR 图 URL（https:// 开头）',
+              },
+            ]}
+          >
+            <Input.TextArea
+              rows={2}
+              placeholder="例如：https://feishu.cn/group/oc_xxxxxx （运营手工创建群后复制群链接粘贴）"
+              maxLength={2000}
+            />
+          </Form.Item>
+          {/* v16.6 Frank 16:04 Comment 6：活动大厅图片背景不能用 → 运营能管理 coverImage */}
+          <Form.Item
+            name="coverImage"
+            label="活动大厅封面图 URL（可选）"
+            tooltip="活动大厅卡片封面图（160px 高度）。支持 https:// 开头的图片 URL（推荐 placehold.co / Unsplash / CDN）。留空则使用渐变背景 + 标题前 8 字"
+            rules={[
+              {
+                pattern: /^https:\/\/.+/i,
+                message: '请填写 https:// 开头的合法图片 URL',
+              },
+            ]}
+          >
+            <Input
+              placeholder="https://placehold.co/640x200/4F46E5/FFFFFF.png?text=Datawhale"
+              maxLength={500}
+              allowClear
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+}

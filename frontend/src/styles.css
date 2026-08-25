@@ -1,0 +1,83 @@
+/* Datawhale 全局样式（对齐 design.md） */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "PingFang SC","Microsoft YaHei","Helvetica Neue",Helvetica,Arial,sans-serif;
+  background: #F5F8FF;
+  color: #1A1A2E;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 蓝色渐变 Hero 区 */
+.dw-hero {
+  background: linear-gradient(135deg, #3370FF 0%, #62D4C8 100%);
+  color: #fff;
+  padding: 64px 24px;
+  text-align: center;
+  border-radius: 22px;
+  margin-bottom: 24px;
+}
+
+.dw-hero h1 {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+
+.dw-hero p {
+  font-size: 16px;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.dw-gradient-btn {
+  background: linear-gradient(135deg, #3370FF 0%, #62D4C8 100%);
+  border: none;
+  color: #fff;
+}
+
+.dw-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(51, 112, 255, 0.08);
+  transition: all 250ms ease-out;
+  overflow: hidden;
+}
+
+.dw-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(51, 112, 255, 0.12);
+}
+
+.dw-section-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 32px 0 16px;
+  color: #1A1A2E;
+}
+
+.dw-tag {
+  display: inline-block;
+  padding: 2px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  background: #EEF4FF;
+  color: #3370FF;
+}
+
+.dw-tag-success { background: #D1FAE5; color: #059669; }
+.dw-tag-warning { background: #FEF3C7; color: #D97706; }
+.dw-tag-error { background: #FEE2E2; color: #DC2626; }
+.dw-tag-purple { background: #EDE9FE; color: #7C3AED; }
+.dw-tag-gold { background: #FEF3C7; color: #D97706; }
