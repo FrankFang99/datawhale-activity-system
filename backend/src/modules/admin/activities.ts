@@ -130,13 +130,58 @@ const updateSchema = createSchema.partial();
 const timeRegex = /^\d{2}:\d{2}$/;
 
 // v1.2 Frank 22:29 反馈：5 阶段时间轴默认骨架（活动级别 T-10→T+3）
+// v1.2 Frank 23:37 升级：每个阶段拆解为子任务
+// 数据源：frontend/src/data/stageSubtasks.ts 的 STAGE_TEMPLATES_FRANK（Frank 之前交付版）
 // 同 series 的活动后续会复用此模板作为起点（v2 完善：dw_activity_series_templates 表）
 export const DEFAULT_ACTIVITY_STAGES = [
-  { name: '对外招募',   offsetDays: -10, description: '活动信息发布 + 申请者报名' },
-  { name: '申请截止',   offsetDays: -7,  description: '报名截止 + 运营初筛' },
-  { name: '现场筹备',   offsetDays: -3,  description: '物料 / 场地 / 流程确认' },
-  { name: '活动执行',   offsetDays: 0,   description: '当天执行 + 签到' },
-  { name: '复盘收尾',   offsetDays: 3,   description: '复盘报告 + 成果沉淀' },
+  {
+    name: '确认意向', offsetDays: -10, stage: 'INTENT',
+    description: '志愿者与组织者飞书 IM 沟通，最终确定活动方案；组织者阅读并确认行动指南后开始填空表单。',
+    subTasks: [
+      { order: 1, name: '志愿者和组织者互加飞书好友',         ownerType: 'VOLUNTEER', proofHint: '好友关系建立截图' },
+      { order: 2, name: '阅读并确认行动指南',                 ownerType: 'ORGANIZER', proofHint: '飞书文档（已读 + 确认）' },
+      { order: 3, name: '双方最终确认活动方案/时间/地点/规模',  ownerType: 'ORGANIZER', proofHint: '组织者填写具体时间（必填到日，几点到几点可选）、具体地点、预计规模 → 同步飞书 base' },
+      { order: 4, name: '飞书日历登记活动',                   ownerType: 'ORGANIZER', proofHint: '志愿者添加日历后，组织者确认打勾' },
+    ],
+  },
+  {
+    name: '对外招募', offsetDays: -7, stage: 'RECRUIT',
+    description: '建群、定制视觉物料、发布报名表单、联系助教/嘉宾、启动本地招募宣传。',
+    subTasks: [
+      { order: 1, name: '建立活动群聊（现场微信群、飞书 QQ 兴趣群等）',  ownerType: 'ORGANIZER', proofHint: '群二维码或链接' },
+      { order: 2, name: '定制视觉物料（海报、横幅、手举牌、旗帜、推文等）', ownerType: 'ORGANIZER', proofHint: '海报图' },
+      { order: 3, name: '启动招募宣传（公众号、朋友圈、微信群、小红书等）', ownerType: 'ORGANIZER', proofHint: '推文截图' },
+      { order: 4, name: '联系助教 / 主讲嘉宾',                                ownerType: 'ORGANIZER', proofHint: '沟通记录' },
+    ],
+  },
+  {
+    name: '现场筹备', offsetDays: -3, stage: 'PREPARE',
+    description: '确认场地、运营/组织者/助教完成实操教程培训、准备现场物料（邮寄/打印/PPT/相机）。',
+    subTasks: [
+      { order: 1, name: '确认场地并上传信息',     ownerType: 'ORGANIZER', proofHint: '场地照片 + 精确地址' },
+      { order: 2, name: '和助教一起完成实操教程', ownerType: 'ORGANIZER', proofHint: '培训截图' },
+      { order: 3, name: '准备现场物料（邮寄、打印、PPT、相机等）', ownerType: 'ORGANIZER', proofHint: '物料清单' },
+    ],
+  },
+  {
+    name: '活动执行', offsetDays: 0, stage: 'EXECUTE',
+    description: '现场签到、嘉宾分享 + 动手实操、采集现场素材、引导参与者上传作品墙获取徽章认证。',
+    subTasks: [
+      { order: 1, name: '现场签到与引导',                                  ownerType: 'ORGANIZER', proofHint: '签到截图' },
+      { order: 2, name: '嘉宾分享 + 动手实操',                              ownerType: 'ORGANIZER', proofHint: '现场照片≥3 张' },
+      { order: 3, name: '采集现场素材（横版高清照片，视频可选）',           ownerType: 'ORGANIZER', proofHint: '素材链接' },
+      { order: 4, name: '引导参与者上传到作品墙获取徽章认证',                ownerType: 'ORGANIZER', proofHint: '作品墙截图' },
+    ],
+  },
+  {
+    name: '活动复盘', offsetDays: 3, stage: 'REVIEW',
+    description: '提交复盘文档（含现场素材）、整理活动素材、志愿者审核。',
+    subTasks: [
+      { order: 1, name: '提交活动复盘',       ownerType: 'ORGANIZER', proofHint: '复盘文档' },
+      { order: 2, name: '整理活动素材',       ownerType: 'ORGANIZER', proofHint: '素材汇总' },
+      { order: 3, name: '志愿者审核 + 可推荐优秀', ownerType: 'VOLUNTEER', proofHint: 'reviewStatus=APPROVED' },
+    ],
+  },
 ];
 
 // GET /api/admin/activities - 活动列表（admin/operator 可见全部）
