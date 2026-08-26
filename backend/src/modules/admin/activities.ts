@@ -81,14 +81,15 @@ const groupQrCodeSchema = z
 
 // v1.2 Frank 21:00：封面图必须接受 data:base64（Upload 组件上传走 data URL）
 // 不能用 z.string().url()，那个拒绝 data: scheme
-// 接受：data:image/(png|jpeg|gif|webp);base64,... 或 https:// 开头的 URL
+// 接受：data:image/<任意>;base64,... 或 https:// 开头的 URL
+// 注意：浏览器可能给 image/jpeg（标准）/ image/jpg（Windows 常见非标准）— 用 startsWith + includes 放宽
 const coverImageSchema = z
   .string()
   .max(500000)  // data:base64 单图 ~33KB base64 字符最多 ~500KB
   .refine(
     (s) => {
       const trimmed = s.trim();
-      if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(trimmed)) return true;
+      if (trimmed.startsWith('data:image/') && trimmed.includes(';base64,')) return true;
       if (/^https?:\/\//i.test(trimmed)) return true;
       return false;
     },
