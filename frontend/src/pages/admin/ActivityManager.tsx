@@ -16,145 +16,10 @@ import dayjs, { Dayjs } from 'dayjs';
 import http, { adminApi } from '../../services/api';
 
 const { Title, Text } = Typography;
-
-// v10 常用省·市·区级联数据（v1 简化：一线 + 新一线 + Datawhale 重点城市）
-const LOCATION_OPTIONS: Array<{ value: string; label: string; children: Array<{ value: string; label: string; children: Array<{ value: string; label: string }> }> }> = [
-  {
-    value: '北京', label: '北京',
-    children: [
-      { value: '海淀区', label: '海淀区', children: [
-        { value: '中关村', label: '中关村' },
-        { value: '学院路', label: '学院路' },
-        { value: '五道口', label: '五道口' },
-      ] },
-      { value: '朝阳区', label: '朝阳区', children: [
-        { value: '国贸', label: '国贸' },
-        { value: '望京', label: '望京' },
-        { value: 'CBD', label: 'CBD' },
-      ] },
-      { value: '昌平区', label: '昌平区', children: [
-        { value: '沙河高教园区', label: '沙河高教园区' },
-        { value: '朱辛庄', label: '朱辛庄' },
-      ] },
-    ],
-  },
-  {
-    value: '上海', label: '上海',
-    children: [
-      { value: '徐汇区', label: '徐汇区', children: [
-        { value: '徐家汇', label: '徐家汇' },
-        { value: '漕河泾', label: '漕河泾' },
-      ] },
-      { value: '闵行区', label: '闵行区', children: [
-        { value: '交大闵行校区', label: '交大闵行校区' },
-        { value: '莘庄', label: '莘庄' },
-      ] },
-      { value: '杨浦区', label: '杨浦区', children: [
-        { value: '复旦邯郸校区', label: '复旦邯郸校区' },
-        { value: '同济', label: '同济' },
-      ] },
-      { value: '浦东新区', label: '浦东新区', children: [
-        { value: '张江', label: '张江' },
-        { value: '陆家嘴', label: '陆家嘴' },
-      ] },
-    ],
-  },
-  {
-    value: '广州', label: '广州',
-    children: [
-      { value: '天河区', label: '天河区', children: [
-        { value: '五山', label: '五山（华工/华农）' },
-        { value: '岗顶', label: '岗顶' },
-      ] },
-      { value: '海珠区', label: '海珠区', children: [
-        { value: '中山大学南校区', label: '中山大学南校区' },
-        { value: '客村', label: '客村' },
-      ] },
-      { value: '番禺区', label: '番禺区', children: [
-        { value: '大学城', label: '大学城' },
-      ] },
-    ],
-  },
-  {
-    value: '深圳', label: '深圳',
-    children: [
-      { value: '南山区', label: '南山区', children: [
-        { value: '科技园', label: '科技园' },
-        { value: '西丽', label: '西丽' },
-      ] },
-      { value: '福田区', label: '福田区', children: [
-        { value: '华强北', label: '华强北' },
-        { value: '中心区', label: '中心区' },
-      ] },
-      { value: '龙岗区', label: '龙岗区', children: [
-        { value: '大运中心', label: '大运中心' },
-      ] },
-    ],
-  },
-  {
-    value: '杭州', label: '杭州',
-    children: [
-      { value: '西湖区', label: '西湖区', children: [
-        { value: '浙大玉泉校区', label: '浙大玉泉校区' },
-        { value: '古荡', label: '古荡' },
-      ] },
-      { value: '滨江区', label: '滨江区', children: [
-        { value: '高新', label: '高新' },
-      ] },
-    ],
-  },
-  {
-    value: '成都', label: '成都',
-    children: [
-      { value: '武侯区', label: '武侯区', children: [
-        { value: '川大望江校区', label: '川大望江校区' },
-      ] },
-      { value: '高新区', label: '高新区', children: [
-        { value: '天府软件园', label: '天府软件园' },
-      ] },
-    ],
-  },
-  {
-    value: '武汉', label: '武汉',
-    children: [
-      { value: '洪山区', label: '洪山区', children: [
-        { value: '光谷', label: '光谷' },
-      ] },
-    ],
-  },
-  {
-    value: '西安', label: '西安',
-    children: [
-      { value: '雁塔区', label: '雁塔区', children: [
-        { value: '交大兴庆校区', label: '交大兴庆校区' },
-      ] },
-    ],
-  },
-  {
-    value: '南京', label: '南京',
-    children: [
-      { value: '鼓楼区', label: '鼓楼区', children: [
-        { value: '南大鼓楼校区', label: '南大鼓楼校区' },
-      ] },
-    ],
-  },
-  {
-    value: '苏州', label: '苏州',
-    children: [
-      { value: '工业园区', label: '工业园区', children: [
-        { value: '独墅湖高教区', label: '独墅湖高教区' },
-      ] },
-    ],
-  },
-  {
-    value: '佛山', label: '佛山',
-    children: [
-      { value: '南海区', label: '南海区', children: [
-        { value: '千灯湖', label: '千灯湖' },
-      ] },
-    ],
-  },
-];
+// v1.2 Frank 19:38 Comment 1：地点 Cascader 用全国 31 省 + 333 地级市（民政部 2024 数据精简）
+// 2 级 Cascader：省 → 市（区/商圈级别在"精确地址"字段手填）
+import { CHINA_REGIONS } from '../../data/china-regions';
+const LOCATION_OPTIONS = CHINA_REGIONS;
 
 const STATUS_DISPLAY: Record<string, { label: string; color: string }> = {
   DRAFT:     { label: '草稿',     color: 'default' },
@@ -522,10 +387,10 @@ export default function ActivityManager() {
 
           <Space style={{ width: '100%' }} size="middle">
             {/* Frank 2026-08-22 20:25：地点用 Cascader 下拉，精确到区/商圈 */}
-            <Form.Item name="location" label="地点" style={{ flex: 1 }} tooltip="省·市·区/商圈三级级联">
+            <Form.Item name="location" label="地点" style={{ flex: 1 }} tooltip="v1.2 全国 32 省 + 361 地级市（区/商圈在「精确地址」字段手填）">
               <Cascader
                 options={LOCATION_OPTIONS}
-                placeholder="例：北京 / 海淀区 / 中关村"
+                placeholder="例：北京 / 海淀区（中关村/学院路等在「精确地址」补充）"
                 showSearch
                 allowClear
               />
