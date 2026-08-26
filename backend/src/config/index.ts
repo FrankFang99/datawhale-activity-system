@@ -30,6 +30,8 @@ export const config = {
       interests: required('FEISHU_TABLE_INTERESTS'),
       messages: required('FEISHU_TABLE_MESSAGES'),
       materials: required('FEISHU_TABLE_MATERIALS'),
+      // v1.2 Frank 17:08 加 dw_universities 表
+      universities: required('FEISHU_TABLE_UNIVERSITIES'),
     },
   },
   notify: {

@@ -61,6 +61,28 @@ export interface Activity {
   groupQrCode?: string;
 }
 
+// ===== 高校库（v1.2 Frank 17:08 加 dw_universities 表）=====
+export interface University {
+  univId: number;
+  name: string;
+  shortName: string;
+  tier: string;        // 985 / 211 / 双一流 / 本科 / 高职
+  city: string;
+  province: string;
+  district: string;
+  address: string;
+}
+
+export const universityApi = {
+  // 公开（活动大厅 Cascader + KPI 用）
+  list: () => api.get<{ code: 0; data: { list: University[]; total: number } }>('/universities').then((r) => r.data.data),
+  count: () => api.get<{ code: 0; data: { total: number } }>('/universities/count').then((r) => r.data.data),
+  // admin/operator CRUD
+  adminList: () => api.get<{ code: 0; data: { list: University[]; total: number } }>('/admin/universities').then((r) => r.data.data),
+  create: (data: Omit<University, 'univId'>) =>
+    api.post<{ code: 0; data: { recordId: string; message: string } }>('/admin/universities', data).then((r) => r.data.data),
+};
+
 export const activityApi = {
   list: (params?: { keyword?: string; status?: string; series?: string; page?: number; pageSize?: number }) =>
     api

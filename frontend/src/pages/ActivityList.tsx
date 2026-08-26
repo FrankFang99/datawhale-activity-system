@@ -6,11 +6,10 @@ import {
   TrophyOutlined, GlobalOutlined, UserOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import { activityApi, Activity } from '../services/api';
+import { activityApi, universityApi, Activity } from '../services/api';
 import { authStore } from '../store/auth';
 import AIAssistant from '../components/AIAssistant';
 import BlobBg from '../components/BlobBg';
-import { TOTAL_UNIVERSITIES } from '../data/universities';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
@@ -49,6 +48,7 @@ export default function ActivityList() {
   const [list, setList] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
+  const [univCount, setUnivCount] = useState(0);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<string | undefined>();
   const [series, setSeries] = useState<string | undefined>();
@@ -58,9 +58,14 @@ export default function ActivityList() {
     setLoading(true);
     try {
       // v1.2 Frank 16:39 Comment 2：把 pageSize 调到 100 确保 KPI 覆盖全量
-      const data = await activityApi.list({ keyword, status, series, pageSize: 100 });
+      // v1.2 Frank 17:37 加 dw_universities 表后，KPI 覆盖高校 用后端 count() 真实统计
+      const [data, univ] = await Promise.all([
+        activityApi.list({ keyword, status, series, pageSize: 100 }),
+        universityApi.count().catch(() => ({ total: 0 })),
+      ]);
       setList(data.list);
       setTotal(data.total);
+      setUnivCount(univ.total);
       // 从列表中提取所有 series（去重）
       const seriesSet = new Set<string>();
       for (const a of data.list) if (a.series) seriesSet.add(a.series);
@@ -87,7 +92,7 @@ export default function ActivityList() {
         <BlobBg variant="landing" />
         <div className="dw-hero__inner">
           <h1>{user ? `欢迎，${user.name}` : '高校 AI 活动 · 共创平台'}</h1>
-          <p>由 Datawhale 社区发起 · 全国 {TOTAL_UNIVERSITIES}+ 高校参与</p>
+          <p>由 Datawhale 社区发起 · 覆盖 {univCount} 所高校</p>
         </div>
       </div>
 
@@ -111,7 +116,7 @@ export default function ActivityList() {
             </div>
             <div>
               {/* v1.2 Frank 17:08 Comment 4：累计覆盖高校（Datawhale 社群规模） */}
-              <div className="dw-stat-card__value">{TOTAL_UNIVERSITIES}+</div>
+              <div className="dw-stat-card__value">{univCount}</div>
               <div className="dw-stat-card__label">覆盖高校</div>
             </div>
           </div>

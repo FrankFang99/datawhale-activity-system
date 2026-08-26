@@ -1,0 +1,1 @@
+{"name":"userId","type":"text","description":"登录用户 ID · 后端写入 8 位 padded (NO.00000022)"}

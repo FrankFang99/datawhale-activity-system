@@ -11,6 +11,7 @@ import cors from 'cors';
 import path from 'path';
 import { config } from './config';
 import { errorHandler } from './middleware/error';
+import { authRequired, requireRole } from './middleware/auth';
 import authRouter from './modules/auth/controller';
 import activitiesRouter from './modules/activities/controller';
 import applicationsRouter from './modules/applications/controller';
@@ -75,6 +76,11 @@ app.use('/api/messages', messagesRouter);    // v7 站内消息（PRD §4.1.8）
 app.use('/api/materials', materialsRouter);  // v9 物料下载（PRD §4.1.6 US-V5）
 app.use('/api/upload', uploadRouter);        // v16.8 Frank 9:04：图片上传
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));  // 静态 serving
+
+// v1.2 Frank 17:08：高校库（公开 + admin CRUD）
+import universitiesRouter from './modules/universities/controller';
+app.use('/api/universities', universitiesRouter);     // 公开（活动大厅 / KPI 用）
+app.use('/api/admin/universities', authRequired, requireRole('ADMIN', 'OPERATOR'), universitiesRouter);  // admin/operator CRUD
 
 // 404
 app.use((_req, res) => {
