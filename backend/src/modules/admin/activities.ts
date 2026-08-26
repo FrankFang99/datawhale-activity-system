@@ -79,11 +79,28 @@ const groupQrCodeSchema = z
     { message: '请填写有效的飞书群链接（feishu.cn 或 larksuite.com 域名）或飞书群 QR 图 URL（https:// 开头）' }
   );
 
+// v1.2 Frank 21:00：封面图必须接受 data:base64（Upload 组件上传走 data URL）
+// 不能用 z.string().url()，那个拒绝 data: scheme
+// 接受：data:image/(png|jpeg|gif|webp);base64,... 或 https:// 开头的 URL
+const coverImageSchema = z
+  .string()
+  .max(500000)  // data:base64 单图 ~33KB base64 字符最多 ~500KB
+  .refine(
+    (s) => {
+      const trimmed = s.trim();
+      if (/^data:image\/(png|jpe?g|gif|webp);base64,/i.test(trimmed)) return true;
+      if (/^https?:\/\//i.test(trimmed)) return true;
+      return false;
+    },
+    { message: '请填写有效的图片 URL（https:// 开头）或上传图片文件' }
+  );
+
 const createSchema = z.object({
   title: z.string().min(1).max(100),
   series: z.string().max(50).optional(),
   description: z.string().max(2000).optional(),
-  coverImage: z.string().url().optional(),
+  // v1.2 Frank 21:00：coverImage 用 coverImageSchema（接受 data:base64），不再用 .url()
+  coverImage: coverImageSchema.optional(),
   location: z.string().max(100).optional(),
   startDate: z.number().int().positive().optional(),
   endDate: z.number().int().positive().optional(),
@@ -124,7 +141,17 @@ router.get('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (_req: Req
 
 // POST /api/admin/activities - 创建活动
 router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Request, res: Response) => {
-  const data = createSchema.parse(req.body);
+  // v1.2 Frank 21:00：try-catch zod 错误返 400，避免 unhandled rejection → 前端 hang 到 timeout
+  let data;
+  try {
+    data = createSchema.parse(req.body);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const detail = err.errors.map((e) => `${e.path.join('.') || '<root>'}: ${e.message}`).join('; ');
+      return fail(res, 400, ErrorCode.BAD_REQUEST, `活动字段不合法 — ${detail}`);
+    }
+    throw err;
+  }
   const activityId = await nextActivityId();
   const recordId = await feishuClient.createRecord(config.feishu.tables.activities, {
     activityId,
@@ -146,7 +173,17 @@ router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Req
 // PUT /api/admin/activities/:id - 更新
 router.put('/:id', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = updateSchema.parse(req.body);
+  // v1.2 Frank 21:00：同上，try-catch zod 错误返 400
+  let data;
+  try {
+    data = updateSchema.parse(req.body);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      const detail = err.errors.map((e) => `${e.path.join('.') || '<root>'}: ${e.message}`).join('; ');
+      return fail(res, 400, ErrorCode.BAD_REQUEST, `活动字段不合法 — ${detail}`);
+    }
+    throw err;
+  }
 
   const records = await feishuClient.searchRecords(
     config.feishu.tables.activities,
