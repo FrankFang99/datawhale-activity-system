@@ -33,11 +33,12 @@ import { ok, fail, ErrorCode } from './utils/response';
 const app = express();
 
 // 全局兜底：捕获异步异常
+// v1.2 Frank 20:40：用 String() 避免 Node inspect 内部对 undefined Error 报 TypeError
 process.on('unhandledRejection', (err) => {
-  console.error('[UNHANDLED REJECTION]', err);
+  console.error('[UNHANDLED REJECTION]', String(err?.stack ?? err));
 });
 process.on('uncaughtException', (err) => {
-  console.error('[UNCAUGHT EXCEPTION]', err);
+  console.error('[UNCAUGHT EXCEPTION]', String(err?.stack ?? err));
 });
 
 // 中间件

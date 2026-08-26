@@ -8,7 +8,9 @@ import { authStore } from '../store/auth';
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 30000,
+  // v1.2 Frank 20:40：后端 lark-cli 60s timeout，前端 30s 太短导致活动保存 timeout
+  // 90s 给飞书留够时间（保存活动会触发多个 base API 串行）
+  timeout: 90000,
 });
 
 api.interceptors.request.use((config) => {
