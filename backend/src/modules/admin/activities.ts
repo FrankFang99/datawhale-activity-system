@@ -118,12 +118,26 @@ const createSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/, 'startTime 需为 HH:mm 格式，如 14:00').optional(),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, 'endTime 需为 HH:mm 格式，如 18:00').optional(),
   confirmedAddress: z.string().max(200).optional(),
+  // v1.2 Frank 22:29 反馈：5 阶段时间线 JSON 字符串
+  // 运营创建活动时存到飞书，活动详情页读出渲染
+  // 空字符串/null = 用代码默认骨架 (DEFAULT_ACTIVITY_STAGES)
+  stages: z.string().max(20000).optional(),
 });
 
 const updateSchema = createSchema.partial();
 
 // Frank 2026-08-21 #4: HH:mm 格式校验
 const timeRegex = /^\d{2}:\d{2}$/;
+
+// v1.2 Frank 22:29 反馈：5 阶段时间轴默认骨架（活动级别 T-10→T+3）
+// 同 series 的活动后续会复用此模板作为起点（v2 完善：dw_activity_series_templates 表）
+export const DEFAULT_ACTIVITY_STAGES = [
+  { name: '对外招募',   offsetDays: -10, description: '活动信息发布 + 申请者报名' },
+  { name: '申请截止',   offsetDays: -7,  description: '报名截止 + 运营初筛' },
+  { name: '现场筹备',   offsetDays: -3,  description: '物料 / 场地 / 流程确认' },
+  { name: '活动执行',   offsetDays: 0,   description: '当天执行 + 签到' },
+  { name: '复盘收尾',   offsetDays: 3,   description: '复盘报告 + 成果沉淀' },
+];
 
 // GET /api/admin/activities - 活动列表（admin/operator 可见全部）
 router.get('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (_req: Request, res: Response) => {
@@ -141,6 +155,7 @@ router.get('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (_req: Req
     maxParticipants: a.fields.maxParticipants,
     requirements: a.fields.requirements,
     groupQrCode: a.fields.groupQrCode,
+    stages: a.fields.stages,
   }));
   return ok(res, { list, total: list.length });
 });
@@ -159,6 +174,27 @@ router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Req
     throw err;
   }
   const activityId = await nextActivityId();
+
+  // v1.2 Frank 22:29：5 阶段时间线
+  // 1) 运营传了 stages → 用运营的
+  // 2) 没传 + 同 series 有老活动 → 复制同 series 最新一个的 stages（系列复用）
+  // 3) 都没 → 用代码默认骨架
+  let stagesStr = data.stages;
+  if (!stagesStr) {
+    if (data.series) {
+      const sameSeries = (await feishuClient.listRecords(config.feishu.tables.activities, { pageSize: 200 })).items as ActivityRecord[];
+      const latest = sameSeries
+        .filter((a) => a.fields.series === data.series && a.fields.stages)
+        .sort((a, b) => (b.fields.createdAt ?? 0) - (a.fields.createdAt ?? 0))[0];
+      if (latest?.fields.stages) {
+        stagesStr = latest.fields.stages;
+      }
+    }
+    if (!stagesStr) {
+      stagesStr = JSON.stringify(DEFAULT_ACTIVITY_STAGES);
+    }
+  }
+
   const recordId = await feishuClient.createRecord(config.feishu.tables.activities, {
     activityId,
     title: data.title,
@@ -172,6 +208,7 @@ router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Req
     requirements: data.requirements ?? '',
     groupQrCode: data.groupQrCode ?? '',
     status: 'DRAFT',
+    stages: stagesStr,
   });
   return ok(res, { activityId, recordId, message: '活动已创建（草稿状态）' });
 });

@@ -61,6 +61,11 @@ export interface Activity {
   series?: string;  // v4 修订：所属系列
   // v6：飞书群二维码（v1 是 URL，v2 走飞书上传）
   groupQrCode?: string;
+  // v1.2 Frank 22:29：是否已确定组织者（false = 还没人申请通过 = 显示「申请成为组织者」按钮）
+  hasOrganizer?: boolean;
+  needOrganizer?: boolean;
+  // v1.2 Frank 22:29：5 阶段时间线 JSON 字符串
+  stages?: string;
 }
 
 // ===== 高校库（v1.2 Frank 17:08 加 dw_universities 表）=====

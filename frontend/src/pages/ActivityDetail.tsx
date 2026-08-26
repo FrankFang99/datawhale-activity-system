@@ -207,7 +207,11 @@ export default function ActivityDetail() {
   if (loading) return <Spin style={{ display: 'block', margin: 64 }} />;
   if (!activity) return <Empty description="活动不存在或已下架" />;
 
-  const isPending = activity.status === 'PENDING';
+  // v1.2 Frank 22:29：判断「是否已确定组织者」
+  // 后端返回 needOrganizer（true=还没组织者；活动已上架但无 CONFIRMED 申请者）
+  // PENDING 状态也隐含 needOrganizer
+  const needOrganizer = activity.needOrganizer ?? (activity.status === 'PENDING');
+  const isPending = needOrganizer;  // 兼容旧代码
   const isFinished = activity.status === 'FINISHED' || activity.status === 'CANCELLED';
   const statusInfo = STATUS_MAP[activity.status] ?? { label: activity.status, color: 'default' };
   const isReadOnlyRole = user && ['ADMIN', 'OPERATOR', 'VOLUNTEER', 'ASSISTANT'].includes(user.role);
@@ -330,22 +334,20 @@ export default function ActivityDetail() {
           </Card>
         )}
 
-        {!isPending && (
-          <>
-            <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
-            <Segmented
-              block
-              value={selectedStage}
-              onChange={(v) => {
-                const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
-                setSelectedStage(s);
-                loadTasksForStage(s);
-              }}
-              options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
-              style={{ marginBottom: 16 }}
-            />
-          </>
-        )}
+        {/* v1.2 Frank 22:29 反馈：5 阶段时间轴活动创建后就展示（包括没组织者时）
+            之前 {!isPending &&} 限制 PENDING 状态不显示，Frank 说不行 */}
+        <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
+        <Segmented
+          block
+          value={selectedStage}
+          onChange={(v) => {
+            const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
+            setSelectedStage(s);
+            if (!isPending) loadTasksForStage(s);
+          }}
+          options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
+          style={{ marginBottom: 16 }}
+        />
 
         {/* Frank 2026-08-22 14:35 重新排版：
             - 5 阶段可点击 tab 切换（不再只显示当前阶段）
@@ -353,6 +355,8 @@ export default function ActivityDetail() {
             - 操作按钮按角色显示
             - ORGANIZER/ASSISTANT/VOLUNTEER/OPERATOR/ADMIN：可看子任务
             - PARTICIPANT/USER：保持现有 5 阶段时间轴即可，不展开子任务 */}
+        {/* v1.2 Frank 22:29：5 阶段子任务区只对组织者/助教/志愿者/运营/管理员显示
+            普通用户看到上面的时间线 tab 就行，子任务表由组织者申请通过后才会有 */}
         {!isPending && canViewSubTasks(user?.role) && appId && (
           <Card
             size="small"

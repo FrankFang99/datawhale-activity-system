@@ -119,6 +119,8 @@ function serialize(a: ActivityRecord, detail = false, effective: string = normSt
     maxParticipants: a.fields.maxParticipants ?? 0,
     daysToStart,
     requirements: detail ? a.fields.requirements : undefined,
+    // v1.2 Frank 22:29：5 阶段时间线（详情页用）
+    stages: a.fields.stages ?? '',
   };
 }
 
@@ -216,6 +218,20 @@ router.get('/:id', async (req: Request, res: Response) => {
     data.participantCount = registered.length;
     data.maxParticipants = a.fields.maxParticipants ?? 0;
   } catch { /* 容错 */ }
+
+  // v1.2 Frank 22:29 反馈：判断「是否已确定组织者」
+  // PENDING 状态 OR 任何状态但没 CONFIRMED/REVIEWING/COMPLETED 的组织者申请 = 还没组织者
+  // 没组织者时，活动详情页显示「申请成为组织者」按钮
+  try {
+    const { items: apps } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
+    const activityId = a.fields.activityId ?? '';
+    const hasOrganizer = (apps as any[]).some((x) =>
+      x.fields.activityId === activityId &&
+      ['CONFIRMED', 'REVIEWING', 'REVIEW_CONFIRMED', 'COMPLETED', 'PREPARING', 'READY', 'RUNNING'].includes(normStatusField(x.fields.status))
+    );
+    data.hasOrganizer = hasOrganizer;
+    data.needOrganizer = !hasOrganizer;
+  } catch { /* 容错 */ data.needOrganizer = (status === 'PENDING'); }
 
   return ok(res, data);
 });
