@@ -235,19 +235,52 @@ export default function ActivityManager() {
     setModalOpen(true);
   };
 
+  // 字段名 → 中文标签（错误提示用）
+  const labelOf = (name: string) => {
+    const map: Record<string, string> = {
+      title: '活动标题',
+      series: '所属系列',
+      startDate: '开始日期',
+      endDate: '结束日期',
+      startTime: '精确开始时间',
+      endTime: '精确结束时间',
+      confirmedAddress: '精确地址',
+      location: '地点',
+      maxParticipants: '最大参与人数',
+      description: '活动介绍',
+      requirements: '申请要求',
+      groupQrCode: '飞书群二维码',
+      coverImage: '活动大厅封面图',
+    };
+    return map[name] ?? name;
+  };
+
   const onSubmit = async () => {
     let v;
     try {
-      // v1.2 Frank 19:14 Comment 2：validateFields 失败要把错误显出来，不能静默
+      // v1.2 Frank 19:14 Comment 2 + 19:38 Comment 3：validateFields 失败要把错误显出来
       v = await form.validateFields();
     } catch (err: any) {
-      // 第一个校验失败的字段：滚动到 + 高亮 + 顶部 toast
+      // 第一个校验失败的字段：滚动到 + 高亮 + 顶部 toast + 自动 focus 输入框
       const firstError = err?.errorFields?.[0];
       if (firstError) {
-        form.scrollToField(firstError.name);
-        message.error(`请检查：${firstError.errors?.[0] ?? '表单校验失败'}`);
+        const fname = firstError.name;
+        const fmsg = firstError.errors?.[0] ?? '表单校验失败';
+        form.scrollToField(fname);
+        // 显式调用 message.error 不被 antd 自动消失（duration 0 表示不自动消失，需手动关闭）
+        message.error({
+          content: `请检查「${labelOf(fname)}」：${fmsg}`,
+          duration: 6,
+          key: 'form-validate-err',
+        });
+        // 尝试 focus 字段输入框
+        setTimeout(() => {
+          try {
+            form.getFieldInstance?.(fname)?.focus?.();
+          } catch { /* 忽略 */ }
+        }, 100);
       } else {
-        message.error('表单校验失败');
+        message.error({ content: '表单校验失败', duration: 6, key: 'form-validate-err' });
       }
       throw err;  // 让 antd Modal 也知道失败，保持 loading
     }
@@ -423,11 +456,29 @@ export default function ActivityManager() {
                 disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
               />
             </Form.Item>
-            <Form.Item name="endDate" label="结束日期" style={{ flex: 1 }}>
+            <Form.Item name="endDate" label="结束日期" style={{ flex: 1 }} dependencies={['startDate']}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator(_, v) {
+                    const s = getFieldValue('startDate');
+                    if (v && s && v.isBefore(s)) {
+                      return Promise.reject(new Error('结束日期必须 ≥ 开始日期'));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}>
               <DatePicker
                 style={{ width: '100%' }}
                 placeholder="例：2024-11-15"
-                disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
+                disabledDate={(d) => {
+                  // 1. 不能选今天之前
+                  if (d && d.isBefore(dayjs().startOf('day'))) return true;
+                  // 2. 不能选开始日期之前（如果填了开始日期）
+                  const start = form.getFieldValue('startDate');
+                  if (start && d && d.isBefore(start, 'day')) return true;
+                  return false;
+                }}
               />
             </Form.Item>
           </Space>
