@@ -68,15 +68,10 @@ describe('admin/activities · Frank #4 精确时间 + 地址', () => {
     expect(SRC()).toMatch(/const\s+timeRegex\s*=\s*\/\^\\d\{2\}:\\d\{2\}\$\//);
   });
 
-  it('publish 路由检查 startTime + endTime + confirmedAddress 非空（修复 #4 模糊/精确）', () => {
-    const s = SRC();
-    expect(s).toMatch(/timeRegex\.test\(startTime\)/);
-    expect(s).toMatch(/timeRegex\.test\(endTime\)/);
-    expect(s).toMatch(/confirmedAddress\s*=\s*\(a\.fields\.confirmedAddress/);
-  });
-
-  it('publish 校验失败返回 400 错误（提示填精确时间）', () => {
-    expect(SRC()).toMatch(/请先填写精确开始时间/);
+  it('publish 路由不再强制精确时间（v1.2 Frank 21:40 时间双轨放宽）', () => {
+    // v1.2：模糊日期/地点就能上架，精确时间由组织者 INT-1 阶段补
+    expect(SRC()).not.toMatch(/timeRegex\.test\(startTime\)/);
+    expect(SRC()).not.toMatch(/请先填写精确开始时间/);
   });
 });
 

@@ -219,13 +219,12 @@ router.post('/:id/publish', authRequired, requireRole('ADMIN', 'OPERATOR'), asyn
     return fail(res, 400, ErrorCode.ACT_001_NOT_FOUND, '飞书群二维码不能为空，请先填写后再上架');
   }
 
-  // Frank 2026-08-21 #4: 已确定组织者后，精确时间 + 精确地址必填才能上架
-  const startTime = (a.fields.startTime ?? '').trim();
-  const endTime = (a.fields.endTime ?? '').trim();
-  const confirmedAddress = (a.fields.confirmedAddress ?? '').trim();
-  if (!timeRegex.test(startTime) || !timeRegex.test(endTime) || !confirmedAddress) {
-    return fail(res, 400, ErrorCode.ACT_001_NOT_FOUND, '请先填写精确开始时间 + 结束时间 + 确认地址（HH:mm 格式，如 14:00）');
-  }
+  // v1.2 Frank 21:40：放宽上架校验
+  // 之前要求精确时间 + 精确地址，但 Frank 产品设计是「时间双轨」：
+  // 模糊日期（运营填）+ 精确时间（组织者 INT-1 阶段补）
+  // 上架时只用模糊日期/地点，组织者接 INT-1 后再补精确时间/地址
+  // → 上架时不再强制要求精确时间+地址
+  // startTime / endTime / confirmedAddress 仍可填，但 optional（编辑已有活动时可补）
 
   await feishuClient.updateRecord(config.feishu.tables.activities, a.record_id, { status: 'PUBLISHED' });
   return ok(res, { activityId: id, status: 'PUBLISHED', message: '活动已上架' });
