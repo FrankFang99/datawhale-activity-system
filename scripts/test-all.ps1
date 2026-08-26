@@ -61,7 +61,7 @@ Write-Host ""
 # 3. Selenium 5-role regression (optional)
 if (-not $SkipE2E) {
   Write-Host "[3/3] Selenium 5-role regression..." -ForegroundColor Yellow
-  $seleniumScript = "C:\Users\15088\AppData\Local\Temp\snap_roleguard.py"
+  $seleniumScript = Join-Path $frontendDir 'scripts\screenshot_5roles.py'
   if (Test-Path $seleniumScript) {
     try {
       python $seleniumScript 2>&1 | Tee-Object -FilePath "$projectRoot\test-output-e2e.log"

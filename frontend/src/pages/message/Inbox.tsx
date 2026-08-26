@@ -155,7 +155,7 @@ export default function Inbox() {
                     }
                     description={
                       <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                        <Text type="secondary" ellipsis={{ rows: 2 }}>{m.content}</Text>
+                        <Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>{m.content}</Paragraph>
                         <Text type="secondary" style={{ fontSize: 12 }}>{formatTime(m.createdAt)} · 点击查看详情</Text>
                       </Space>
                     }

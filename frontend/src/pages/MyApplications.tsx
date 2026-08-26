@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { Card, Table, Tag, Empty, Spin, Typography, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { applicationApi } from '../services/api';
+import PageHeader from '../components/PageHeader';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   DRAFT: { label: '草稿', color: 'default' },
@@ -43,8 +44,10 @@ export default function MyApplications() {
 
   return (
     <div>
-      <Title level={2}>我的申请</Title>
-      <Text type="secondary">查看您提交过的所有活动申请</Text>
+      <PageHeader
+        title="我的申请"
+        subtitle="查看您提交过的所有活动申请"
+      />
       <Card style={{ marginTop: 16, borderRadius: 16 }}>
         <Spin spinning={loading}>
           {list.length === 0 ? (

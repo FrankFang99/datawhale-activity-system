@@ -1,8 +1,57 @@
-/* Datawhale 全局样式（对齐 design.md） */
+/* Datawhale 全局样式（对齐 design.md）
+   所有数字 token 见 src/styles/tokens.ts
+   修改颜色/间距/圆角 → 先改 tokens.ts → 再确认 design.md → 再改这里
+*/
 
-* {
-  box-sizing: border-box;
+:root {
+  /* §1 颜色（与 tokens.ts color 同源）*/
+  --color-primary: #3370FF;
+  --color-primary-hover: #2860E0;
+  --color-primary-active: #1E50CC;
+  --color-primary-light: #EEF4FF;
+  --color-secondary: #62D4C8;
+  --color-bg-layout: #F5F8FF;
+  --color-bg-container: #FFFFFF;
+  --color-border: #E8ECF1;
+  --color-border-soft: #E5E7EB;
+  --color-text-primary: #1A1A2E;
+  --color-text-secondary: #6B7280;
+  --color-text-tertiary: #9CA3AF;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  /* §3 圆角 */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-full: 9999px;
+
+  /* §4 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* §5 阴影 */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(51, 112, 255, 0.08);
+  --shadow-md: 0 4px 16px rgba(51, 112, 255, 0.12);
+  --shadow-lg: 0 8px 32px rgba(51, 112, 255, 0.16);
+
+  /* §7 动效 */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
+  --ease-out: ease-out;
+  --ease: ease;
 }
+
+* { box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
@@ -11,73 +60,652 @@ html, body, #root {
 }
 
 body {
-  font-family: "PingFang SC","Microsoft YaHei","Helvetica Neue",Helvetica,Arial,sans-serif;
-  background: #F5F8FF;
-  color: #1A1A2E;
+  font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: var(--color-bg-layout);
+  color: var(--color-text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 蓝色渐变 Hero 区 */
+/* 暗色下 body 文字色 token 也覆盖（var 不够时 fallback） */
+[data-theme='dark'] body {
+  color: var(--color-text-primary);
+  background: #0F172A;
+}
+
+/* ============================================
+   §6.6 渐变 / Hero
+   ============================================ */
 .dw-hero {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(135deg, #3370FF 0%, #62D4C8 100%);
   color: #fff;
   padding: 64px 24px;
   text-align: center;
-  border-radius: 22px;
-  margin-bottom: 24px;
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
 }
 
 .dw-hero h1 {
   font-size: 48px;
   font-weight: 700;
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .dw-hero p {
   font-size: 16px;
-  opacity: 0.9;
+  opacity: 0.92;
   margin: 0;
+  line-height: 1.6;
+}
+
+.dw-hero-soft {
+  background: linear-gradient(180deg, #EEF4FF 0%, #F5F8FF 100%);
+  color: var(--color-text-primary);
 }
 
 .dw-gradient-btn {
-  background: linear-gradient(135deg, #3370FF 0%, #62D4C8 100%);
-  border: none;
-  color: #fff;
+  background: linear-gradient(135deg, #3370FF 0%, #62D4C8 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(51, 112, 255, 0.18);
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.dw-gradient-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(51, 112, 255, 0.28);
 }
 
+/* ============================================
+   §6.2 卡片
+   ============================================ */
 .dw-card {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(51, 112, 255, 0.08);
-  transition: all 250ms ease-out;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--motion-slow) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
   overflow: hidden;
+  border: 1px solid transparent;
 }
 
 .dw-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(51, 112, 255, 0.12);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(51, 112, 255, 0.08);
 }
 
-.dw-section-title {
-  font-size: 28px;
-  font-weight: 600;
-  margin: 32px 0 16px;
-  color: #1A1A2E;
+.dw-card-flat {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  border: 1px solid var(--color-border);
 }
 
+/* ============================================
+   §6.3 标签（角色 / 状态统一胶囊）
+   ============================================ */
 .dw-tag {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px 12px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   font-size: 12px;
+  line-height: 20px;
+  font-weight: 500;
   background: #EEF4FF;
   color: #3370FF;
+  border: none;
+  white-space: nowrap;
 }
 
-.dw-tag-success { background: #D1FAE5; color: #059669; }
-.dw-tag-warning { background: #FEF3C7; color: #D97706; }
-.dw-tag-error { background: #FEE2E2; color: #DC2626; }
+.dw-tag-blue   { background: #EEF4FF; color: #3370FF; }
+.dw-tag-green  { background: #D1FAE5; color: #059669; }
+.dw-tag-orange { background: #FEF3C7; color: #D97706; }
+.dw-tag-red    { background: #FEE2E2; color: #DC2626; }
 .dw-tag-purple { background: #EDE9FE; color: #7C3AED; }
-.dw-tag-gold { background: #FEF3C7; color: #D97706; }
+.dw-tag-gold   { background: #FEF3C7; color: #D97706; }
+.dw-tag-grey   { background: #F3F4F6; color: #6B7280; }
+
+/* ============================================
+   §6.4 输入框 / 表单 微调
+   ============================================ */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select-selector {
+  transition: border-color var(--motion-base) var(--ease), box-shadow var(--motion-base) var(--ease);
+}
+.ant-input:focus,
+.ant-input-affix-wrapper:focus,
+.ant-input-affix-wrapper-focused {
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.10);
+}
+
+/* 全局 focus ring（可访问性 · 行业前沿） */
+*:focus-visible {
+  outline: 2px solid rgba(51, 112, 255, 0.45);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.ant-btn:focus-visible,
+.ant-input:focus-visible,
+.ant-input-affix-wrapper:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(51, 112, 255, 0.18);
+}
+
+/* 表单 label 微调 */
+.ant-form-item-label > label {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.ant-form-item-required::before {
+  color: var(--color-error) !important;
+}
+.ant-form-item-explain-error {
+  font-size: 12px;
+  color: var(--color-error);
+  margin-top: 2px;
+}
+
+/* ============================================
+   §6.5 顶部导航
+   ============================================ */
+.dw-layout-root {
+  min-height: 100vh;
+  background: var(--color-bg-layout) !important;
+}
+.dw-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #fff;
+  padding: 0 24px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+.dw-header__brand {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.dw-header__brand-sub {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+.dw-header__icon {
+  color: var(--color-text-primary);
+}
+.dw-header__user-name {
+  color: var(--color-text-primary);
+}
+
+/* ============================================
+   页面骨架
+   ============================================ */
+.dw-page {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.dw-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+.dw-page-header__title {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+.dw-page-header__subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 8px 0 0;
+}
+.dw-page-header__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-primary);
+  font-size: 13px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.dw-page-header__back:hover { color: var(--color-primary-hover); }
+
+.dw-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 32px 0 16px;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dw-section-title__sub {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+/* ============================================
+   Hero 装饰球（不喧宾夺主的低饱和大圆）
+   ============================================ */
+.dw-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+.dw-blob--1 {
+  width: 280px; height: 280px;
+  top: -80px; right: -60px;
+  background: radial-gradient(circle, #62D4C8 0%, transparent 70%);
+}
+.dw-blob--2 {
+  width: 220px; height: 220px;
+  bottom: -100px; left: -50px;
+  background: radial-gradient(circle, #A679FF 0%, transparent 70%);
+  opacity: 0.25;
+}
+.dw-hero__inner { position: relative; z-index: 1; }
+
+/* ============================================
+   数据卡（Hero 下方 3 张 / 角色入口卡）
+   ============================================ */
+.dw-stat-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--motion-slow) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.dw-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.dw-stat-card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.dw-stat-card__icon--green  { background: #D1FAE5; color: #059669; }
+.dw-stat-card__icon--orange { background: #FEF3C7; color: #D97706; }
+.dw-stat-card__icon--purple { background: #EDE9FE; color: #7C3AED; }
+.dw-stat-card__icon--blue   { background: #EEF4FF; color: #3370FF; }
+.dw-stat-card__value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+.dw-stat-card__label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+/* ============================================
+   角色入口卡（5 角色 Landing）
+   ============================================ */
+.dw-role-entry {
+  background: linear-gradient(135deg, #F0F7FF 0%, #FAFCFF 100%);
+  border: 1px solid rgba(51, 112, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  margin-bottom: var(--space-6);
+}
+.dw-role-entry__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 12px;
+}
+.dw-role-entry__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.dw-role-entry__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition: all var(--motion-base) var(--ease-out);
+}
+.dw-role-entry__item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(51, 112, 255, 0.10);
+  transform: translateY(-1px);
+}
+.dw-role-entry__item-label {
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+.dw-role-entry__item-count {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* ============================================
+   空 / Loading / 错误 状态（§13 公共组件）
+   ============================================ */
+.dw-empty {
+  padding: 64px 24px;
+  text-align: center;
+}
+.dw-empty__icon {
+  font-size: 56px;
+  color: var(--color-primary-light);
+  margin-bottom: var(--space-3);
+}
+.dw-empty__title {
+  font-size: 16px;
+  color: var(--color-text-primary);
+  margin: 0 0 8px;
+  font-weight: 500;
+}
+.dw-empty__desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-4);
+}
+.dw-error {
+  padding: 32px 24px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-md);
+  color: #991B1B;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.dw-error__title { font-weight: 600; margin: 0 0 4px; }
+.dw-error__desc  { font-size: 13px; margin: 0; opacity: 0.85; }
+
+/* ============================================
+   微动效（克制使用）
+   ============================================ */
+.dw-fade-in {
+  animation: dwFadeIn var(--motion-slow) var(--ease-out);
+}
+@keyframes dwFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dw-pulse-soft {
+  animation: dwPulseSoft 2.4s ease-in-out infinite;
+}
+@keyframes dwPulseSoft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+/* ============================================
+   §13.6 表格精修（行业前沿 · Linear/Stripe 风格）
+   ============================================ */
+.ant-table {
+  font-size: 14px;
+}
+.ant-table-thead > tr > th {
+  background: #F5F8FF !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--color-border) !important;
+  padding: 12px 16px !important;
+}
+.ant-table-tbody > tr > td {
+  padding: 14px 16px !important;
+  border-bottom: 1px solid #F3F4F6 !important;
+}
+.ant-table-tbody > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td {
+  background: #F8FAFF !important;
+}
+.ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
+}
+.ant-table-placeholder {
+  background: #FBFCFF !important;
+}
+.ant-table-pagination.ant-pagination {
+  margin: 20px 0 4px !important;
+  text-align: right;
+}
+
+/* 表格内的次要文字 */
+.ant-table-tbody .ant-typography.ant-typography-secondary {
+  font-size: 12px;
+}
+
+/* ============================================
+   §13.7 Drawer / Modal 精修
+   ============================================ */
+.ant-drawer-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--color-border) !important;
+}
+.ant-drawer-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+.ant-modal-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  margin-bottom: 0 !important;
+}
+.ant-modal-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+}
+
+/* ============================================
+   §13.8 移动端响应式（v1.2 强化）
+   ============================================ */
+@media (max-width: 768px) {
+  .dw-hero { padding: 40px 20px; }
+  .dw-hero h1 { font-size: 32px; }
+  .dw-page { padding: 16px; }
+  .dw-page-header { flex-direction: column; align-items: flex-start; }
+  .dw-page-header__title { font-size: 22px; }
+  .dw-role-entry__list { grid-template-columns: 1fr; }
+  .dw-stat-card { padding: 16px; }
+  .dw-stat-card__value { font-size: 20px; }
+  /* Header：手机端简化菜单 */
+  .ant-layout-header.dw-header { padding: 0 12px; }
+  .ant-menu { font-size: 13px; }
+  /* 表格：手机端横向滚动 */
+  .ant-table-wrapper { overflow-x: auto; }
+  .ant-table-thead > tr > th,
+  .ant-table-tbody > tr > td { padding: 10px 12px !important; font-size: 13px; }
+}
+@media (max-width: 480px) {
+  .dw-hero h1 { font-size: 24px; }
+  .dw-stat-card__icon { width: 40px; height: 40px; font-size: 18px; }
+  /* 隐藏手机端 Header 副标题 */
+  .dw-header span[style*="高校活动"] { display: none; }
+}
+
+/* ============================================
+   §16 暗色模式（v1.2 引入 · 行业前沿 v2 标配）
+   ============================================ */
+[data-theme='dark'] {
+  /* 背景 / 容器 */
+  --color-bg-layout: #0F172A;
+  --color-bg-container: #1E293B;
+  --color-border: #334155;
+  --color-border-soft: #1E293B;
+  /* 文字 */
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-tertiary: #64748B;
+  /* 阴影：暗色下透明度更低 */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.50);
+}
+
+[data-theme='dark'] body {
+  background: #0F172A;
+  color: #F1F5F9;
+}
+
+[data-theme='dark'] .dw-card,
+[data-theme='dark'] .dw-card-flat {
+  background: #1E293B;
+  border-color: #334155;
+}
+[data-theme='dark'] .dw-card:hover {
+  border-color: rgba(51, 112, 255, 0.30);
+}
+
+[data-theme='dark'] .dw-header {
+  background: #1E293B;
+  border-bottom: 1px solid #334155;
+  box-shadow: none;
+}
+
+[data-theme='dark'] .dw-tag {
+  /* 暗色下需要更高对比度：背景压暗 + 文字加亮 */
+  background: rgba(51, 112, 255, 0.15);
+  color: #93C5FD;
+}
+[data-theme='dark'] .dw-tag-blue   { background: rgba(51, 112, 255, 0.18); color: #93C5FD; }
+[data-theme='dark'] .dw-tag-green  { background: rgba(16, 185, 129, 0.18); color: #6EE7B7; }
+[data-theme='dark'] .dw-tag-orange { background: rgba(245, 158, 11, 0.18); color: #FCD34D; }
+[data-theme='dark'] .dw-tag-red    { background: rgba(239, 68, 68, 0.18); color: #FCA5A5; }
+[data-theme='dark'] .dw-tag-purple { background: rgba(167, 121, 255, 0.18); color: #C4B5FD; }
+[data-theme='dark'] .dw-tag-gold   { background: rgba(246, 198, 91, 0.18); color: #FCD34D; }
+[data-theme='dark'] .dw-tag-grey   { background: rgba(148, 163, 184, 0.15); color: #94A3B8; }
+
+[data-theme='dark'] .dw-stat-card {
+  background: #1E293B;
+  border: 1px solid #334155;
+}
+[data-theme='dark'] .dw-stat-card__icon--blue   { background: rgba(51, 112, 255, 0.18);  color: #93C5FD; }
+[data-theme='dark'] .dw-stat-card__icon--green  { background: rgba(16, 185, 129, 0.18);  color: #6EE7B7; }
+[data-theme='dark'] .dw-stat-card__icon--orange { background: rgba(245, 158, 11, 0.18);  color: #FCD34D; }
+[data-theme='dark'] .dw-stat-card__icon--purple { background: rgba(167, 121, 255, 0.18); color: #C4B5FD; }
+
+[data-theme='dark'] .dw-role-entry {
+  background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+  border-color: #334155;
+}
+[data-theme='dark'] .dw-role-entry__item {
+  background: #1E293B;
+  border-color: #334155;
+}
+[data-theme='dark'] .dw-role-entry__item:hover {
+  border-color: #3370FF;
+  background: #283548;
+}
+
+[data-theme='dark'] .dw-error {
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(239, 68, 68, 0.30);
+  color: #FCA5A5;
+}
+
+[data-theme='dark'] .dw-empty__icon { color: rgba(51, 112, 255, 0.30); }
+
+/* 暗色下表格 header 背景压暗 + 行 hover 用深蓝 */
+[data-theme='dark'] .ant-table-thead > tr > th {
+  background: #0F172A !important;
+  border-bottom-color: #334155 !important;
+}
+[data-theme='dark'] .ant-table-tbody > tr > td {
+  border-bottom-color: rgba(51, 65, 85, 0.5) !important;
+}
+[data-theme='dark'] .ant-table-tbody > tr:hover:not(.ant-table-expanded-row):not(.ant-table-row-selected) > td {
+  background: rgba(51, 112, 255, 0.06) !important;
+}
+[data-theme='dark'] .ant-table-placeholder {
+  background: #1E293B !important;
+}
+
+/* 暗色下 Form 错误色适配 */
+[data-theme='dark'] .ant-form-item-explain-error {
+  color: #FCA5A5;
+}
+[data-theme='dark'] .ant-form-item-required::before {
+  color: #FCA5A5 !important;
+}
+
+/* 暗色下 hero 渐变球降低亮度，避免过亮 */
+[data-theme='dark'] .dw-blob {
+  opacity: 0.20;
+}
+
+/* 暗色下 AntD Typography 适配（hardcoded 颜色 fallback 兜底） */
+[data-theme='dark'] .ant-typography.ant-typography-secondary,
+[data-theme='dark'] .ant-typography[type="secondary"] {
+  color: #94A3B8 !important;
+}
+[data-theme='dark'] .ant-input::placeholder,
+[data-theme='dark'] .ant-input-affix-wrapper input::placeholder {
+  color: #64748B !important;
+}
+
+/* 暗色下 AI Assistant 浮窗头部保持渐变（已经亮） */
+[data-theme='dark'] .ant-card:has(.dw-pulse-soft) {
+  border-color: #334155;
+}
+
+/* 暗色下 NotFound / 403 渐变文字（保持亮色） */
+[data-theme='dark'] [style*="404"],
+[data-theme='dark'] [style*="403"] {
+  filter: brightness(1.2);
+}
+
+/* 暗色下减少滚动条对比度 */
+[data-theme='dark'] ::-webkit-scrollbar { width: 8px; height: 8px; }
+[data-theme='dark'] ::-webkit-scrollbar-track { background: #0F172A; }
+[data-theme='dark'] ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* 暗色模式过渡（避免硬切换） */
+body, .ant-layout, .dw-card, .dw-stat-card, .dw-role-entry, .ant-table-thead > tr > th,
+.dw-header, .ant-modal-content, .ant-drawer-content {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}

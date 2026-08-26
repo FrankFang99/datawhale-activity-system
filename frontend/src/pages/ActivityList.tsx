@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Row, Col, Card, Tag, Input, Select, Empty, Spin, Typography, Alert, Button, Space } from 'antd';
-import { SearchOutlined, EnvironmentOutlined, CalendarOutlined, TeamOutlined, BookOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import {
+  SearchOutlined, EnvironmentOutlined, CalendarOutlined, TeamOutlined,
+  BookOutlined, QuestionCircleOutlined, AuditOutlined,
+  HistoryOutlined, ScheduleOutlined, DashboardOutlined,
+  RightOutlined, TrophyOutlined, GlobalOutlined, UserOutlined,
+} from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { activityApi, Activity } from '../services/api';
 import { authStore } from '../store/auth';
 import AIAssistant from '../components/AIAssistant';
+import BlobBg from '../components/BlobBg';
+import { TOTAL_UNIVERSITIES } from '../data/universities';
 
 const { Title, Paragraph } = Typography;
 const { Search } = Input;
@@ -37,11 +44,74 @@ const COVER_GRADIENTS = [
   'linear-gradient(135deg, #10B981 0%, #62D4C8 100%)',
 ];
 
+/**
+ * 5 角色 Landing 入口（v1.1 引入）
+ * 替换原本「登入后再看菜单」逻辑 → 登录后 Landing 顶部展示角色快捷入口
+ */
+function getRoleEntry(role: string | undefined): { title: string; icon: React.ReactNode; items: Array<{ to: string; label: string; count?: number | null }> } | null {
+  if (!role) return null;
+  switch (role) {
+    case 'ADMIN':
+      return {
+        title: '管理员工作台',
+        icon: <DashboardOutlined style={{ color: '#DC2626' }} />,
+        items: [
+          { to: '/admin/dashboard', label: '数据看板' },
+          { to: '/admin/approvals', label: '审批工作台' },
+          { to: '/admin/activities', label: '活动管理' },
+          { to: '/reimbursements', label: '报销中心' },
+        ],
+      };
+    case 'OPERATOR':
+      return {
+        title: '运营工作台',
+        icon: <AuditOutlined style={{ color: '#D97706' }} />,
+        items: [
+          { to: '/admin/approvals', label: '审批工作台' },
+          { to: '/admin/activities', label: '活动管理' },
+          { to: '/reimbursements', label: '报销中心' },
+        ],
+      };
+    case 'VOLUNTEER':
+      return {
+        title: '志愿者工作台',
+        icon: <TeamOutlined style={{ color: '#3370FF' }} />,
+        items: [
+          { to: '/volunteer/workbench', label: '我对接的申请' },
+          { to: '/inbox', label: '站内消息' },
+        ],
+      };
+    case 'ORGANIZER':
+    case 'ASSISTANT':
+      return {
+        title: '组织者工作台',
+        icon: <HistoryOutlined style={{ color: '#059669' }} />,
+        items: [
+          { to: '/my-applications', label: '我的申请' },
+          { to: '/reimbursements', label: '报销中心' },
+          { to: '/inbox', label: '站内消息' },
+        ],
+      };
+    case 'PARTICIPANT':
+      return {
+        title: '参与者中心',
+        icon: <ScheduleOutlined style={{ color: '#3370FF' }} />,
+        items: [
+          { to: '/my-registrations', label: '我的报名' },
+          { to: '/inbox', label: '站内消息' },
+        ],
+      };
+    default:
+      return null;
+  }
+}
+
 export default function ActivityList() {
   const navigate = useNavigate();
   const user = authStore((s) => s.user);
   const [list, setList] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<string | undefined>();
   const [series, setSeries] = useState<string | undefined>();
@@ -52,6 +122,7 @@ export default function ActivityList() {
     try {
       const data = await activityApi.list({ keyword, status, series, pageSize: 24 });
       setList(data.list);
+      setTotal(data.total);
       // 从列表中提取所有 series（去重）
       const seriesSet = new Set<string>();
       for (const a of data.list) if (a.series) seriesSet.add(a.series);
@@ -68,15 +139,83 @@ export default function ActivityList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const roleEntry = getRoleEntry(user?.role);
+  const onlineCount = list.reduce((s, a) => s + (a.maxParticipants || 0), 0);
+
   return (
     <div>
-      {/* Hero 渐变区 */}
-      <div className="dw-hero">
-        <h1>高校 AI 活动 · 共创平台</h1>
-        <p>由 Datawhale 社区发起 · 全国 200+ 高校参与</p>
+      {/* Hero 渐变区（v1.1：加 BlobBg 装饰球） */}
+      <div className="dw-hero dw-fade-in">
+        <BlobBg variant="landing" />
+        <div className="dw-hero__inner">
+          <h1>{user ? `欢迎，${user.name}` : '高校 AI 活动 · 共创平台'}</h1>
+          <p>由 Datawhale 社区发起 · 全国 {TOTAL_UNIVERSITIES}+ 高校参与</p>
+        </div>
       </div>
 
+      {/* 5 角色 Landing 入口（v1.1 引入） */}
+      {roleEntry && (
+        <div className="dw-role-entry dw-fade-in">
+          <h3 className="dw-role-entry__title">
+            {roleEntry.icon}
+            {roleEntry.title}
+          </h3>
+          <div className="dw-role-entry__list">
+            {roleEntry.items.map((it) => (
+              <Link key={it.to} to={it.to} className="dw-role-entry__item">
+                <span className="dw-role-entry__item-label">{it.label}</span>
+                <Space size={4}>
+                  {it.count != null && <span className="dw-role-entry__item-count">{it.count}</span>}
+                  <RightOutlined style={{ color: '#9CA3AF', fontSize: 12 }} />
+                </Space>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 数据卡（v1.1 引入） */}
+      <Row gutter={[16, 16]} className="dw-fade-in">
+        <Col xs={24} sm={12} md={8}>
+          <div className="dw-stat-card">
+            <div className="dw-stat-card__icon dw-stat-card__icon--blue">
+              <TrophyOutlined />
+            </div>
+            <div>
+              <div className="dw-stat-card__value">{total}</div>
+              <div className="dw-stat-card__label">在办活动</div>
+            </div>
+          </div>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <div className="dw-stat-card">
+            <div className="dw-stat-card__icon dw-stat-card__icon--purple">
+              <GlobalOutlined />
+            </div>
+            <div>
+              <div className="dw-stat-card__value">{TOTAL_UNIVERSITIES}+</div>
+              <div className="dw-stat-card__label">覆盖高校</div>
+            </div>
+          </div>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <div className="dw-stat-card">
+            <div className="dw-stat-card__icon dw-stat-card__icon--green">
+              <UserOutlined />
+            </div>
+            <div>
+              <div className="dw-stat-card__value">{onlineCount.toLocaleString()}</div>
+              <div className="dw-stat-card__label">预计可参与人次</div>
+            </div>
+          </div>
+        </Col>
+      </Row>
+
       {/* v4 修订：按系列 + 状态筛选 */}
+      <div className="dw-section-title">
+        全部活动
+        <span className="dw-section-title__sub">共 {total} 个</span>
+      </div>
       <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <Search
           placeholder="搜索活动标题/描述/地点"

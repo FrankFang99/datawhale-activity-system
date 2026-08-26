@@ -7,8 +7,9 @@ import { Card, Table, Tag, Empty, Spin, Typography, Space, Button, message } fro
 import { CalendarOutlined, EnvironmentOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { participantApi, Participant, activityApi, Activity } from '../../services/api';
+import PageHeader from '../../components/PageHeader';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function MyRegistrations() {
   const navigate = useNavigate();
@@ -45,8 +46,10 @@ export default function MyRegistrations() {
 
   return (
     <div>
-      <Title level={3} style={{ marginBottom: 24 }}>我的报名</Title>
-      <Text type="secondary">作为参与者报名的活动列表；取消后状态变更为「已取消」</Text>
+      <PageHeader
+        title="我的报名"
+        subtitle="作为参与者报名的活动列表；取消后状态变更为「已取消」"
+      />
 
       <Card style={{ marginTop: 16 }}>
         {list.length === 0 ? (

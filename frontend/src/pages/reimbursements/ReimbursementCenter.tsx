@@ -22,6 +22,7 @@ import {
 import dayjs from 'dayjs';
 import { reimbursementApi, Reimbursement, activityApi, applicationApi, Activity } from '../../services/api';
 import { authStore } from '../../store/auth';
+import PageHeader from '../../components/PageHeader';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -224,8 +225,10 @@ export default function ReimbursementCenter() {
 
   return (
     <div>
-      <Title level={2}>报销中心</Title>
-      <Text type="secondary">提交发票 / 审核 / 标记打款（v1 简化：URL 列表凭证）</Text>
+      <PageHeader
+        title="报销中心"
+        subtitle="提交发票 / 审核 / 标记打款（v1 简化：URL 列表凭证）"
+      />
 
       <Card style={{ marginTop: 16, borderRadius: 16 }}>
         <Tabs

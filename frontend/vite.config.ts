@@ -3,12 +3,15 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 // 部署到 datawhale.cn 子路径
-// 假设子路径 = /activity/ （v1 实际可调整）
+// dev 模式：base = '/'（直接 localhost:5173 访问，不记 /activity/）
+// 生产 build：base = '/activity/'（部署到 datawhale.cn/activity/）
 const DEPLOY_BASE = process.env.VITE_DEPLOY_BASE || '/activity/';
+const isDev = process.env.NODE_ENV !== 'production' || process.env.VITE_DEV_BASE === '1';
+const BASE = isDev ? '/' : DEPLOY_BASE;
 
 export default defineConfig({
   plugins: [react()],
-  base: DEPLOY_BASE, // 关键：所有静态资源 / 路由都加 base
+  base: BASE,
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -16,12 +19,19 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: '127.0.0.1',  // dev 强制 IPv4（Windows 上 IPv6 经常导致 localhost 不通）
+    strictPort: true,
+    open: false,
     proxy: {
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    port: 4173,
+    host: '127.0.0.1',
   },
   build: {
     outDir: 'dist',

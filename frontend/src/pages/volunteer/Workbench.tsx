@@ -7,8 +7,9 @@ import { Card, Table, Tag, Empty, Spin, Typography, Space, Statistic, Row, Col, 
 import { TeamOutlined, ClockCircleOutlined, CheckCircleOutlined, FireOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { volunteerApi, WorkbenchItem } from '../../services/api';
+import PageHeader from '../../components/PageHeader';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function VolunteerWorkbench() {
   const navigate = useNavigate();
@@ -38,8 +39,10 @@ export default function VolunteerWorkbench() {
 
   return (
     <div>
-      <Title level={3} style={{ marginBottom: 24 }}>我对接的申请</Title>
-      <Text type="secondary">这里展示分配给你的组织者申请，按"待办优先 + 提交时间倒序"排序</Text>
+      <PageHeader
+        title="我对接的申请"
+        subtitle="这里展示分配给你的组织者申请，按「待办优先 + 提交时间倒序」排序"
+      />
 
       <Row gutter={16} style={{ marginTop: 16, marginBottom: 24 }}>
         <Col xs={12} sm={6}>

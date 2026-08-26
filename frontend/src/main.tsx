@@ -1,31 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
+import { themeStore, antdThemeFor } from './store/theme';
 import 'antd/dist/reset.css';
 import './styles.css';
 
-// Datawhale 品牌主题（对齐 design.md §10）
-const theme = {
-  token: {
-    colorPrimary: '#3370FF',
-    colorInfo: '#3370FF',
-    colorSuccess: '#10B981',
-    colorWarning: '#F59E0B',
-    colorError: '#EF4444',
-    borderRadius: 10,
-    fontFamily:
-      '"PingFang SC","Microsoft YaHei","Helvetica Neue",Helvetica,Arial,sans-serif',
-    colorBgLayout: '#F5F8FF',
-  },
-};
+function App() {
+  // 初始从 localStorage 同步读取（避免 zustand persist hydration race）
+  const [mode, setModeState] = useState<'light' | 'dark'>(() => {
+    try {
+      const raw = localStorage.getItem('datawhale-theme');
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed?.state?.mode ?? 'light';
+    } catch {
+      return 'light';
+    }
+  });
+  useEffect(() => themeStore.subscribe((s) => setModeState(s.mode)), []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = mode;
+  }, [mode]);
+
+  return (
+    <ConfigProvider locale={zhCN} theme={antdThemeFor(mode)}>
+      <RouterProvider router={router} />
+    </ConfigProvider>
+  );
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <ConfigProvider locale={zhCN} theme={theme}>
-      <RouterProvider router={router} />
-    </ConfigProvider>
+    <App />
   </React.StrictMode>
 );

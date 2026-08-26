@@ -36,7 +36,7 @@ api.interceptors.response.use(
 
 // ===== Auth =====
 export const authApi = {
-  register: (data: { email: string; password: string; name: string; role: 'ORGANIZER' }) =>
+  register: (data: { email: string; password: string; name: string; role?: 'ORGANIZER' }) =>
     api.post<{ code: 0; data: { userId: string; message: string } }>('/auth/register', data).then((r) => r.data.data),
   login: (data: { email: string; password: string }) =>
     api.post<{ code: 0; data: { token: string; expiresIn: number; user: any } }>('/auth/login', data).then((r) => r.data.data),
@@ -57,6 +57,8 @@ export interface Activity {
   daysToStart?: number | null;
   requirements?: string;
   series?: string;  // v4 修订：所属系列
+  // v6：飞书群二维码（v1 是 URL，v2 走飞书上传）
+  groupQrCode?: string;
 }
 
 export const activityApi = {
@@ -268,7 +270,7 @@ export interface StageTask {
   remark?: string;
   submittedAt?: number;
   reviewerId?: string;
-  reviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNCERTAIN';  // v16.7：UNCERTAIN 表示志愿者拿不准，请求运营介入
   reviewRemark?: string;
   subTaskName?: string;  // v6：子任务名
   order?: number;        // v6：阶段内顺序
@@ -277,7 +279,7 @@ export interface StageTask {
   organizerSubmittedAt?: number;                       // 组织者自核时间
   operatorReviewerId?: string;                         // 运营最终复核人 userId
   operatorReviewedAt?: number;                         // 运营最终复核时间
-  operatorReviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  operatorReviewStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'UNCERTAIN';
   operatorReviewRemark?: string;                       // 运营复核意见
 }
 

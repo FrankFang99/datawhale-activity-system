@@ -33,6 +33,7 @@ import Profile from '../pages/user/Profile';
 import Inbox from '../pages/message/Inbox';
 import NotifLog from '../pages/admin/NotifLog';
 import Materials from '../pages/admin/Materials';
+import NotFound from '../pages/NotFound';
 import { authStore, Role } from '../store/auth';
 
 // 同步从 localStorage 读 auth 状态（避免 zustand persist hydration race）
@@ -64,16 +65,44 @@ function RoleGuard({ allow, children }: { allow: Role[]; children: React.ReactNo
   if (!auth.user) return <Navigate to="/login" replace />;
   if (!allow.includes(auth.user.role)) {
     return (
-      <Result
-        status="403"
-        title="403 · 无权访问"
-        subTitle={`该页面仅限 ${allow.join(' / ')} 角色访问；您当前是 ${auth.user.role}。`}
-        extra={
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          textAlign: 'center',
+        }}
+      >
+        <div
+          style={{
+            fontSize: 96,
+            fontWeight: 900,
+            letterSpacing: '-0.04em',
+            background: 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            lineHeight: 1,
+            marginBottom: 8,
+          }}
+        >
+          403
+        </div>
+        <h2 style={{ fontSize: 22, fontWeight: 600, margin: '0 0 8px', color: '#1A1A2E' }}>
+          当前角色无访问权限
+        </h2>
+        <p style={{ fontSize: 14, color: '#6B7280', margin: '0 0 24px', maxWidth: 480 }}>
+          该页面仅限 <strong style={{ color: '#1A1A2E' }}>{allow.join(' / ')}</strong> 角色访问；
+          您当前是 <strong style={{ color: '#1A1A2E' }}>{auth.user.role}</strong>。
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to="/">
-            <Button type="primary">返回首页</Button>
+            <Button type="primary" size="large">回到活动大厅</Button>
           </Link>
-        }
-      />
+        </div>
+      </div>
     );
   }
   return <>{children}</>;
@@ -228,7 +257,7 @@ export const router = createBrowserRouter(
             </Protected>
           ),
         },
-        { path: '*', element: <Navigate to="/" replace /> },
+        { path: '*', element: <NotFound /> },
       ],
     },
   ],

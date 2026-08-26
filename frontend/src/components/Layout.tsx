@@ -1,22 +1,14 @@
-﻿import { Layout, Menu, Avatar, Dropdown, Space, Tag, Badge } from 'antd';
+﻿import { Layout, Menu, Avatar, Dropdown, Space, Badge } from 'antd';
 import { UserOutlined, LogoutOutlined, HistoryOutlined, DashboardOutlined, AuditOutlined, TeamOutlined, ScheduleOutlined, AccountBookOutlined, ThunderboltOutlined, AppstoreOutlined, BellOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { authStore, Role } from '../store/auth';
 import { messageApi } from '../services/api';
+import { rolePalette, roleLabel } from '../styles/tokens';
 import AIAssistant from './AIAssistant';
+import ThemeToggle from './ThemeToggle';
 
 const { Header, Content, Footer } = Layout;
-
-// 角色配置：色 tag + 图标
-const ROLE_CONFIG: Record<Role, { color: string; label: string }> = {
-  ADMIN:       { color: 'red',    label: '管理员' },
-  OPERATOR:    { color: 'orange', label: '运营' },
-  VOLUNTEER:   { color: 'blue',   label: '志愿者' },
-  ORGANIZER:   { color: 'green',  label: '组织者' },
-  PARTICIPANT: { color: 'cyan',   label: '参与者' },
-  ASSISTANT:   { color: 'purple', label: '助教' },
-};
 
 // 5 角色菜单配置（PRD §2.2 权限矩阵）
 function getMenuByRole(role: Role | undefined) {
@@ -102,40 +94,42 @@ export default function AppLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   // v7: 轮询未读数（每 30s 拉一次，简单起见）
+  // v1.2 性能优化：5s 客户端缓存，避免路由切换时重复拉飞书（飞书单次 1-1.5s）
   useEffect(() => {
     if (!user) { setUnreadCount(0); return; }
     let cancelled = false;
-    const load = async () => {
+    let lastFetchAt = 0;
+    let cachedCount = 0;
+    const CACHE_TTL_MS = 5000;
+    const load = async (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastFetchAt < CACHE_TTL_MS) {
+        setUnreadCount(cachedCount);
+        return;
+      }
       try {
         const r = await messageApi.unreadCount();
-        if (!cancelled) setUnreadCount(r.count);
+        if (!cancelled) {
+          cachedCount = r.count;
+          lastFetchAt = Date.now();
+          setUnreadCount(cachedCount);
+        }
       } catch { /* */ }
     };
-    load();
-    const t = setInterval(load, 30000);
+    load(true);  // 首次强制拉
+    const t = setInterval(() => load(true), 30000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [user, location.pathname]);  // 路由变化时也刷新
+  }, [user]);  // 路由变化时复用缓存，不重新拉
 
   const isAuthPage = ['/login', '/register'].some((p) => location.pathname.endsWith(p));
   const menuItems = getMenuByRole(user?.role);
   const userMenu = getUserMenu(user?.role, navigate);
-  const roleConfig = user ? ROLE_CONFIG[user.role] : null;
+  const roleKey = user ? rolePalette[user.role] : null;
+  const roleText = user ? roleLabel[user.role] : null;
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#F5F8FF' }}>
-      <Header
-        style={{
-          background: '#fff',
-          padding: '0 24px',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
+    <Layout className="dw-layout-root">
+      <Header className="dw-header">
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <div
             style={{
@@ -152,8 +146,8 @@ export default function AppLayout() {
           >
             D
           </div>
-          <span style={{ fontSize: 18, fontWeight: 600, color: '#1A1A2E' }}>Datawhale</span>
-          <span style={{ fontSize: 14, color: '#6B7280' }}>高校活动</span>
+          <span className="dw-header__brand">Datawhale</span>
+          <span className="dw-header__brand-sub">高校活动</span>
         </Link>
 
         <Menu
@@ -166,18 +160,23 @@ export default function AppLayout() {
         <div>
           {user ? (
             <Space size="small">
-              {roleConfig && <Tag color={roleConfig.color}>{roleConfig.label}</Tag>}
+              {roleKey && roleText && (
+                <span className={`dw-tag dw-tag-${roleKey}`}>{roleText}</span>
+              )}
+              {/* v1.2: 主题切换按钮（暗色模式） */}
+              <ThemeToggle />
               {/* v7: 通知中心 Bell icon（带未读 Badge） */}
               <Badge count={unreadCount} size="small" offset={[-2, 2]}>
                 <BellOutlined
-                  style={{ fontSize: 18, color: '#1A1A2E', cursor: 'pointer', padding: 4 }}
+                  className="dw-header__icon"
+                  style={{ fontSize: 18, cursor: 'pointer', padding: 4 }}
                   onClick={() => navigate('/inbox')}
                 />
               </Badge>
               <Dropdown menu={userMenu} placement="bottomRight">
                 <Space style={{ cursor: 'pointer' }}>
                   <Avatar size="small" icon={<UserOutlined />} style={{ background: '#3370FF' }} />
-                  <span style={{ color: '#1A1A2E' }}>{user.name}</span>
+                  <span className="dw-header__user-name">{user.name}</span>
                 </Space>
               </Dropdown>
             </Space>

@@ -10,6 +10,7 @@ import { CheckOutlined, CloseOutlined, RollbackOutlined, SwapOutlined, EyeOutlin
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import http, { adminApi } from '../../services/api';
 import { authStore } from '../../store/auth';
+import PageHeader from '../../components/PageHeader';
 
 
 const { Title, Text, Paragraph } = Typography;
@@ -38,8 +39,10 @@ const STATUS_MAP: Record<string, { color: string; label: string }> = {
 };
 
 export default function ApprovalWorkbench() {
+  const [tab, setTab] = useState<'SCREENING' | 'REVIEW'>('SCREENING');
   const [list, setList] = useState<PendingApp[]>([]);
   const [loading, setLoading] = useState(false);
+  const [counts, setCounts] = useState<{ SCREENING: number; REVIEW: number }>({ SCREENING: 0, REVIEW: 0 });
   const [actionModal, setActionModal] = useState<{
     open: boolean;
     app?: PendingApp;
@@ -91,10 +94,16 @@ export default function ApprovalWorkbench() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await http.get<{ code: 0; data: { list: PendingApp[]; total: number } }>(
-        '/admin/applications/pending'
-      );
-      setList(res.data.data.list);
+      // v1.2 修复：并取两个 tab 数据 + 计数，让 Tab badge 实时显示
+      const [pending, review] = await Promise.all([
+        http.get<{ code: 0; data: { list: PendingApp[]; total: number } }>('/admin/applications/pending'),
+        http.get<{ code: 0; data: { list: PendingApp[]; total: number } }>('/admin/applications/review-pending'),
+      ]);
+      setList(tab === 'SCREENING' ? pending.data.data.list : review.data.data.list);
+      setCounts({
+        SCREENING: pending.data.data.total,
+        REVIEW: review.data.data.total,
+      });
     } catch (e) {
       /* 拦截器已处理 */
     } finally {
@@ -104,7 +113,7 @@ export default function ApprovalWorkbench() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [tab]);
 
   const openAction = (app: PendingApp, action: 'APPROVE' | 'REJECT' | 'RETURN' | 'TRANSFER') => {
     setActionModal({ open: true, app, action });
@@ -149,13 +158,31 @@ export default function ApprovalWorkbench() {
 
   return (
     <div>
-      <Title level={2}>审批工作台</Title>
-      <Text type="secondary">SCREENING 状态的申请 · {list.length} 条待处理</Text>
+      <PageHeader
+        title="审批工作台"
+        subtitle={`待审申请 · SCREENING ${counts.SCREENING} / REVIEW ${counts.REVIEW}`}
+      />
 
       <Card style={{ marginTop: 16, borderRadius: 16 }}>
+        {/* v1.2 修复：Tabs 区分 SCREENING（初审）/ REVIEW（复审）两种待审状态 */}
+        <Tabs
+          activeKey={tab}
+          onChange={(k) => setTab(k as 'SCREENING' | 'REVIEW')}
+          style={{ marginBottom: 8 }}
+          items={[
+            { key: 'SCREENING', label: `初审 (${counts.SCREENING})` },
+            { key: 'REVIEW', label: `复审 (${counts.REVIEW})` },
+          ]}
+        />
         <Spin spinning={loading}>
           {list.length === 0 ? (
-            <Alert message="暂无待审批申请" type="info" showIcon style={{ margin: 32 }} />
+            <Alert
+              message={tab === 'SCREENING' ? '暂无初审申请' : '暂无复审申请'}
+              description={tab === 'SCREENING' ? '所有初审都已处理完毕。' : '所有复审都已处理完毕。'}
+              type="info"
+              showIcon
+              style={{ margin: 32 }}
+            />
           ) : (
             <Table
               rowKey="applicationId"

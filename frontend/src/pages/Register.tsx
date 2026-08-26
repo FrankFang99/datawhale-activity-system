@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Form, Input, Button, Card, Typography, message } from 'antd';
+import { Form, Input, Button, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
-
-const { Title, Text } = Typography;
+import AuthBrand from '../components/AuthBrand';
 
 export default function Register() {
   const [loading, setLoading] = useState(false);
@@ -26,64 +25,65 @@ export default function Register() {
   };
 
   return (
-    <div style={{ maxWidth: 420, margin: '48px auto' }}>
-      <Card style={{ borderRadius: 16 }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={3} style={{ margin: 0 }}>注册</Title>
-          <Text type="secondary">加入 Datawhale 高校活动</Text>
-        </div>
-        <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginBottom: 16, fontSize: 12 }}>
-          💡 注册即为普通用户。想成为参与者请报名活动并当天成功打卡；想成为组织者请去活动详情页申请。
-        </Text>
-        <Form layout="vertical" onFinish={onFinish} size="large">
-          <Form.Item
-            label="姓名"
-            name="name"
-            rules={[
-              { required: true, message: '请输入姓名' },
-              { min: 1, max: 20, message: '姓名 1-20 字符' },
-            ]}
+    <AuthBrand
+      title="加入 Datawhale"
+      subtitle="和全国 200+ 高校同学一起组织 AI 活动"
+      hint={
+        <>
+          💡 注册即为普通用户。想成为<strong>参与者</strong>请报名活动并当天成功打卡；
+          想成为<strong>组织者</strong>请去活动详情页申请（需 5 维评分审核）。
+        </>
+      }
+      footer={
+        <span style={{ color: '#6B7280', fontSize: 13 }}>
+          已有账号？ <Link to="/login" style={{ color: '#3370FF' }}>立即登录 →</Link>
+        </span>
+      }
+    >
+      <Form layout="vertical" onFinish={onFinish} size="large">
+        <Form.Item
+          label="姓名"
+          name="name"
+          rules={[
+            { required: true, message: '请输入姓名' },
+            { min: 1, max: 20, message: '姓名 1-20 字符' },
+          ]}
+        >
+          <Input prefix={<UserOutlined />} placeholder="您的姓名" />
+        </Form.Item>
+        <Form.Item
+          label="邮箱"
+          name="email"
+          rules={[
+            { required: true, message: '请输入邮箱' },
+            { type: 'email', message: '邮箱格式不正确' },
+          ]}
+        >
+          <Input prefix={<MailOutlined />} placeholder="your@email.com" />
+        </Form.Item>
+        <Form.Item
+          label="密码"
+          name="password"
+          rules={[
+            { required: true, message: '请输入密码' },
+            { min: 6, max: 32, message: '密码 6-32 位' },
+          ]}
+        >
+          <Input.Password prefix={<LockOutlined />} placeholder="6-32 位字母/数字/特殊字符" />
+        </Form.Item>
+        <Form.Item style={{ marginBottom: 0 }}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            block
+            loading={loading}
+            className="dw-gradient-btn"
+            size="large"
           >
-            <Input prefix={<UserOutlined />} placeholder="您的姓名" />
-          </Form.Item>
-          <Form.Item
-            label="邮箱"
-            name="email"
-            rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '邮箱格式不正确' },
-            ]}
-          >
-            <Input prefix={<MailOutlined />} placeholder="your@email.com" />
-          </Form.Item>
-          <Form.Item
-            label="密码"
-            name="password"
-            rules={[
-              { required: true, message: '请输入密码' },
-              { min: 6, max: 32, message: '密码 6-32 位' },
-            ]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="6-32 位字母/数字/特殊字符" />
-          </Form.Item>
-          <Form.Item>
-            <Button
-              type="primary"
-              htmlType="submit"
-              block
-              loading={loading}
-              className="dw-gradient-btn"
-              size="large"
-            >
-              注册
-            </Button>
-          </Form.Item>
-        </Form>
-        <div style={{ textAlign: 'center', marginTop: 8 }}>
-          <Text type="secondary">已有账号？</Text>
-          <Link to="/login"> 立即登录</Link>
-        </div>
-      </Card>
-    </div>
+            注册
+          </Button>
+        </Form.Item>
+      </Form>
+    </AuthBrand>
   );
 }
