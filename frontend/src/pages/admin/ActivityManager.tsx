@@ -52,6 +52,7 @@ interface Activity {
 const normStatus = (s: any): string => (Array.isArray(s) ? String(s[0] ?? '') : String(s ?? ''));
 
 export default function ActivityManager() {
+  const [formErrorMsg, setFormErrorMsg] = useState('');
   const [list, setList] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -101,6 +102,11 @@ export default function ActivityManager() {
   };
 
   // 字段名 → 中文标签（错误提示用）
+  // v1.2 Frank 19:55：Modal 顶部 Alert + 字段红框 + 自动 focus（不依赖 toast 自动消失）
+  const showFieldError = (name: string, msg: string) => {
+    setFormErrorMsg(`请检查「${labelOf(name)}」：${msg}`);
+  };
+
   const labelOf = (name: string) => {
     const map: Record<string, string> = {
       title: '活动标题',
@@ -126,28 +132,27 @@ export default function ActivityManager() {
       // v1.2 Frank 19:14 Comment 2 + 19:38 Comment 3：validateFields 失败要把错误显出来
       v = await form.validateFields();
     } catch (err: any) {
-      // 第一个校验失败的字段：滚动到 + 高亮 + 顶部 toast + 自动 focus 输入框
+      // 第一个校验失败的字段：Modal 顶部 Alert + 滚动到 + 高亮 + 自动 focus
       const firstError = err?.errorFields?.[0];
       if (firstError) {
         const fname = firstError.name;
         const fmsg = firstError.errors?.[0] ?? '表单校验失败';
+        showFieldError(fname, fmsg);
         form.scrollToField(fname);
-        // 显式调用 message.error 不被 antd 自动消失（duration 0 表示不自动消失，需手动关闭）
+        // 同步用 toast 也提示一下（兜底）
         message.error({
           content: `请检查「${labelOf(fname)}」：${fmsg}`,
           duration: 6,
           key: 'form-validate-err',
         });
-        // 尝试 focus 字段输入框
         setTimeout(() => {
-          try {
-            form.getFieldInstance?.(fname)?.focus?.();
-          } catch { /* 忽略 */ }
+          try { form.getFieldInstance?.(fname)?.focus?.(); } catch { /* */ }
         }, 100);
       } else {
+        setFormErrorMsg('表单校验失败');
         message.error({ content: '表单校验失败', duration: 6, key: 'form-validate-err' });
       }
-      throw err;  // 让 antd Modal 也知道失败，保持 loading
+      throw err;  // 让 antd Modal 知道失败
     }
     // v10 地点：数组 → 字符串（如 ["北京", "海淀区", "中关村"] → "北京·海淀区·中关村"）
     let locationStr = v.location;
@@ -180,8 +185,15 @@ export default function ActivityManager() {
         message.success('已创建（草稿）');
       }
       setModalOpen(false);
+      setFormErrorMsg('');
       load();
-    } catch { /* 拦截器 */ }
+    } catch (err: any) {
+      // v1.2 Frank 2026-08-26 20:08：API 错误也要显式显示，不再静默吞
+      console.error('[ActivityManager] save error:', err);
+      const apiMsg = err?.response?.data?.message ?? err?.message ?? '保存失败，请重试';
+      setFormErrorMsg(`保存失败：${apiMsg}`);
+      message.error({ content: `保存失败：${apiMsg}`, duration: 6, key: 'save-err' });
+    }
   };
 
   const onPublish = async (a: Activity) => {
@@ -290,12 +302,24 @@ export default function ActivityManager() {
       <Modal
         title={editing ? `编辑活动：${editing.title}` : '创建活动'}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
+        onCancel={() => { setModalOpen(false); setFormErrorMsg(''); }}
         onOk={onSubmit}
         okText="保存"
         cancelText="取消"
         width={720}
       >
+        {/* v1.2 Frank 2026-08-26 20:08：Modal 顶部错误 Alert（不依赖 toast 自动消失）
+            之前 formErrorMsg state 定义但 UI 没渲染 → Frank 看不到保存失败的提示 */}
+        {formErrorMsg && (
+          <Alert
+            type="error"
+            showIcon
+            closable
+            onClose={() => setFormErrorMsg('')}
+            message={formErrorMsg}
+            style={{ marginBottom: 16 }}
+          />
+        )}
         <Form form={form} layout="vertical">
           <Form.Item name="title" label="活动标题" rules={[{ required: true, max: 100 }]}>
             <Input placeholder="例：AI+X 创造节 - 北京大学站" />
