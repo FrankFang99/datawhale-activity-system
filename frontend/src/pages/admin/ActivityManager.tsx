@@ -236,7 +236,21 @@ export default function ActivityManager() {
   };
 
   const onSubmit = async () => {
-    const v = await form.validateFields();
+    let v;
+    try {
+      // v1.2 Frank 19:14 Comment 2：validateFields 失败要把错误显出来，不能静默
+      v = await form.validateFields();
+    } catch (err: any) {
+      // 第一个校验失败的字段：滚动到 + 高亮 + 顶部 toast
+      const firstError = err?.errorFields?.[0];
+      if (firstError) {
+        form.scrollToField(firstError.name);
+        message.error(`请检查：${firstError.errors?.[0] ?? '表单校验失败'}`);
+      } else {
+        message.error('表单校验失败');
+      }
+      throw err;  // 让 antd Modal 也知道失败，保持 loading
+    }
     // v10 地点：数组 → 字符串（如 ["北京", "海淀区", "中关村"] → "北京·海淀区·中关村"）
     let locationStr = v.location;
     if (Array.isArray(v.location)) {
@@ -402,10 +416,19 @@ export default function ActivityManager() {
           />
           <Space style={{ width: '100%' }} size="middle">
             <Form.Item name="startDate" label="开始日期" style={{ flex: 1 }}>
-              <DatePicker style={{ width: '100%' }} placeholder="例：2024-10-16" />
+              {/* v1.2 Frank 19:14 Comment 1：活动只能选未来日期（不能选今天之前） */}
+              <DatePicker
+                style={{ width: '100%' }}
+                placeholder="例：2024-10-16"
+                disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
+              />
             </Form.Item>
             <Form.Item name="endDate" label="结束日期" style={{ flex: 1 }}>
-              <DatePicker style={{ width: '100%' }} placeholder="例：2024-11-15" />
+              <DatePicker
+                style={{ width: '100%' }}
+                placeholder="例：2024-11-15"
+                disabledDate={(d) => d && d.isBefore(dayjs().startOf('day'))}
+              />
             </Form.Item>
           </Space>
 
