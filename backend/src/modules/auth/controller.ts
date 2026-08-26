@@ -109,9 +109,20 @@ router.post('/register', async (req: Request, res: Response) => {
     return fail(res, 409, ErrorCode.USER_001_EMAIL_EXISTS, '该邮箱已注册，请直接登录');
   }
 
+  // v1.2 Frank 17:08 Comment 1：用户编号 8 位 0-padded 预留未来用户数
+  // 现有 9 个用户是 NO.022-031，新用户从 max+1 开始
+  const { items: allUsers } = await feishuClient.listRecords(config.feishu.tables.users, { pageSize: 200 });
+  const existingIds = allUsers
+    .map((u: LarkRecord) => (u.fields as any).userId)
+    .filter((s: any): s is string => typeof s === 'string' && /^NO\.\d+$/.test(s))
+    .map((s: string) => parseInt(s.slice(3), 10));
+  const maxUserNum = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+  const newUserId = `NO.${String(maxUserNum + 1).padStart(8, '0')}`;
+
   // 创建用户（Frank 2026-08-21 #6 升级：默认 USER 角色 = 普通用户）
   const passwordHash = await hashPassword(data.password);
   const recordId = await feishuClient.createRecord(config.feishu.tables.users, {
+    userId: newUserId,
     email: data.email,
     passwordHash,
     name: data.name,
@@ -123,9 +134,8 @@ router.post('/register', async (req: Request, res: Response) => {
 
   // 飞书 userId 是 auto_number 字段（系统自动），不能手动写
   // 直接用 record_id 末尾作为 userId
-  const userId = `USR-${recordId.slice(-4)}`;
-
-  return ok(res, { userId, message: '注册成功，请登录' });
+  // v1.2 Frank 17:08 Comment 1：返回 8 位 padded
+  return ok(res, { userId: newUserId, message: '注册成功，请登录' });
 });
 
 // POST /api/auth/login

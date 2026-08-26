@@ -44,10 +44,15 @@ interface ActivityRecord extends LarkRecord {
 
 const normStatus = (s: any): string => (Array.isArray(s) ? String(s[0] ?? '') : String(s ?? ''));
 
-// activityId 自增（用 NO.xxx）
-function nextActivityId(): string {
-  // 简单实现：时间戳末 4 位（实际 v1 测试数据小 OK）
-  return `NO.${String(Date.now()).slice(-4)}`;
+// activityId 自增（NO.0001 起，4 位 0-padded；v1.2 Frank 17:08 Comment 1）
+async function nextActivityId(): Promise<string> {
+  const { items } = await feishuClient.listRecords(config.feishu.tables.activities, { pageSize: 200 });
+  const ids = (items as ActivityRecord[])
+    .map((a) => a.fields.activityId)
+    .filter((s): s is string => !!s && /^NO\.\d+$/.test(s))
+    .map((s) => parseInt(s.slice(3), 10));
+  const max = ids.length > 0 ? Math.max(...ids) : 0;
+  return `NO.${String(max + 1).padStart(4, '0')}`;
 }
 
 // Frank 2026-08-21 #5 飞书群二维码必填：链接格式校验
@@ -120,7 +125,7 @@ router.get('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (_req: Req
 // POST /api/admin/activities - 创建活动
 router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Request, res: Response) => {
   const data = createSchema.parse(req.body);
-  const activityId = nextActivityId();
+  const activityId = await nextActivityId();
   const recordId = await feishuClient.createRecord(config.feishu.tables.activities, {
     activityId,
     title: data.title,

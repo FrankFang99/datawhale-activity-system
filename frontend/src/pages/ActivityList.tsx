@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { Row, Col, Card, Tag, Input, Select, Empty, Spin, Typography, Alert, Button, Space } from 'antd';
 import {
   SearchOutlined, EnvironmentOutlined, CalendarOutlined, TeamOutlined,
-  BookOutlined, QuestionCircleOutlined, AuditOutlined,
-  HistoryOutlined, ScheduleOutlined, DashboardOutlined,
-  RightOutlined, TrophyOutlined, GlobalOutlined, UserOutlined,
+  BookOutlined, QuestionCircleOutlined,
+  TrophyOutlined, GlobalOutlined, UserOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { activityApi, Activity } from '../services/api';
@@ -44,68 +43,6 @@ const COVER_GRADIENTS = [
   'linear-gradient(135deg, #10B981 0%, #62D4C8 100%)',
 ];
 
-/**
- * 5 角色 Landing 入口（v1.1 引入）
- * 替换原本「登入后再看菜单」逻辑 → 登录后 Landing 顶部展示角色快捷入口
- */
-function getRoleEntry(role: string | undefined): { title: string; icon: React.ReactNode; items: Array<{ to: string; label: string; count?: number | null }> } | null {
-  if (!role) return null;
-  switch (role) {
-    case 'ADMIN':
-      return {
-        title: '管理员工作台',
-        icon: <DashboardOutlined style={{ color: '#DC2626' }} />,
-        items: [
-          { to: '/admin/dashboard', label: '数据看板' },
-          { to: '/admin/approvals', label: '审批工作台' },
-          { to: '/admin/activities', label: '活动管理' },
-          { to: '/reimbursements', label: '报销中心' },
-        ],
-      };
-    case 'OPERATOR':
-      return {
-        title: '运营工作台',
-        icon: <AuditOutlined style={{ color: '#D97706' }} />,
-        items: [
-          { to: '/admin/approvals', label: '审批工作台' },
-          { to: '/admin/activities', label: '活动管理' },
-          { to: '/reimbursements', label: '报销中心' },
-        ],
-      };
-    case 'VOLUNTEER':
-      return {
-        title: '志愿者工作台',
-        icon: <TeamOutlined style={{ color: '#3370FF' }} />,
-        items: [
-          { to: '/volunteer/workbench', label: '我对接的申请' },
-          { to: '/inbox', label: '站内消息' },
-        ],
-      };
-    case 'ORGANIZER':
-    case 'ASSISTANT':
-      return {
-        title: '组织者工作台',
-        icon: <HistoryOutlined style={{ color: '#059669' }} />,
-        items: [
-          { to: '/my-applications', label: '我的申请' },
-          { to: '/reimbursements', label: '报销中心' },
-          { to: '/inbox', label: '站内消息' },
-        ],
-      };
-    case 'PARTICIPANT':
-      return {
-        title: '参与者中心',
-        icon: <ScheduleOutlined style={{ color: '#3370FF' }} />,
-        items: [
-          { to: '/my-registrations', label: '我的报名' },
-          { to: '/inbox', label: '站内消息' },
-        ],
-      };
-    default:
-      return null;
-  }
-}
-
 export default function ActivityList() {
   const navigate = useNavigate();
   const user = authStore((s) => s.user);
@@ -120,7 +57,8 @@ export default function ActivityList() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await activityApi.list({ keyword, status, series, pageSize: 24 });
+      // v1.2 Frank 16:39 Comment 2：把 pageSize 调到 100 确保 KPI 覆盖全量
+      const data = await activityApi.list({ keyword, status, series, pageSize: 100 });
       setList(data.list);
       setTotal(data.total);
       // 从列表中提取所有 series（去重）
@@ -139,7 +77,7 @@ export default function ActivityList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const roleEntry = getRoleEntry(user?.role);
+  // v1.2 Frank 17:08 Comment 4 回退：用累计硬编码（Datawhale 社群规模）
   const onlineCount = list.reduce((s, a) => s + (a.maxParticipants || 0), 0);
 
   return (
@@ -153,28 +91,7 @@ export default function ActivityList() {
         </div>
       </div>
 
-      {/* 5 角色 Landing 入口（v1.1 引入） */}
-      {roleEntry && (
-        <div className="dw-role-entry dw-fade-in">
-          <h3 className="dw-role-entry__title">
-            {roleEntry.icon}
-            {roleEntry.title}
-          </h3>
-          <div className="dw-role-entry__list">
-            {roleEntry.items.map((it) => (
-              <Link key={it.to} to={it.to} className="dw-role-entry__item">
-                <span className="dw-role-entry__item-label">{it.label}</span>
-                <Space size={4}>
-                  {it.count != null && <span className="dw-role-entry__item-count">{it.count}</span>}
-                  <RightOutlined style={{ color: '#9CA3AF', fontSize: 12 }} />
-                </Space>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 数据卡（v1.1 引入） */}
+      {/* 数据卡（v1.1 引入 · v1.2 删 5 角色 Landing 入口后只剩 KPI） */}
       <Row gutter={[16, 16]} className="dw-fade-in">
         <Col xs={24} sm={12} md={8}>
           <div className="dw-stat-card">
@@ -193,6 +110,7 @@ export default function ActivityList() {
               <GlobalOutlined />
             </div>
             <div>
+              {/* v1.2 Frank 17:08 Comment 4：累计覆盖高校（Datawhale 社群规模） */}
               <div className="dw-stat-card__value">{TOTAL_UNIVERSITIES}+</div>
               <div className="dw-stat-card__label">覆盖高校</div>
             </div>

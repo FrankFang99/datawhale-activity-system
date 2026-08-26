@@ -1,0 +1,103 @@
+{
+  "users": {
+    "total": 14,
+    "keep": [
+      "recvsPbTBvQgst",
+      "recvsPBqm54PIk",
+      "recvsPBr6UEKdu",
+      "recvsPBrBZYOo3",
+      "recvsPBs4KAfUC",
+      "recvsPBsxNmJaV",
+      "recvsPBt2T2WJg",
+      "recvsPBtvW0ct2",
+      "recvsTQXESCab7"
+    ],
+    "delete": [
+      "recvsWbbi1KPAM",
+      "recvsZ7dIRopI3",
+      "recvsZ7Ja5oYD1",
+      "recvsZ7ZrtUevI",
+      "recvsZ87GOjtdS"
+    ]
+  },
+  "activities": {
+    "total": 5,
+    "delete": [
+      "recvsOfT6SoGeS",
+      "recvsOfT6SSBCH",
+      "recvsOfT6SDeJ7",
+      "recvsPLHU4ViJ4",
+      "recvsTndmldQOq"
+    ]
+  },
+  "applications": {
+    "total": 11,
+    "delete": [
+      "recvsOiKe5Iv7A",
+      "recvsOnFFzZbc6",
+      "recvsOo6XZIoJ1",
+      "recvsOox6GkmIT",
+      "recvsOoHX91Dhs",
+      "recvsP80ExmR8d",
+      "recvsPCCGi3Dxr",
+      "recvsU2XwbssCp",
+      "recvsU6Cvj2Ake",
+      "recvtiJhowVA7i",
+      "recvtnZwaD6VSL"
+    ]
+  },
+  "stage_tasks": {
+    "total": 19,
+    "delete": [
+      "recvt0sTCMci3Z",
+      "recvt0sUh7QCQl",
+      "recvt0sUIvgRmt",
+      "recvt0sVCZpGNB",
+      "recvt0sW4FAeKT",
+      "recvt0sWvU39dI",
+      "recvt0sWXCp7bi",
+      "recvt0sXQNhJgh",
+      "recvt0sYlBsNiI",
+      "recvt0sYMKouwI",
+      "recvt0sZecXDVH",
+      "recvt0sZGmwZwr",
+      "recvt0t0zE8MdY",
+      "recvt0t12YSzAc",
+      "recvt0t1uTsktq",
+      "recvt0t2pb2kTQ",
+      "recvt0t2WDXbCH",
+      "recvt0t3pVPLNU",
+      "recvtb5xVq0u5O"
+    ]
+  },
+  "chat_logs": {
+    "total": 2,
+    "delete": [
+      "recvtnQNc7Uan9",
+      "recvto6zODjCdG"
+    ]
+  },
+  "messages": {
+    "total": 18,
+    "delete": [
+      "recvsSHftPn6Uo",
+      "recvsSIRMUy3bS",
+      "recvsSJ8j08Qa6",
+      "recvsT6NDVCRKb",
+      "recvsT6S7Sm3DS",
+      "recvsT6XPM9OP0",
+      "recvsT7d0ERtDY",
+      "recvsU2YAUODqY",
+      "recvsU6DpWUIC2",
+      "recvsU87Lax9Sd",
+      "recvsU8DF0Dcoi",
+      "recvsU8EbN5Pfq",
+      "recvsUazM1QmzP",
+      "recvthWz1dp96I",
+      "recvthWzAsz6Qt",
+      "recvtiJiH6ju7A",
+      "recvtiJFESlpMH",
+      "recvtiJLAeLczY"
+    ]
+  }
+}

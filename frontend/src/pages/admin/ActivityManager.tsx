@@ -9,11 +9,11 @@
  */
 import { useEffect, useState } from 'react';
 import {
-  Card, Table, Tag, Button, Space, Modal, Form, Input, DatePicker, TimePicker, InputNumber, Select, Cascader, message, Typography, Popconfirm, Tabs, Alert,
+  Card, Table, Tag, Button, Space, Modal, Form, Input, DatePicker, TimePicker, InputNumber, Select, Cascader, message, Typography, Popconfirm, Tabs, Alert, Upload,
 } from 'antd';
-import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined, UploadOutlined, LoadingOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
-import { adminApi } from '../../services/api';
+import http, { adminApi } from '../../services/api';
 
 const { Title, Text } = Typography;
 
@@ -409,33 +409,42 @@ export default function ActivityManager() {
             </Form.Item>
           </Space>
 
-          {/* v10：确定组织者后的精确时间（HH:MM）+ 精确地址 */}
-          <Form.Item shouldUpdate={(p, c) => p.startDate !== c.startDate || p.endDate !== c.endDate} noStyle>
-            {() => {
-              const sd = form.getFieldValue('startDate');
-              const ed = form.getFieldValue('endDate');
-              const showPrecise = !!(sd && ed);
-              return showPrecise ? (
-                <>
-                  <Space style={{ width: '100%' }} size="middle">
-                    <Form.Item name="startTime" label="精确开始时间" style={{ flex: 1 }} tooltip="确认组织者后建议精确到小时/分钟">
-                      <TimePicker style={{ width: '100%' }} format="HH:mm" placeholder="例：14:00" />
+          {/* v1.2 Frank 17:08 Comment 3：精确时间只在「编辑已有活动」时显示
+              创建活动时只填日期 + 模糊地点；精确时间由组织者在 INT-1 任务确认意向时补 */}
+          {editing && (
+            <Form.Item shouldUpdate={(p, c) => p.startDate !== c.startDate || p.endDate !== c.endDate} noStyle>
+              {() => {
+                const sd = form.getFieldValue('startDate');
+                const ed = form.getFieldValue('endDate');
+                const showPrecise = !!(sd && ed);
+                return showPrecise ? (
+                  <>
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 12 }}
+                      message="精确时间由组织者在 INT-1「确认意向」任务时填写（v1.2 Frank 17:08 Comment 3）"
+                    />
+                    <Space style={{ width: '100%' }} size="middle">
+                      <Form.Item name="startTime" label="精确开始时间" style={{ flex: 1 }} tooltip="组织者在 INT-1 阶段补填">
+                        <TimePicker style={{ width: '100%' }} format="HH:mm" placeholder="例：14:00" />
+                      </Form.Item>
+                      <Form.Item name="endTime" label="精确结束时间" style={{ flex: 1 }}>
+                        <TimePicker style={{ width: '100%' }} format="HH:mm" placeholder="例：17:00" />
+                      </Form.Item>
+                    </Space>
+                    <Form.Item
+                      name="confirmedAddress"
+                      label="精确地址（可选）"
+                      tooltip="确定场所后补充填写（如：上海交大闵行校区 学术活动中心 3F-301）"
+                    >
+                      <Input placeholder="例：上海交大闵行校区 学术活动中心 3F-301" maxLength={200} />
                     </Form.Item>
-                    <Form.Item name="endTime" label="精确结束时间" style={{ flex: 1 }}>
-                      <TimePicker style={{ width: '100%' }} format="HH:mm" placeholder="例：17:00" />
-                    </Form.Item>
-                  </Space>
-                  <Form.Item
-                    name="confirmedAddress"
-                    label="精确地址（可选）"
-                    tooltip="确定场所后补充填写（如：上海交大闵行校区 学术活动中心 3F-301）"
-                  >
-                    <Input placeholder="例：上海交大闵行校区 学术活动中心 3F-301" maxLength={200} />
-                  </Form.Item>
-                </>
-              ) : null;
-            }}
-          </Form.Item>
+                  </>
+                ) : null;
+              }}
+            </Form.Item>
+          )}
 
           <Space style={{ width: '100%' }} size="middle">
             {/* Frank 2026-08-22 20:25：地点用 Cascader 下拉，精确到区/商圈 */}
@@ -475,22 +484,48 @@ export default function ActivityManager() {
               maxLength={2000}
             />
           </Form.Item>
-          {/* v16.6 Frank 16:04 Comment 6：活动大厅图片背景不能用 → 运营能管理 coverImage */}
+          {/* v1.2 Frank 17:08 Comment 2：封面图改 Upload 组件（后端 /api/upload/image v16.8 已就绪） */}
           <Form.Item
             name="coverImage"
-            label="活动大厅封面图 URL（可选）"
-            tooltip="活动大厅卡片封面图（160px 高度）。支持 https:// 开头的图片 URL（推荐 placehold.co / Unsplash / CDN）。留空则使用渐变背景 + 标题前 8 字"
-            rules={[
-              {
-                pattern: /^https:\/\/.+/i,
-                message: '请填写 https:// 开头的合法图片 URL',
-              },
-            ]}
+            label="活动大厅封面图（可选）"
+            tooltip="活动大厅卡片封面图（160px 高度）。支持 jpg/png/gif/webp，≤5MB。也可填 https:// 开头的 URL（推荐 placehold.co / Unsplash / CDN）"
           >
+            <Upload {...{
+              name: 'file',
+              action: '/api/upload/image',
+              headers: { Authorization: `Bearer ${localStorage.getItem('datawhale-auth') ? JSON.parse(localStorage.getItem('datawhale-auth')!).state.token : ''}` },
+              accept: 'image/*',
+              listType: 'picture',
+              showUploadList: { showPreviewIcon: true, showRemoveIcon: true },
+              beforeUpload: (file: any) => {
+                if (!file.type.startsWith('image/')) {
+                  message.error('只支持图片文件（jpg/png/gif/webp）');
+                  return Upload.LIST_IGNORE;
+                }
+                if (file.size > 5 * 1024 * 1024) {
+                  message.error('文件大小超过 5MB');
+                  return Upload.LIST_IGNORE;
+                }
+                return true;
+              },
+              onChange: (info: any) => {
+                if (info.file.status === 'done' && info.file.response?.code === 0) {
+                  const url = info.file.response.data.url;
+                  form.setFieldValue('coverImage', url);
+                  message.success('已上传');
+                } else if (info.file.status === 'error') {
+                  message.error(`上传失败：${info.file.response?.message ?? '未知错误'}`);
+                }
+              },
+            } as any}>
+              <Button icon={<UploadOutlined />}>点击上传封面图（jpg/png/gif/webp，≤5MB）</Button>
+            </Upload>
             <Input
-              placeholder="https://placehold.co/640x200/4F46E5/FFFFFF.png?text=Datawhale"
+              placeholder="或直接粘贴 https:// 开头的图片 URL"
               maxLength={500}
               allowClear
+              style={{ marginTop: 8 }}
+              onChange={(e) => form.setFieldValue('coverImage', e.target.value)}
             />
           </Form.Item>
         </Form>

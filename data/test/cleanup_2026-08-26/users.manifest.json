@@ -1,0 +1,188 @@
+{
+  "manifest_version": "v1",
+  "format": "ndjson",
+  "base_token": "T3lJbRN7LaqdQqs3AlUchCxLnKb",
+  "table_id": "tblI7XAVJsXh2lRz",
+  "rev": 504,
+  "timezone": "Asia/Shanghai",
+  "query_context": {
+    "field_scope": "all_fields",
+    "record_scope": "all_records"
+  },
+  "requested_limit": 2000,
+  "records_count": 14,
+  "page_count": 1,
+  "has_more": false,
+  "record_file": "D:\\Learning\\AI\\Datawhale\\data\\test\\cleanup_2026-08-26\\users.ndjson",
+  "record_file_size_bytes": 5836,
+  "manifest_file": "D:\\Learning\\AI\\Datawhale\\data\\test\\cleanup_2026-08-26\\users.manifest.json",
+  "columns": {
+    "city": {
+      "field_id": "fldgEfx7Li",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 7,
+        "max_length": 2
+      },
+      "example": "北京"
+    },
+    "createdAt": {
+      "field_id": "fld8yxRIdB",
+      "field_type": "created_at",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 0,
+        "min": "2026-08-20T16:44:09.000+08:00",
+        "max": "2026-08-22T09:31:55.000+08:00"
+      },
+      "example": "2026-08-20T16:44:09.000+08:00"
+    },
+    "creditScore": {
+      "field_id": "fldov4bPRs",
+      "field_type": "number",
+      "physical_type": "number|null",
+      "stats": {
+        "null_count": 13,
+        "min": 100,
+        "max": 100,
+        "avg": 100
+      },
+      "example": 100
+    },
+    "email": {
+      "field_id": "fldFPvNQiu",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 5,
+        "max_length": 19
+      },
+      "example": "org-thu@x.cn"
+    },
+    "isExternalUser": {
+      "field_id": "fldYVoGKhz",
+      "field_type": "checkbox",
+      "physical_type": "boolean",
+      "stats": {
+        "true_count": 1
+      },
+      "example": true
+    },
+    "lastLoginAt": {
+      "field_id": "fld5RaGWnK",
+      "field_type": "datetime",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 5,
+        "min": "2026-08-25T16:49:52.147+08:00",
+        "max": "2026-08-26T16:03:19.881+08:00"
+      },
+      "example": "2026-08-26T16:03:19.881+08:00"
+    },
+    "name": {
+      "field_id": "fldlUmKzdt",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 5,
+        "max_length": 12
+      },
+      "example": "方逸之"
+    },
+    "passwordHash": {
+      "field_id": "fldOWHDRtV",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 5,
+        "max_length": 60
+      },
+      "example": "$2a$10$ntz3ynyKHt6x4TWgs/NPWOS/Lp1HxfZ.241WOeqL5VK7O8kJ9CLhe"
+    },
+    "phone": {
+      "field_id": "fldNKmXJAA",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 6,
+        "max_length": 11
+      },
+      "example": "13900000000"
+    },
+    "province": {
+      "field_id": "fldBuB9ePg",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 14,
+        "max_length": 0
+      },
+      "hint": "All values are empty; type inference may be ambiguous. Avoid analyzing this column unless required."
+    },
+    "record_id": {
+      "physical_type": "string",
+      "stats": {
+        "max_length": 14
+      },
+      "example": "recvsPbTBvQgst"
+    },
+    "role": {
+      "field_id": "fldDOXtnzk",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 5,
+        "max_length": 1,
+        "avg_length": 0.6428571428571429
+      },
+      "example": [
+        "ADMIN"
+      ]
+    },
+    "school": {
+      "field_id": "fldY8u2VVP",
+      "field_type": "text",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 6,
+        "max_length": 12
+      },
+      "example": "??????"
+    },
+    "status": {
+      "field_id": "fld7f1iZl8",
+      "field_type": "select",
+      "physical_type": "array<string>",
+      "stats": {
+        "empty_count": 6,
+        "max_length": 1,
+        "avg_length": 0.5714285714285714
+      },
+      "example": [
+        "ACTIVE"
+      ]
+    },
+    "updatedAt": {
+      "field_id": "fldDmmOcdd",
+      "field_type": "updated_at",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 0,
+        "min": "2026-08-25T16:49:46.000+08:00",
+        "max": "2026-08-26T16:03:11.000+08:00"
+      },
+      "example": "2026-08-26T16:03:11.000+08:00"
+    },
+    "userId": {
+      "field_id": "fldaucZ1Xw",
+      "field_type": "auto_number",
+      "physical_type": "string|null",
+      "stats": {
+        "null_count": 0,
+        "max_length": 6
+      },
+      "example": "NO.022"
+    }
+  }
+}
