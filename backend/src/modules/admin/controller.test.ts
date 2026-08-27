@@ -84,3 +84,19 @@ describe('admin controller · Frank #3 23:35 申请者收件人消息 link', () 
     expect(s).toMatch(/link:\s*['"]\/my-applications['"]/);
   });
 });
+
+// Frank 27 19:27 反馈：活动管理页加"志愿者配置"按钮（v3）
+describe('admin controller · 活动管理页志愿者配置', () => {
+  it('GET /by-activity/:activityId 路由存在', () => {
+    expect(SRC()).toMatch(/router\.get\(['"]\/by-activity\/:activityId['"]/);
+  });
+  it('GET /by-activity/:activityId 限 ADMIN/OPERATOR', () => {
+    const s = SRC();
+    // 直接字符串查找路由声明行（避免 regex 把注释里的路径当路由）
+    const routeIdx = s.indexOf("router.get('/by-activity/:activityId'");
+    expect(routeIdx).toBeGreaterThan(0);
+    // requireRole 在路由声明的同一行（authRequired, requireRole, async）
+    const slice = s.slice(routeIdx, routeIdx + 200);
+    expect(slice).toMatch(/requireRole\(['"]ADMIN['"]\s*,\s*['"]OPERATOR['"]\)/);
+  });
+});

@@ -546,6 +546,20 @@ router.post('/:id/review-confirm', authRequired, requireRole('OPERATOR', 'ADMIN'
 // 分配志愿者（PRD §5.3.2 · v6）— ADMIN / OPERATOR 手动分配
 // =====================================================================
 
+// Frank 27 19:27 反馈：活动管理页加"志愿者配置"按钮（v3）
+// 列出该活动所有申请 + 当前分配的志愿者，让运营在活动管理页统一管理
+// GET /api/admin/applications/by-activity/:activityId
+router.get('/by-activity/:activityId', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req, res) => {
+  const { activityId } = req.params;
+  const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
+  // 列出该活动所有申请（不限状态，让运营看完整图）
+  const list = (items as ApplicationRecord[])
+    .filter((a) => a.fields.activityId === activityId)
+    .map(serialize)
+    .sort((a, b) => (b.submittedAt ?? 0) - (a.submittedAt ?? 0));
+  return ok(res, { list, total: list.length });
+});
+
 const assignSchema = z.object({
   volunteerId: z.string().min(1, '请选择志愿者'),
   remark: z.string().max(200).optional(),

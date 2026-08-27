@@ -410,6 +410,10 @@ export const adminApi = {
     api.post<{ code: 0; data: any }>(`/admin/applications/${id}/assign`, data).then((r) => r.data.data),
   listVolunteers: () =>
     api.get<{ code: 0; data: { list: Array<{ userId: string; email: string; name: string; province?: string }>; total: number } }>('/admin/applications/volunteers').then((r) => r.data.data),
+  // Frank 27 19:27 反馈：活动管理页加"志愿者配置"按钮（v3）
+  // GET /api/admin/applications/by-activity/:activityId
+  listApplicationsByActivity: (activityId: string) =>
+    api.get<{ code: 0; data: { list: any[]; total: number } }>(`/admin/applications/by-activity/${activityId}`).then((r) => r.data.data),
   // 活动管理
   listActivities: () => api.get<{ code: 0; data: { list: any[]; total: number } }>('/admin/activities').then((r) => r.data.data),
   createActivity: (data: any) => api.post<{ code: 0; data: any }>('/admin/activities', data).then((r) => r.data.data),

@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Space, Modal, Form, Input, DatePicker, TimePicker, InputNumber, Select, Cascader, message, Typography, Popconfirm, Tabs, Alert, Upload,
 } from 'antd';
-import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined, UploadOutlined, LoadingOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined, UploadOutlined, LoadingOutlined, UserAddOutlined, SwapOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import http, { adminApi } from '../../services/api';
 
@@ -59,6 +59,8 @@ export default function ActivityManager() {
   const [form] = Form.useForm();
   const [modalOpen, setModalOpen] = useState(false);
   const [filter, setFilter] = useState<string>('ALL');
+  // Frank 27 19:27 反馈：活动管理页加"志愿者配置"按钮（v3）
+  const [volunteerConfig, setVolunteerConfig] = useState<{ open: boolean; activity: Activity | null }>({ open: false, activity: null });
 
   const load = async () => {
     setLoading(true);
@@ -273,10 +275,13 @@ export default function ActivityManager() {
             { title: '规模', dataIndex: 'maxParticipants', width: 60 },
             {
               title: '操作',
-              width: 280,
+              width: 320,
               render: (_: any, a: Activity) => (
                 <Space size="small" wrap>
                   <Button size="small" icon={<EditOutlined />} onClick={() => onEdit(a)}>编辑</Button>
+                  <Button size="small" icon={<UserAddOutlined />} onClick={() => setVolunteerConfig({ open: true, activity: a })}>
+                    志愿者配置
+                  </Button>
                   {a.status !== 'PUBLISHED' && (
                     <Popconfirm title="确认上架？" onConfirm={() => onPublish(a)}>
                       <Button size="small" type="primary" icon={<CheckCircleOutlined />}>上架</Button>
@@ -493,6 +498,182 @@ export default function ActivityManager() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* Frank 27 19:27 反馈：活动管理页加"志愿者配置"按钮（v3） */}
+      <VolunteerConfigModal
+        activity={volunteerConfig.activity}
+        open={volunteerConfig.open}
+        onClose={() => setVolunteerConfig({ open: false, activity: null })}
+      />
     </div>
+  );
+}
+
+// =====================================================================
+// 志愿者配置 Modal（v3 · Frank 27 19:27 反馈）
+// 列出该活动的所有申请 + 当前志愿者，运营可手动分配/更换志愿者
+// 数据流：调 adminApi.listApplicationsByActivity 拉申请，调 adminApi.listVolunteers 拉志愿者
+// 写操作：调 adminApi.assignVolunteer（POST /:id/assign）
+// =====================================================================
+function VolunteerConfigModal({
+  activity,
+  open,
+  onClose,
+}: {
+  activity: Activity | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [apps, setApps] = useState<any[]>([]);
+  const [volunteers, setVolunteers] = useState<Array<{ userId: string; email: string; name: string; province?: string }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [pendingApp, setPendingApp] = useState<string | null>(null);
+  const [selectedVolunteer, setSelectedVolunteer] = useState<string | undefined>(undefined);
+  const [remark, setRemark] = useState('');
+
+  const load = async () => {
+    if (!activity) return;
+    setLoading(true);
+    try {
+      const [appsData, volsData] = await Promise.all([
+        adminApi.listApplicationsByActivity(activity.activityId),
+        adminApi.listVolunteers(),
+      ]);
+      setApps(appsData.list ?? []);
+      setVolunteers(volsData.list ?? []);
+    } catch (e: any) {
+      message.error(e?.response?.data?.message ?? e?.message ?? '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      setSelectedVolunteer(undefined);
+      setRemark('');
+      setPendingApp(null);
+      load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activity?.activityId]);
+
+  const onAssign = async (applicationId: string) => {
+    if (!selectedVolunteer) {
+      message.warning('请先选择志愿者');
+      return;
+    }
+    try {
+      await adminApi.assignVolunteer(applicationId, { volunteerId: selectedVolunteer, remark: remark || undefined });
+      message.success(`已分配志愿者给 ${applicationId}`);
+      setSelectedVolunteer(undefined);
+      setRemark('');
+      setPendingApp(null);
+      load();
+    } catch (e: any) {
+      message.error(e?.response?.data?.message ?? e?.message ?? '分配失败');
+    }
+  };
+
+  if (!activity) return null;
+
+  return (
+    <Modal
+      title={`志愿者配置：${activity.title}（${activity.activityId}）`}
+      open={open}
+      onCancel={onClose}
+      footer={[
+        <Button key="close" onClick={onClose}>关闭</Button>,
+      ]}
+      width={920}
+    >
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message="运营/管理员手动分配或更换志愿者。已分过志愿者会覆盖（v1 不校验省份/负载，按团队需要分配）。"
+      />
+      <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ color: '#6B7280', fontSize: 13 }}>选择志愿者：</span>
+        <Select
+          placeholder="选一个志愿者（会作用于待分配的申请行）"
+          style={{ minWidth: 220 }}
+          value={selectedVolunteer}
+          onChange={setSelectedVolunteer}
+          options={volunteers.map((v) => ({
+            value: v.userId,
+            label: `${v.name}（${v.province ?? '无省份'} · ${v.email}）`,
+          }))}
+          allowClear
+        />
+        <Input
+          placeholder="备注（可选）"
+          value={remark}
+          onChange={(e) => setRemark(e.target.value)}
+          maxLength={200}
+          style={{ width: 200 }}
+        />
+      </div>
+      <Table
+        size="small"
+        rowKey="applicationId"
+        loading={loading}
+        dataSource={apps}
+        pagination={false}
+        locale={{ emptyText: '该活动暂无申请' }}
+        columns={[
+          { title: '申请号', dataIndex: 'applicationNo', width: 140 },
+          { title: '申请人', dataIndex: 'organizerName', width: 110 },
+          {
+            title: '状态',
+            dataIndex: 'status',
+            width: 100,
+            render: (s: string) => {
+              const map: Record<string, { label: string; color: string }> = {
+                SCREENING: { label: '待审批', color: 'gold' },
+                CONFIRMED: { label: '已通过', color: 'green' },
+                REJECTED: { label: '已拒绝', color: 'red' },
+                WITHDRAWN: { label: '已撤回', color: 'default' },
+              };
+              const d = map[s] ?? { label: s, color: 'default' };
+              return <Tag color={d.color}>{d.label}</Tag>;
+            },
+          },
+          { title: '评分', dataIndex: 'score', width: 70, render: (s: number) => s ?? '—' },
+          {
+            title: '当前志愿者',
+            dataIndex: 'volunteerId',
+            width: 150,
+            render: (vid: string, row: any) => {
+              if (!vid) return <Text type="secondary">未分配</Text>;
+              const v = volunteers.find((vv) => vv.userId === vid);
+              return (
+                <Space size={4}>
+                  <Tag color="blue">{v?.name ?? vid}</Tag>
+                  {v?.province && <Text type="secondary" style={{ fontSize: 12 }}>· {v.province}</Text>}
+                </Space>
+              );
+            },
+          },
+          {
+            title: '操作',
+            width: 160,
+            render: (_: any, row: any) => (
+              <Space size={4}>
+                <Button
+                  size="small"
+                  type={row.volunteerId ? 'default' : 'primary'}
+                  icon={row.volunteerId ? <SwapOutlined /> : <UserAddOutlined />}
+                  disabled={!selectedVolunteer || pendingApp === row.applicationId}
+                  onClick={() => onAssign(row.applicationId)}
+                >
+                  {row.volunteerId ? '更换' : '分配'}
+                </Button>
+              </Space>
+            ),
+          },
+        ]}
+      />
+    </Modal>
   );
 }
