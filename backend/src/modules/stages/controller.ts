@@ -336,15 +336,23 @@ router.post('/stages/:taskId/submit', authRequired, async (req: Request, res: Re
   if (!t) return fail(res, 404, ErrorCode.NOT_FOUND, '任务不存在');
 
   // v1.2 Frank 27 21:40 反馈：资源所有权检查（org-thu 改 NO.018 bug）
-  // submit 是组织者操作 → 仅 app.userId（活动组织者本人） + ADMIN/OPERATOR
+  // v1.3 Frank 27 23:50 TDD 迭代：submit 路由根据 ownerType 选 stakeholder（不是写死组织者）
+  //  - ownerType=ORGANIZER → 仅 app.userId（活动组织者本人） + ADMIN/OPERATOR
+  //  - ownerType=VOLUNTEER → 仅 app.volunteerId（对接志愿者本人） + ADMIN/OPERATOR
+  //  - 这是 volunteer-first 流程的 step1（INT-1/INT-4/REVIEW-3 志愿者先完成）
   const submitAppRecs = await feishuClient.searchRecords(
     config.feishu.tables.applications,
     'applicationId',
     t.fields.applicationId!
   );
   const submitApp = submitAppRecs[0] as any;
-  if (!isAppOrganizerOrAdmin(submitApp, userId, role)) {
-    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该活动的组织者、运营或管理员可提交凭证');
+  const submitOwnerType = normStatus(t.fields.ownerType);
+  const submitHasStakeholder = submitOwnerType === 'VOLUNTEER'
+    ? isAppVolunteerOrAdmin(submitApp, userId, role)
+    : isAppOrganizerOrAdmin(submitApp, userId, role);
+  if (!submitHasStakeholder) {
+    const stakeholderLabel = submitOwnerType === 'VOLUNTEER' ? '对接志愿者' : '组织者';
+    return fail(res, 403, ErrorCode.FORBIDDEN, `仅该活动的${stakeholderLabel}、运营或管理员可提交凭证`);
   }
 
   const currentStatus = normStatus(t.fields.status);
