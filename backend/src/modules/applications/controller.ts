@@ -406,13 +406,19 @@ router.post('/:id/notify-volunteer-review', authRequired, async (req: Request, r
 // 隐私策略：志愿者需要联系申请者 → 完整显示手机/邮箱（Frank 8-22 v1 测试 Frank 一人 7 角色）
 router.get('/:id', authRequired, async (req: Request, res: Response) => {
   const { id } = req.params;
-  const records = await feishuClient.searchRecords(
-    config.feishu.tables.applications,
-    'applicationId',
-    id
-  );
+  // Frank 27 15:05：飞书搜索索引有延迟（提交后立即查 applicationId 字段会 404）
+  // 多字段 fallback：先 applicationId（auto_number）→ 失败再 applicationNo（text）
+  let records: any[] = [];
+  for (const field of ['applicationId', 'applicationNo']) {
+    records = await feishuClient.searchRecords(
+      config.feishu.tables.applications,
+      field,
+      id
+    );
+    if (records.length > 0) break;
+  }
   const a = records[0] as ApplicationRecord | undefined;
-  if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在');
+  if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在或飞书索引尚未追上，请稍后再试');
   // 权限：自己 / 志愿者 / 运营可看（v12 扩展志愿者可见）
   if (a.fields.userId !== req.user!.userId && !['ADMIN', 'OPERATOR', 'VOLUNTEER'].includes(req.user!.role)) {
     return fail(res, 403, ErrorCode.FORBIDDEN, '无权查看');
