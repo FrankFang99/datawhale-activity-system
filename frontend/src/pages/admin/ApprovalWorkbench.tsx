@@ -1,16 +1,27 @@
 /**
- * 运营后台：审批工作台（切片 3）
+ * 运营后台：审批工作台（切片 3 · Frank 27 16:42 v3）
  * PRD §4.2.2 + AC4
+ *
+ * v3 修订（Frank 27 16:42 反馈 Comment 1）：
+ * - 详情 Drawer 用共享组件 ApplicationDetailBody，跟 /applications/:id 详情页对齐
+ * - 删"高风险字段"Alert（v17.1 同步）
+ * - 删"基本信息"二级 Title + 单独的申请动机/价值/经验 Card
+ *   统一走 ApplicationDetailBody 的 6 维评分 Card 网格 + 申请原文 tab
+ * - Drawer 标题改 "申请详情 NO.XXX"（去掉冗余 ID 描述）
+ * - 后端 GET /api/admin/applications/:id 加 3 重搜索 fallback + activityTitle 字段
+ *
+ * v1.2 修复：Tabs 区分 SCREENING（初审）/ REVIEW（复审）两种待审状态
  */
 import { useEffect, useState } from 'react';
 import {
-  Table, Tag, Button, Space, Modal, Input, Form, message, Typography, Card, Descriptions, Spin, Alert, Drawer, Tabs, Select,
+  Table, Tag, Button, Space, Modal, Input, Form, message, Typography, Card, Spin, Alert, Drawer, Tabs, Select,
 } from 'antd';
 import { CheckOutlined, CloseOutlined, RollbackOutlined, SwapOutlined, EyeOutlined, RobotOutlined, ThunderboltOutlined, UserAddOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import http, { adminApi } from '../../services/api';
 import { authStore } from '../../store/auth';
 import PageHeader from '../../components/PageHeader';
+import ApplicationDetailBody from '../../components/ApplicationDetailBody';
 
 
 const { Title, Text, Paragraph } = Typography;
@@ -282,128 +293,9 @@ export default function ApprovalWorkbench() {
         <Spin spinning={detailLoading}>
           {detailDrawer.data && (
             <div>
-              <Descriptions column={1} bordered size="small" style={{ marginBottom: 16 }}>
-                <Descriptions.Item label="申请编号">{detailDrawer.data.applicationNo}</Descriptions.Item>
-                <Descriptions.Item label="申请人">{detailDrawer.data.organizerName}</Descriptions.Item>
-                <Descriptions.Item label="联系手机">{detailDrawer.data.organizerPhone || '—'}</Descriptions.Item>
-                <Descriptions.Item label="联系邮箱">{detailDrawer.data.organizerEmail || '—'}</Descriptions.Item>
-                <Descriptions.Item label="活动 ID"><Text code>{detailDrawer.data.activityId}</Text></Descriptions.Item>
-                <Descriptions.Item label="状态"><Tag color={detailDrawer.data.statusColor}>{detailDrawer.data.statusLabel}</Tag></Descriptions.Item>
-                <Descriptions.Item label="AI 评分">
-                  <Space>
-                    <strong style={{ color: '#3370FF' }}>{detailDrawer.data.score}</strong>
-                    {detailDrawer.data.grade && <Tag color={detailDrawer.data.gradeColor}>{detailDrawer.data.gradeLabel}</Tag>}
-                  </Space>
-                </Descriptions.Item>
-              </Descriptions>
-
-              {detailDrawer.data.riskFlags && (detailDrawer.data.riskFlags.motivationShort || detailDrawer.data.riskFlags.experienceShort) && (
-                <Alert
-                  style={{ marginBottom: 16 }}
-                  type="warning"
-                  showIcon
-                  message="高风险字段"
-                  description={
-                    <ul style={{ margin: 0, paddingLeft: 20 }}>
-                      {detailDrawer.data.riskFlags.motivationShort && <li>申请动机内容过短（&lt;30 字）</li>}
-                      {detailDrawer.data.riskFlags.experienceShort && <li>组织经验内容过短（&lt;20 字）</li>}
-                    </ul>
-                  }
-                />
-              )}
-
-              <Tabs
-                defaultActiveKey="original"
-                items={[
-                  {
-                    key: 'original',
-                    label: '📋 申请原文',
-                    children: (
-                      <div>
-                        <Title level={5}>基本信息</Title>
-                        <Descriptions column={1} bordered size="small">
-                          <Descriptions.Item label="活动地点">{detailDrawer.data.location || '—'}</Descriptions.Item>
-                          <Descriptions.Item label="计划日期">
-                            {detailDrawer.data.expectedDate ? new Date(detailDrawer.data.expectedDate).toLocaleString('zh-CN') : '—'}
-                          </Descriptions.Item>
-                          <Descriptions.Item label="场地状态"><Tag color={detailDrawer.data.venueStatus === '已确定' ? 'green' : 'gold'}>{detailDrawer.data.venueStatus || '—'}</Tag></Descriptions.Item>
-                          <Descriptions.Item label="招募渠道">
-                            <Space size={4} wrap>
-                              {(detailDrawer.data.recruitChannel ?? []).map((ch: string) => (
-                                <Tag key={ch} color="blue">{ch}</Tag>
-                              ))}
-                            </Space>
-                          </Descriptions.Item>
-                        </Descriptions>
-                        <Title level={5} style={{ marginTop: 16 }}>申请动机</Title>
-                        <Card size="small" style={{ background: '#F5F8FF' }}>
-                          <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                            {detailDrawer.data.motivation || '（未填写）'}
-                          </Paragraph>
-                        </Card>
-                        <Title level={5} style={{ marginTop: 16 }}>对参与者的价值</Title>
-                        <Card size="small" style={{ background: '#F5F8FF' }}>
-                          <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                            {detailDrawer.data.participantValue || '（未填写）'}
-                          </Paragraph>
-                        </Card>
-                        <Title level={5} style={{ marginTop: 16 }}>组织经验</Title>
-                        <Card size="small" style={{ background: '#F5F8FF' }}>
-                          <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                            {detailDrawer.data.experience || '（未填写）'}
-                          </Paragraph>
-                        </Card>
-                      </div>
-                    ),
-                  },
-                  {
-                    key: 'ai',
-                    label: '🤖 AI 评分',
-                    children: (
-                      <div>
-                        {detailDrawer.data.scoreBreakdown ? (
-                          <Tabs
-                            size="small"
-                            tabPosition="top"
-                            items={[
-                              { key: 'RC001', label: '场地 (RC001)', children: <DimensionPanel data={detailDrawer.data.scoreBreakdown.RC001} max={20} /> },
-                              { key: 'RC002', label: '招募 (RC002)', children: <DimensionPanel data={detailDrawer.data.scoreBreakdown.RC002} max={20} /> },
-                              { key: 'RC003', label: '经验 (RC003)', children: <DimensionPanel data={detailDrawer.data.scoreBreakdown.RC003} max={25} /> },
-                              { key: 'RC004', label: '时间 (RC004)', children: <DimensionPanel data={detailDrawer.data.scoreBreakdown.RC004} max={15} /> },
-                              { key: 'RC005', label: '价值 (RC005)', children: <DimensionPanel data={detailDrawer.data.scoreBreakdown.RC005} max={20} /> },
-                            ]}
-                          />
-                        ) : (
-                          <Text type="secondary">暂无评分数据</Text>
-                        )}
-                      </div>
-                    ),
-                  },
-                  {
-                    key: 'log',
-                    label: '📜 审核日志',
-                    children: (
-                      <div>
-                        {detailDrawer.data.auditLog && detailDrawer.data.auditLog.length > 0 ? (
-                          detailDrawer.data.auditLog.map((log: any, i: number) => (
-                            <Card key={i} size="small" style={{ marginBottom: 8 }}>
-                              <Space>
-                                <Tag color="blue">{log.action}</Tag>
-                                <Text type="secondary">{new Date(log.at).toLocaleString('zh-CN')}</Text>
-                                {log.operatorId && <Tag color="default">操作人: {log.operatorId}</Tag>}
-                              </Space>
-                              {log.fromStatus && <div style={{ marginTop: 4, fontSize: 12 }}>{log.fromStatus} → {log.toStatus}</div>}
-                              {log.comment && <Paragraph style={{ margin: '4px 0 0' }}>{log.comment}</Paragraph>}
-                            </Card>
-                          ))
-                        ) : (
-                          <Text type="secondary">暂无审核记录</Text>
-                        )}
-                      </div>
-                    ),
-                  },
-                ]}
-              />
+              {/* Frank 27 16:42 反馈 Comment 1：审批工作台 Drawer 跟 /applications/:id 详情页对齐
+                  用共享组件 ApplicationDetailBody */}
+              <ApplicationDetailBody data={detailDrawer.data} />
 
               {/* AI 草拟意见按钮（v6） */}
               <Card
@@ -523,30 +415,6 @@ export default function ApprovalWorkbench() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
-  );
-}
-
-function DimensionPanel({ data, max }: { data: any; max: number }) {
-  if (!data) return <Text type="secondary">无数据</Text>;
-  return (
-    <div>
-      <Title level={4} style={{ margin: 0, color: '#3370FF' }}>{data.score} <Text type="secondary" style={{ fontSize: 14 }}>/ {max}</Text></Title>
-      <Paragraph style={{ marginTop: 8 }}>{data.reason}</Paragraph>
-      {data.hitKeywords && (
-        <div style={{ marginTop: 4 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>命中关键词：</Text>
-          {data.hitKeywords.map((kw: string) => (
-            <Tag key={kw} color="blue" style={{ marginLeft: 4 }}>{kw}</Tag>
-          ))}
-        </div>
-      )}
-      {data.input && (
-        <div style={{ marginTop: 4 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>输入：</Text>
-          <Text code>{data.input}</Text>
-        </div>
-      )}
     </div>
   );
 }

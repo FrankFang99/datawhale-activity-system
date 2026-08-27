@@ -108,6 +108,9 @@ function serialize(a: ApplicationRecord) {
     applicationId: a.fields.applicationId,
     applicationNo: a.fields.applicationNo,
     activityId: a.fields.activityId,
+    // Frank 27 16:22 反馈：详情页显示活动名而不是 ID（前端从 dw_activities 查 title）
+    //   跟 /api/applications/:id 对齐：admin 路由也返回 activityTitle
+    activityTitle: null as string | null,  // 由 GET /:id 路由单独查后塞入
     userId: a.fields.userId,
     organizerName: a.fields.organizerName,
     status,
@@ -119,9 +122,15 @@ function serialize(a: ApplicationRecord) {
     gradeColor: GRADE_MAP[a.fields.grade ?? '']?.color,
     submittedAt: a.fields.submittedAt,
     volunteerId: a.fields.volunteerId,
+    volunteerName: a.fields.volunteerName ?? null,
+    applicantRole: a.fields.applicantRole,
+    applicantIdentity: a.fields.applicantIdentity,
+    currentCity: a.fields.currentCity,
     organizerPhone: a.fields.organizerPhone,
     organizerEmail: a.fields.organizerEmail,
     expectedDate: a.fields.expectedDate,
+    // Frank 27 16:42 反馈：宽泛时间字符串（多日期用「,」分隔）
+    expectedTimeRange: a.fields.expectedTimeRange ?? null,
     // v1.2 Frank 27 09:49 反馈：申请时的精确时间段和地址
     expectedStartTime: a.fields.expectedStartTime,
     expectedEndTime: a.fields.expectedEndTime,
@@ -130,6 +139,7 @@ function serialize(a: ApplicationRecord) {
     motivation: a.fields.motivation,
     participantValue: a.fields.participantValue,
     experience: a.fields.experience,
+    resources: a.fields.resources,
     venueStatus: normStatus(a.fields.venueStatus),
     recruitChannel: Array.isArray(a.fields.recruitChannel)
       ? a.fields.recruitChannel
@@ -178,26 +188,52 @@ router.get('/review-pending', authRequired, requireRole('OPERATOR', 'ADMIN'), as
 });
 
 // GET /api/admin/applications/:id
+// Frank 27 16:22 反馈：审批工作台 Drawer 跟 /applications/:id 详情页对齐
+//   - 加 3 重搜索 fallback（飞书索引 100ms-2min 延迟，避免 404）
+//   - 查 dw_activities 拿 activityTitle
+//   - 删 riskFlags（Frank 16:22 反馈：整块不显示）
 router.get('/:id', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), async (req, res) => {
   const { id } = req.params;
-  const records = await feishuClient.searchRecords(
-    config.feishu.tables.applications,
-    'applicationId',
-    id
-  );
+  // Frank 27 15:05 反馈：飞书搜索索引有延迟
+  // 3 重 fallback：applicationId → applicationNo → 整表 list 内存过滤
+  let records: any[] = [];
+  for (const field of ['applicationId', 'applicationNo']) {
+    records = await feishuClient.searchRecords(
+      config.feishu.tables.applications,
+      field,
+      id
+    );
+    if (records.length > 0) break;
+  }
+  if (records.length === 0) {
+    const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 500 });
+    records = items.filter((r: any) =>
+      r.fields.applicationId === id ||
+      r.fields.applicationNo === id ||
+      r.record_id === id
+    );
+  }
   const a = records[0] as ApplicationRecord | undefined;
-  if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在');
+  if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在或飞书索引尚未追上，请稍后再试');
+
+  // 查 dw_activities 拿 activityTitle（兜底 list 200 条内存过滤）
+  let activityTitle: string | null = null;
+  try {
+    const act = await feishuClient.searchRecords(config.feishu.tables.activities, 'activityId', a.fields.activityId);
+    if (act.length > 0) {
+      activityTitle = act[0].fields.title ?? null;
+    }
+  } catch { /* 容错 */ }
 
   let breakdown: any = null;
   try {
     if (a.fields.scoreBreakdown) breakdown = JSON.parse(a.fields.scoreBreakdown);
   } catch { /* ignore */ }
 
-  const motivation = (breakdown?.RC005?.length ?? 0) > 0 ? 'OK' : 'short';
-  const experience = (breakdown?.RC003?.length ?? 0) > 0 ? 'OK' : 'short';
-
+  const baseSerialized = serialize(a);
   return ok(res, {
-    ...serialize(a),
+    ...baseSerialized,
+    activityTitle,
     scoreBreakdown: breakdown,
     scoreDetails: (() => {
       try {
@@ -207,10 +243,7 @@ router.get('/:id', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), 
       }
     })(),
     auditLog: getAuditLog(a.fields.scoreBreakdown),
-    riskFlags: {
-      motivationShort: motivation === 'short',
-      experienceShort: experience === 'short',
-    },
+    // Frank 27 16:22 反馈：删 riskFlags（整块不显示）
   });
 });
 
