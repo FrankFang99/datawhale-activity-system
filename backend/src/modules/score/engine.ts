@@ -17,7 +17,9 @@ export interface ScoreInput {
   venueStatus: '已确定' | '有潜在' | '暂无';
   recruitChannel: string[]; // 5 选多
   experience?: string;
-  expectedDate: number;     // ms timestamp
+  // Frank 27 12:50：申请时只填宽泛时间段，expectedTimeRange 字符串（如「2026 年 9 月」）
+  expectedTimeRange?: string;  // 宽泛时间字符串
+  expectedDate?: number;        // 兼容历史数据
   activityStartDate: number;
   activityEndDate: number;
   motivation: string;
@@ -131,12 +133,17 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
 
 // ===== RC-004 时间合理性 =====
 function scoreDate(input: ScoreInput): ScoreBreakdown['RC004'] {
+  // Frank 27 12:50：宽泛时间（expectedTimeRange 字符串）只判断是否认真填了
+  const tr = (input.expectedTimeRange ?? '').trim();
+  if (tr) {
+    // 填了宽泛时间 → 12 分（比精确日期 15 分少点，宽泛信息少）
+    return { score: 12, max: 15, reason: `已填写宽泛时间「${tr}」`, input: tr };
+  }
+  // 兼容历史：精确日期
   const d = input.expectedDate;
   if (!d) return { score: 0, max: 15, reason: '未提供有效活动时间', input: '' };
-
   const start = input.activityStartDate;
   const end = input.activityEndDate;
-  // 精确日期是否在活动周期内
   if (start && end && d >= start && d <= end + 24 * 3600 * 1000) {
     return { score: 15, max: 15, reason: '活动时间在周期内，安排合理', input: new Date(d).toISOString().slice(0, 10) };
   }

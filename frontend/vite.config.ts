@@ -27,6 +27,11 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      // Frank 27 12:50：本地图片存在后端 /uploads 路径，vite dev 代理过去
+      '/uploads': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
   preview: {

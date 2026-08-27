@@ -192,28 +192,13 @@ describe('申请提交 · validateActivityForApply 活动校验', () => {
   });
 });
 
-describe('申请提交 · validateExpectedDate 日期校验', () => {
+describe('申请提交 · validateExpectedDate（Frank 27 12:50 改：宽泛时间不需要具体日期校验）', () => {
   const now = 1700000000000;  // 2023-11-14
 
-  it('expectedDate 提前 7 天 → ok', () => {
-    const r = validateExpectedDate(now + 7 * 24 * 3600 * 1000, now);
-    expect(r).toEqual({ ok: true });
-  });
-
-  it('expectedDate 提前 6 天 → 失败', () => {
-    const r = validateExpectedDate(now + 6 * 24 * 3600 * 1000, now);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe('APP_002_INVALID_DATE');
-  });
-
-  it('expectedDate 已过去 → 失败', () => {
-    const r = validateExpectedDate(now - 1000, now);
-    expect(r.ok).toBe(false);
-  });
-
-  it('expectedDate 提前 30 天 → ok', () => {
-    const r = validateExpectedDate(now + 30 * 24 * 3600 * 1000, now);
-    expect(r).toEqual({ ok: true });
+  it('任何日期都通过（宽泛时间不需要校验）', () => {
+    expect(validateExpectedDate(now + 7 * 24 * 3600 * 1000, now)).toEqual({ ok: true });
+    expect(validateExpectedDate(now + 6 * 24 * 3600 * 1000, now).ok).toBe(true);
+    expect(validateExpectedDate(now - 1000, now).ok).toBe(true);
   });
 
   it('MIN_LEAD_DAYS = 7', () => {
@@ -228,7 +213,9 @@ describe('申请提交 · APPLICATION_SCHEMA 字段校验', () => {
       organizerName: '张三',
       organizerPhone: '13800138000',
       organizerEmail: 'a@b.cn',
-      expectedDate: Date.now() + 14 * 86400000,
+      expectedTimeRange: '2026 年 9 月',
+      applicantIdentity: '在校',
+      currentCity: '北京',
       location: '北京',
       motivation: '推动 AI 教育进校园',
       participantValue: '希望参与者能做出 AI 作品',

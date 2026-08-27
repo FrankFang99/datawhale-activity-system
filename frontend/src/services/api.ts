@@ -104,7 +104,10 @@ export interface ApplicationInput {
   organizerName: string;
   organizerPhone: string;
   organizerEmail: string;
-  expectedDate: number;
+  // Frank 27 12:50：宽泛时间段（月份/季度）+ 身份 + 现居地
+  expectedTimeRange: string;
+  applicantIdentity: '在校' | '在职' | '自由职业' | '其他';
+  currentCity: string;
   location: string;
   motivation: string;
   participantValue: string;

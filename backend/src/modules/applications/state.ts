@@ -15,7 +15,11 @@ export const APPLICATION_SCHEMA = z.object({
   organizerName: z.string().min(1).max(20),
   organizerPhone: z.string().regex(/^1\d{10}$/, '请填写 11 位手机号'),
   organizerEmail: z.string().email(),
-  expectedDate: z.number().int().positive(),
+  // Frank 27 12:50 反馈：宽泛时间段（月份/季度），不强制具体日期
+  expectedTimeRange: z.string().min(1).max(100),
+  // Frank 27 12:50 反馈：基础信息增加身份 + 现居地
+  applicantIdentity: z.enum(['在校', '在职', '自由职业', '其他']),
+  currentCity: z.string().min(1).max(50),
   location: z.string().min(1).max(100),  // 模糊地区（保留给报名者了解）
   motivation: z.string().min(1).max(500),
   participantValue: z.string().min(1).max(500),
@@ -136,11 +140,7 @@ export function validateActivityForApply(activity: ActivityLite | undefined, now
   return { ok: true };
 }
 
-// 日期前置条件
-export function validateExpectedDate(expectedDate: number, now: number, minLeadDays: number = MIN_LEAD_DAYS): { ok: true } | { ok: false; code: string; message: string } {
-  const minDate = now + minLeadDays * 24 * 3600 * 1000;
-  if (expectedDate < minDate) {
-    return { ok: false, code: 'APP_002_INVALID_DATE', message: `活动日期需提前 ${minLeadDays} 天以上申请` };
-  }
+// Frank 27 12:50：宽泛时间段不需要具体日期校验（保留 MIN_LEAD_DAYS 给后续使用）
+export function validateExpectedDate(_expectedDate: number, _now: number, _minLeadDays: number = MIN_LEAD_DAYS): { ok: true } | { ok: false; code: string; message: string } {
   return { ok: true };
 }

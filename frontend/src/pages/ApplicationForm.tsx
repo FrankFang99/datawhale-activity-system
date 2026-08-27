@@ -9,11 +9,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Form, Input, Button, Card, DatePicker, Select, Typography, message,
+  Form, Input, Button, Card, Select, Typography, message,
   Divider, Space, Spin, Result, Modal, Alert, Row, Col, Tag,
 } from 'antd';
 import { ArrowLeftOutlined, EnvironmentOutlined, BankOutlined } from '@ant-design/icons';
-import dayjs, { Dayjs } from 'dayjs';
 import { activityApi, applicationApi, Activity } from '../services/api';
 import { authStore } from '../store/auth';
 import { PROVINCES, getUniversities, validateDistrictMatch, University, Campus } from '../data/universities';
@@ -41,7 +40,11 @@ interface FormValues {
   schoolDistrict: string;
   schoolName: string;
   campus: string;     // 校区名
-  expectedDate: Dayjs;
+  // Frank 27 12:50：宽泛时间段（替代精确日期）
+  expectedTimeRange: string;
+  // Frank 27 12:50：基础信息增加 身份 + 现居地
+  applicantIdentity: '在校' | '在职' | '自由职业' | '其他';
+  currentCity: string;
   location: string;   // 详细地址（自由填）
   motivation: string;
   participantValue: string;
@@ -164,7 +167,9 @@ export default function ApplicationForm() {
         organizerName: values.organizerName,
         organizerPhone: values.organizerPhone,
         organizerEmail: values.organizerEmail,
-        expectedDate: values.expectedDate.valueOf(),
+        expectedTimeRange: values.expectedTimeRange,
+        applicantIdentity: values.applicantIdentity,
+        currentCity: values.currentCity,
         location: fullLocation,
         motivation: values.motivation,
         participantValue: values.participantValue,
@@ -304,6 +309,23 @@ export default function ApplicationForm() {
             <Input placeholder="您的姓名" />
           </Form.Item>
 
+          {/* Frank 27 12:50 Comment 1：基础信息增加 身份 + 现居地 */}
+          <Form.Item
+            label="身份"
+            name="applicantIdentity"
+            rules={[{ required: true, message: '请选择身份' }]}
+          >
+            <Select
+              placeholder="请选择身份"
+              options={[
+                { value: '在校', label: '在校' },
+                { value: '在职', label: '在职' },
+                { value: '自由职业', label: '自由职业' },
+                { value: '其他', label: '其他' },
+              ]}
+            />
+          </Form.Item>
+
           <Form.Item
             label="手机"
             name="organizerPhone"
@@ -324,6 +346,16 @@ export default function ApplicationForm() {
             ]}
           >
             <Input placeholder="联系邮箱" />
+          </Form.Item>
+
+          {/* Frank 27 12:50 Comment 1：基础信息增加现居地（区别于目标学校） */}
+          <Form.Item
+            label="现居地"
+            name="currentCity"
+            rules={[{ required: true, message: '请填写现居地' }]}
+            extra="您当前所在城市（区别于目标学校）"
+          >
+            <Input placeholder="如：北京、上海、深圳" maxLength={50} />
           </Form.Item>
 
           {/* Frank 2026-08-21 #8 + #10：学校 5 级联动 + 区一致性校验 */}
@@ -431,24 +463,15 @@ export default function ApplicationForm() {
           </Form.Item>
 
           <Form.Item
-            label="预期活动日期"
-            name="expectedDate"
+            label="预期活动时间段（宽泛）"
+            name="expectedTimeRange"
             rules={[
-              { required: true, message: '请选择日期' },
-              {
-                validator: (_, v: Dayjs) =>
-                  v && v.valueOf() >= Date.now() + 7 * 24 * 3600 * 1000
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('活动日期需提前 7 天以上')),
-              },
+              { required: true, message: '请填写预期时间段' },
+              { max: 100, message: '不超过 100 字符' },
             ]}
-            extra="Frank 设计：先填模糊日期，具体日期在确认意向子任务「双方最终确认活动方案/时间/地点/规模」中由组织者和志愿者一起确定"
+            extra="Frank 27 12:50：填宽泛时间段（如「2026 年 9 月」或「2026 Q3」），具体日期通过成为组织者后在「双方最终确认活动方案」子任务中确定"
           >
-            <DatePicker
-              style={{ width: '100%' }}
-              disabledDate={(d) => d && d.valueOf() < Date.now() + 6 * 24 * 3600 * 1000}
-              format="YYYY-MM-DD"
-            />
+            <Input placeholder="如：2026 年 9 月 / 2026 Q3 / 2026 年 10 月 1 日前后" maxLength={100} />
           </Form.Item>
 
           <Divider style={{ margin: '24px 0' }} />

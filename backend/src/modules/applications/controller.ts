@@ -69,11 +69,11 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
     return fail(res, 400, code, activityCheck.message);
   }
 
-  // 2. 日期校验（v7 调纯函数）
-  const dateCheck = validateExpectedDate(data.expectedDate, Date.now());
-  if (!dateCheck.ok) {
-    return fail(res, 400, ErrorCode.APP_002_INVALID_DATE, dateCheck.message);
-  }
+  // 2. 日期校验（v7 调纯函数）— Frank 27 12:50 改：宽泛时间不需要具体日期校验
+  // const dateCheck = validateExpectedDate(data.expectedDate, Date.now());
+  // if (!dateCheck.ok) {
+  //   return fail(res, 400, ErrorCode.APP_002_INVALID_DATE, dateCheck.message);
+  // }
 
   // 3. 重复申请检查（v7 调纯函数 + 飞书查询）
   const allApps = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
@@ -93,7 +93,9 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
       venueStatus: data.venueStatus,
       recruitChannel: data.recruitChannel,
       experience: data.experience,
-      expectedDate: data.expectedDate,
+      // Frank 27 12:50：宽泛时间
+      expectedTimeRange: data.expectedTimeRange,
+      expectedDate: data.expectedDate ?? Date.now() + 60 * 24 * 3600 * 1000,
       activityStartDate: activity.fields.startDate ?? Date.now(),
       activityEndDate: activity.fields.endDate ?? Date.now() + 30 * 24 * 3600 * 1000,
       motivation: data.motivation,
@@ -140,7 +142,12 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
     organizerName: data.organizerName,
     organizerPhone: data.organizerPhone,
     organizerEmail: data.organizerEmail,
-    expectedDate: data.expectedDate,
+    // Frank 27 12:50 改：宽泛时间 + 身份 + 现居地
+    expectedTimeRange: data.expectedTimeRange,
+    applicantIdentity: data.applicantIdentity,
+    currentCity: data.currentCity,
+    // expectedDate 保留字段存 null（飞书表 datetime 必填，宽泛时间用 expectedTimeRange）
+    expectedDate: null,
     location: data.location,
     motivation: data.motivation,
     experience: data.experience ?? '',
