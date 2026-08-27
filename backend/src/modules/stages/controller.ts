@@ -93,8 +93,8 @@ const SUBTASK_TEMPLATES: Array<{
 }> = [
   // INTENT 阶段（v13 Frank 14:12 反馈 Comment 3/4/5）
   { stage: 'INTENT', order: 1, subTaskName: '志愿者和组织者互加飞书好友', ownerType: 'VOLUNTEER', proofHint: '好友关系建立截图' },
-  // Comment 3：加"阅读并确认行动指南"（带飞书文档链接，组织者打勾）
-  { stage: 'INTENT', order: 2, subTaskName: '阅读并确认行动指南', ownerType: 'ORGANIZER', proofHint: '飞书文档 https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1（已读 + 确认）' },
+  // Comment 3 + Frank 27 21:07 改：志愿者先确认 → 组织者后确认
+  { stage: 'INTENT', order: 2, subTaskName: '阅读并确认行动指南', ownerType: 'VOLUNTEER', proofHint: '飞书文档 https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1 · 志愿者先确认（提交 step1）→ 组织者后确认（提交 step2）' },
   // Comment 4：改 ownerType 为组织者，填空表单（时间+地点+规模）同步飞书 base
   { stage: 'INTENT', order: 3, subTaskName: '双方最终确认活动方案/时间/地点/规模', ownerType: 'ORGANIZER', proofHint: '组织者填写具体时间（必填到日，几点到几点可选）、具体地点、预计规模 → 同步飞书 base' },
   // Comment 5：志愿者添加日历后，组织者确认打勾（ownerType 改 ORGANIZER）
