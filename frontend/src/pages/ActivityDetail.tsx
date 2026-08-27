@@ -31,7 +31,8 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 const STAGES = [
   { stage: 'INTENT' as const,  title: '确认意向', desc: 'T-10' },
   { stage: 'RECRUIT' as const, title: '对外招募', desc: 'T-7' },
-  { stage: 'PREPARE' as const, title: '现场筹备', desc: 'T-3' },
+  // v1.2 Frank 2026-08-27：8-25 STAGE_TEMPLATES PREPARE daysBeforeStart=5（T-5，不是 T-3）
+  { stage: 'PREPARE' as const, title: '现场筹备', desc: 'T-5' },
   { stage: 'EXECUTE' as const, title: '活动执行', desc: 'T' },
   { stage: 'REVIEW' as const,  title: '活动复盘', desc: 'T+3' },
 ];
@@ -338,46 +339,93 @@ export default function ActivityDetail() {
           </Card>
         )}
 
-        {/* v1.2 Frank 2026-08-27 反馈：完全按 8-25 交付版
-            5 阶段时间轴只在 !isPending 时显示（PENDING = 已上架但没组织者）
-            子任务卡片只在 !isPending && canViewSubTasks && appId 时显示（CONFIRMED 才有 appId）
-            19 子任务由 CONFIRMED 时 initializeStageTasks 从 SUBTASK_TEMPLATES 实例化到 dw_stage_tasks
-            （不是预设到 dw_activities.stages 字段）*/}
-        {!isPending && (
-          <>
-            <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
-            <Segmented
-              block
-              value={selectedStage}
-              onChange={(v) => {
-                const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
-                setSelectedStage(s);
-                loadTasksForStage(s);
-              }}
-              options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
-              style={{ marginBottom: 16 }}
-            />
-          </>
-        )}
+        {/* v1.2 Frank 2026-08-27 反馈：没组织者时也展示 5 阶段 + 19 子任务模板（按 Frank 27 反馈加回 always-on）
+            数据源：前端代码 STAGE_TEMPLATES_FRANK（不预设到 dw_activities.stages 字段，跟 8-25 后端 SUBTASK_TEMPLATES 字符级一致）
+            CONFIRMED 后再额外展示子任务实例（来自 dw_stage_tasks） */}
+        <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
+        <Segmented
+          block
+          value={selectedStage}
+          onChange={(v) => {
+            const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
+            setSelectedStage(s);
+            if (!isPending) loadTasksForStage(s);
+          }}
+          options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
+          style={{ marginBottom: 16 }}
+        />
 
+        {/* 阶段子任务模板预览（always-on · 所有用户可见，只读）
+            数据源：STAGE_TEMPLATES_FRANK（前端代码，跟 8-25 后端 SUBTASK_TEMPLATES 一致）
+            即使没组织者，所有用户都能看到 5 阶段每阶段要做什么子任务（让"我要参与"+"申请组织者"的用户知道流程） */}
+        {(() => {
+          const template = STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage);
+          if (!template) return null;
+          return (
+            <Card
+              size="small"
+              style={{ marginBottom: 16, background: '#FAFCFF' }}
+              title={
+                <Space>
+                  <FileTextOutlined />
+                  <span>阶段子任务模板 · {template.title}</span>
+                  <Tag color="blue">{template.hint}</Tag>
+                  {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
+                    <Tag color="green">当前阶段</Tag>
+                  )}
+                </Space>
+              }
+            >
+              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                <ClockCircleOutlined /> {template.desc}
+              </Paragraph>
+              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                {template.subTasks.map((t) => (
+                  <div
+                    key={`${template.stage}-${t.order}`}
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      padding: '10px 12px',
+                      background: '#fff',
+                      border: '1px solid #E5EAF3',
+                      borderRadius: 6,
+                    }}
+                  >
+                    <Tag color="default" style={{ minWidth: 32, textAlign: 'center', margin: 0 }}>{t.order}</Tag>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                        {t.name}
+                        <Tag color={t.ownerType === 'VOLUNTEER' ? 'cyan' : t.ownerType === 'OPERATOR' ? 'orange' : 'blue'} style={{ marginLeft: 8 }}>
+                          {t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
+                        </Tag>
+                      </div>
+                      {t.proofHint && (
+                        <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                          📎 凭证：{t.proofHint}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </Space>
+            </Card>
+          );
+        })()}
+
+        {/* 子任务执行实例（CONFIRMED 才有 — 来自 dw_stage_tasks） */}
         {!isPending && canViewSubTasks(user?.role) && appId && (
           <Card
             size="small"
-            style={{ marginBottom: 16, background: '#FAFCFF' }}
+            style={{ marginBottom: 16, background: '#F0FDF4' }}
             title={
               <Space>
                 <FileTextOutlined />
-                <span>阶段任务 · {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.title ?? ''}</span>
-                <Tag color="blue">{STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.hint ?? ''}</Tag>
-                {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
-                  <Tag color="green">当前阶段</Tag>
-                )}
+                <span>阶段任务执行进度 · {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.title ?? ''}</span>
+                <Tag color="green">CONFIRMED · 19 子任务已实例化</Tag>
               </Space>
             }
           >
-            <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-              <ClockCircleOutlined /> {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.desc}
-            </Paragraph>
             {tasksLoading && <Spin />}
             {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
               <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
