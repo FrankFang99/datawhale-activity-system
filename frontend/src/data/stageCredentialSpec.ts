@@ -295,7 +295,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     ],
   },
 
-  // ========== 阶段 4 · EXECUTE（T）· 4 子任务（v13） ==========
+  // ========== 阶段 4 · EXECUTE（T）· 3 子任务（8-25 后端 SUBTASK_TEMPLATES 调整） ==========
+  // v1.2 Frank 27：跟后端对齐，删「引导参与者上传到作品墙获取徽章认证」（v13 之前版本有，8-25 删了）
   {
     matchName: '现场签到与引导',
     // v16.9 Frank 13:54 反馈：回归 3 步流程（组织者自核 → 志愿者审核 → 运营复核），不是 volunteer-first
@@ -314,7 +315,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     ],
   },
   {
-    matchName: '主题分享+带教实操+闪电分享',
+    // v1.2 Frank 27：8-25 v1-delivery 写错 matchName（少"演示"两字）— 改为完整名才能跟后端 SUBTASK_TEMPLATES 匹配
+    matchName: '主题分享+带教演示+实操+闪电分享',
     proofType: 'volunteer-first',  // v16.8 Frank 10:53 Comment 9：提醒每阶段拍照 + 双方确认
     whatToDo: [
       '环节 0：主题分享（20min · AI 学习经验/成果/路线 · 可以不讲）',
@@ -349,20 +351,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
       '素材链接 ≥5 个（照片 ≥5 + 视频可选）',
       '横版高清（≥1920×1080）',
       '话题 #DatawhaleAI+X创造节 + @Datawhale',
-    ],
-  },
-  {
-    matchName: '引导参与者上传到作品墙获取徽章认证',
-    whatToDo: [
-      '引导参与者在活动现场提交作品（图片/文档/视频）',
-      '确保作品展示在作品墙',
-      '引导参与者获取 OPC 能力认证徽章',
-      '截图保存作品墙',
-    ],
-    passCriteria: [
-      '作品墙截图 ≥1 张',
-      '徽章认证截图 ≥1 张（参与者）',
-      '至少 1 个作品已上墙',
     ],
   },
 

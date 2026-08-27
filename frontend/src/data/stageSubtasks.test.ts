@@ -39,13 +39,16 @@ describe('Frank 23:35 #2 5 阶段子任务描述（来自 comment 2-6）', () =>
     expect(names.some((n) => n.includes('物料'))).toBe(true);
   });
 
-  it('EXECUTE 阶段含"签到+嘉宾分享+素材+作品墙"子任务（comment 5）', () => {
+  // v1.2 Frank 27：跟 8-25 后端 SUBTASK_TEMPLATES 对齐（3 个子任务）
+  // v13 Frank 23:35 comment 5 写的 4 个 EXECUTE（嘉宾分享/作品墙上墙）8-25 已删
+  it('EXECUTE 阶段含"签到+主题分享+采集素材"3 子任务（8-25 后端 SUBTASK_TEMPLATES）', () => {
     const exec = STAGE_TEMPLATES_FRANK.find((s) => s.stage === 'EXECUTE');
     const names = exec!.subTasks.map((s) => s.name);
+    expect(exec!.subTasks.length).toBe(3);
     expect(names.some((n) => n.includes('签到'))).toBe(true);
-    expect(names.some((n) => n.includes('嘉宾分享'))).toBe(true);
-    expect(names.some((n) => n.includes('素材'))).toBe(true);
-    expect(names.some((n) => n.includes('作品墙'))).toBe(true);
+    expect(names.some((n) => n.includes('主题分享+带教演示'))).toBe(true);
+    // 8-25 subTaskName 实际是「采集现场素材」中间有「现场」两字，substring 要匹配完整词
+    expect(names.some((n) => n.includes('采集现场素材'))).toBe(true);
   });
 
   it('REVIEW 阶段含"复盘+整理素材"子任务（comment 6）', () => {
