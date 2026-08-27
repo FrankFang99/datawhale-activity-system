@@ -9,10 +9,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Form, Input, Button, Card, Select, Typography, message,
+  Form, Input, Button, Card, DatePicker, Select, Typography, message,
   Divider, Space, Spin, Result, Modal, Alert, Row, Col, Tag,
 } from 'antd';
 import { ArrowLeftOutlined, EnvironmentOutlined, BankOutlined } from '@ant-design/icons';
+import dayjs, { Dayjs } from 'dayjs';
 import { activityApi, applicationApi, Activity } from '../services/api';
 import { authStore } from '../store/auth';
 import { PROVINCES, getUniversities, validateDistrictMatch, University, Campus } from '../data/universities';
@@ -35,16 +36,15 @@ interface FormValues {
   organizerName: string;
   organizerPhone: string;
   organizerEmail: string;
-  schoolProvince: string;
-  schoolCity: string;
-  schoolDistrict: string;
-  schoolName: string;
-  campus: string;     // 校区名
-  // Frank 27 12:50：宽泛时间段（替代精确日期）
-  expectedTimeRange: string;
-  // Frank 27 12:50：基础信息增加 身份 + 现居地
+  // Frank 27 14:12：基础信息（身份 + 现居地 3 级 + 学校简化）
   applicantIdentity: '在校' | '在职' | '自由职业' | '其他';
-  currentCity: string;
+  currentProvince: string;
+  currentCity: string;     // 实际是市
+  currentDistrict: string;
+  schoolName: string;      // 来自下拉 或「其他」手动输入
+  schoolIsOther: boolean;  // 选了「其他」时为 true
+  // Frank 27 14:12：日历多选日期（运营给的活动时间区间中可多选，最后会协商上选定一天）
+  expectedTimeRange: Dayjs[];
   location: string;   // 详细地址（自由填）
   motivation: string;
   participantValue: string;
@@ -82,94 +82,103 @@ export default function ApplicationForm() {
   }, [activityId, user, form]);
 
   // Frank 2026-08-21 #8 + #10: 学校 5 级联动 + 实时校验
-  const [cities, setCities] = useState<{ city: string; districts: string[] }[]>([]);
-  const [districts, setDistricts] = useState<string[]>([]);
-  const [universities, setUniversities] = useState<University[]>([]);
-  const [campuses, setCampuses] = useState<Campus[]>([]);
-  const [districtMatchError, setDistrictMatchError] = useState<string>('');
-
-  const watchSchoolProvince = Form.useWatch('schoolProvince', form);
-  const watchSchoolCity = Form.useWatch('schoolCity', form);
-  const watchSchoolDistrict = Form.useWatch('schoolDistrict', form);
+  // Frank 27 14:12：现居地 3 级联动（省/市/区）
+  const [currentCities, setCurrentCities] = useState<{ city: string; districts: string[] }[]>([]);
+  const [currentDistricts, setCurrentDistricts] = useState<string[]>([]);
+  const watchCurrentProvince = Form.useWatch('currentProvince', form);
+  const watchCurrentCity = Form.useWatch('currentCity', form);
   const watchSchoolName = Form.useWatch('schoolName', form);
-  const watchCampus = Form.useWatch('campus', form);
+  const watchSchoolIsOther = Form.useWatch('schoolIsOther', form);
 
   useEffect(() => {
-    if (watchSchoolProvince) {
-      const citiesForProvince = PROVINCES.find((p) => p.province === watchSchoolProvince)?.cities ?? [];
-      setCities(citiesForProvince);
-      // 清空下级
-      form.setFieldsValue({ schoolCity: undefined, schoolDistrict: undefined, schoolName: undefined, campus: undefined });
+    if (watchCurrentProvince) {
+      const citiesForProvince = PROVINCES.find((p) => p.province === watchCurrentProvince)?.cities ?? [];
+      setCurrentCities(citiesForProvince);
+      form.setFieldsValue({ currentCity: undefined, currentDistrict: undefined });
     }
-  }, [watchSchoolProvince]);
+  }, [watchCurrentProvince, form]);
 
   useEffect(() => {
-    if (watchSchoolCity) {
-      const ds = cities.find((c) => c.city === watchSchoolCity)?.districts ?? [];
-      setDistricts(ds);
-      form.setFieldsValue({ schoolDistrict: undefined, schoolName: undefined, campus: undefined });
+    if (watchCurrentCity) {
+      const ds = currentCities.find((c) => c.city === watchCurrentCity)?.districts ?? [];
+      setCurrentDistricts(ds);
+      form.setFieldsValue({ currentDistrict: undefined });
     }
-  }, [watchSchoolCity]);
+  }, [watchCurrentCity, currentCities, form]);
 
+  // 选了「其他」时清空 schoolName（避免下拉值残留）
   useEffect(() => {
-    if (watchSchoolProvince && watchSchoolCity) {
-      setUniversities(getUniversities(watchSchoolProvince, watchSchoolCity, watchSchoolDistrict));
-      form.setFieldsValue({ schoolName: undefined, campus: undefined });
+    if (watchSchoolIsOther) {
+      form.setFieldsValue({ schoolName: undefined });
     }
-  }, [watchSchoolDistrict]);
+  }, [watchSchoolIsOther, form]);
 
-  useEffect(() => {
-    if (watchSchoolName) {
-      const u = universities.find((x) => x.name === watchSchoolName);
-      setCampuses(u?.campuses ?? []);
-      form.setFieldsValue({ campus: undefined });
-    }
-  }, [watchSchoolName]);
-
-  // Frank #8 关键校验：申请人填的 district 必须和学校所在 district 一致
-  useEffect(() => {
-    if (watchSchoolDistrict && watchSchoolName) {
-      const u = universities.find((x) => x.name === watchSchoolName);
-      if (u) {
-        const result = validateDistrictMatch(
-          u.province, u.city, u.district, u.name,
-          u.province, u.city, watchSchoolDistrict
-        );
-        if (!result.ok) {
-          setDistrictMatchError(result.reason);
-        } else {
-          setDistrictMatchError('');
-        }
-      }
-    } else {
-      setDistrictMatchError('');
-    }
-  }, [watchSchoolDistrict, watchSchoolName, universities]);
+  // Frank 8-25 v1-delivery 预置学校下拉（来自 dw_universities 飞书表 + 8-25 备份硬编码）
+  // Frank 27 14:12：学校简化（单一下拉 + 「其他」手动输入）
+  const schoolOptions = [
+    { value: '清华大学', label: '清华大学' },
+    { value: '北京大学', label: '北京大学' },
+    { value: '中国人民大学', label: '中国人民大学' },
+    { value: '北京航空航天大学', label: '北京航空航天大学' },
+    { value: '北京理工大学', label: '北京理工大学' },
+    { value: '北京邮电大学', label: '北京邮电大学' },
+    { value: '北京师范大学', label: '北京师范大学' },
+    { value: '中央财经大学', label: '中央财经大学' },
+    { value: '中国政法大学', label: '中国政法大学' },
+    { value: '复旦大学', label: '复旦大学' },
+    { value: '上海交通大学', label: '上海交通大学' },
+    { value: '同济大学', label: '同济大学' },
+    { value: '华东师范大学', label: '华东师范大学' },
+    { value: '武汉大学', label: '武汉大学' },
+    { value: '华中科技大学', label: '华中科技大学' },
+    { value: '中山大学', label: '中山大学' },
+    { value: '华南理工大学', label: '华南理工大学' },
+    { value: '浙江大学', label: '浙江大学' },
+    { value: '南京大学', label: '南京大学' },
+    { value: '东南大学', label: '东南大学' },
+    { value: '中国科学技术大学', label: '中国科学技术大学' },
+    { value: '哈尔滨工业大学', label: '哈尔滨工业大学' },
+    { value: '西安交通大学', label: '西安交通大学' },
+    { value: '西北工业大学', label: '西北工业大学' },
+    { value: '四川大学', label: '四川大学' },
+    { value: '电子科技大学', label: '电子科技大学' },
+    { value: '山东大学', label: '山东大学' },
+    { value: '中国海洋大学', label: '中国海洋大学' },
+    { value: '中南大学', label: '中南大学' },
+    { value: '湖南大学', label: '湖南大学' },
+    { value: '厦门大学', label: '厦门大学' },
+    { value: '吉林大学', label: '吉林大学' },
+    { value: '兰州大学', label: '兰州大学' },
+    { value: '重庆大学', label: '重庆大学' },
+    { value: '大连理工大学', label: '大连理工大学' },
+    { value: '东北大学', label: '东北大学' },
+    { value: '南开大学', label: '南开大学' },
+    { value: '天津大学', label: '天津大学' },
+    { value: '深圳大学', label: '深圳大学' },
+    { value: '其他', label: '其他（手动输入）' },
+  ];
 
   const onFinish = async (values: FormValues) => {
     if (!activityId) return;
-    if (districtMatchError) {
-      message.error('活动地点与学校校区不一致，请修正后再提交');
-      return;
-    }
     setSubmitting(true);
     try {
-      // Frank #8 完整 location 格式：${province}·${city}·${district}·${schoolName}·${campus}·${detailAddress}
+      // location 格式：${现居地省}·${现居地市}·${现居地区}·${学校}·${详细地址}
       const fullLocation = [
-        values.schoolProvince,
-        values.schoolCity,
-        values.schoolDistrict,
-        values.schoolName,
-        values.campus || values.schoolName,
+        values.currentProvince,
+        values.currentCity,
+        values.currentDistrict,
+        values.schoolName || '其他学校',
       ].filter(Boolean).join('·') + (values.location ? `·${values.location}` : '');
+      // 多个日期 → 字符串数组
+      const expectedTimeRangeStr = (values.expectedTimeRange || []).map((d) => d.format('YYYY-MM-DD')).join(',');
       const data = await applicationApi.submit({
         activityId,
         organizerName: values.organizerName,
         organizerPhone: values.organizerPhone,
         organizerEmail: values.organizerEmail,
-        expectedTimeRange: values.expectedTimeRange,
+        expectedTimeRange: expectedTimeRangeStr,
         applicantIdentity: values.applicantIdentity,
-        currentCity: values.currentCity,
+        currentCity: `${values.currentProvince}·${values.currentCity}·${values.currentDistrict}`,
         location: fullLocation,
         motivation: values.motivation,
         participantValue: values.participantValue,
@@ -348,25 +357,12 @@ export default function ApplicationForm() {
             <Input placeholder="联系邮箱" />
           </Form.Item>
 
-          {/* Frank 27 12:50 Comment 1：基础信息增加现居地（区别于目标学校） */}
-          <Form.Item
-            label="现居地"
-            name="currentCity"
-            rules={[{ required: true, message: '请填写现居地' }]}
-            extra="您当前所在城市（区别于目标学校）"
-          >
-            <Input placeholder="如：北京、上海、深圳" maxLength={50} />
-          </Form.Item>
-
-          {/* Frank 2026-08-21 #8 + #10：学校 5 级联动 + 区一致性校验 */}
-          <Title level={5}>
-            <BankOutlined /> 目标学校（Frank #8 必填 #10 下拉选择）
-          </Title>
+          {/* Frank 27 14:12 Comment 1：现居地按省/市/区下拉 */}
           <Row gutter={12}>
-            <Col span={5}>
+            <Col span={8}>
               <Form.Item
-                label="省"
-                name="schoolProvince"
+                label="现居地省"
+                name="currentProvince"
                 rules={[{ required: true, message: '请选择省' }]}
               >
                 <Select
@@ -376,34 +372,42 @@ export default function ApplicationForm() {
                 />
               </Form.Item>
             </Col>
-            <Col span={5}>
+            <Col span={8}>
               <Form.Item
-                label="市"
-                name="schoolCity"
+                label="现居地市"
+                name="currentCity"
                 rules={[{ required: true, message: '请选择市' }]}
               >
                 <Select
                   showSearch
                   placeholder="选择市"
-                  disabled={!watchSchoolProvince}
-                  options={cities.map((c) => ({ value: c.city, label: c.city }))}
+                  disabled={!watchCurrentProvince}
+                  options={currentCities.map((c) => ({ value: c.city, label: c.city }))}
                 />
               </Form.Item>
             </Col>
-            <Col span={4}>
+            <Col span={8}>
               <Form.Item
-                label="区"
-                name="schoolDistrict"
+                label="现居地区"
+                name="currentDistrict"
                 rules={[{ required: true, message: '请选择区' }]}
               >
                 <Select
+                  showSearch
                   placeholder="选择区"
-                  disabled={!watchSchoolCity}
-                  options={districts.map((d) => ({ value: d, label: d }))}
+                  disabled={!watchCurrentCity}
+                  options={currentDistricts.map((d) => ({ value: d, label: d }))}
                 />
               </Form.Item>
             </Col>
-            <Col span={6}>
+          </Row>
+
+          {/* Frank 27 14:12 Comment 2：学校改单一下拉 + 「其他」手动输入 */}
+          <Title level={5}>
+            <BankOutlined /> 您的学校
+          </Title>
+          <Row gutter={12}>
+            <Col span={12}>
               <Form.Item
                 label="学校"
                 name="schoolName"
@@ -412,42 +416,33 @@ export default function ApplicationForm() {
                 <Select
                   showSearch
                   placeholder="选择学校"
-                  disabled={!watchSchoolCity}
-                  options={universities.map((u) => ({
-                    value: u.name,
-                    label: `${u.name} ${u.tier === '985' ? '🌟' : u.tier === '211' ? '⭐' : ''}`,
-                  }))}
+                  disabled={watchSchoolIsOther}
+                  options={schoolOptions}
                 />
               </Form.Item>
             </Col>
-            <Col span={4}>
+            <Col span={12}>
               <Form.Item
-                label="校区"
-                name="campus"
-                rules={[{ required: false }]}
+                label="其他学校（不在列表内）"
+                name="schoolIsOther"
+                valuePropName="checked"
+                extra="勾选后可以手动输入学校名"
               >
-                <Select
-                  placeholder="选校区"
-                  disabled={!watchSchoolName}
-                  allowClear
-                  options={campuses.map((c) => ({
-                    value: c.name,
-                    label: `${c.name}（${c.district}）`,
-                  }))}
-                />
+                <input type="checkbox" style={{ width: 16, height: 16, marginTop: 8 }} />
               </Form.Item>
             </Col>
+            {watchSchoolIsOther && (
+              <Col span={24}>
+                <Form.Item
+                  label="学校名称"
+                  name="schoolName"
+                  rules={[{ required: true, message: '请输入学校名' }]}
+                >
+                  <Input placeholder="如：上海纽约大学、昆山杜克大学" maxLength={50} />
+                </Form.Item>
+              </Col>
+            )}
           </Row>
-
-          {districtMatchError && (
-            <Alert
-              type="error"
-              showIcon
-              style={{ marginBottom: 16 }}
-              message="活动地点与学校校区不一致"
-              description={districtMatchError}
-            />
-          )}
 
           <Form.Item
             label={
@@ -457,21 +452,32 @@ export default function ApplicationForm() {
             }
             name="location"
             rules={[{ max: 100 }]}
-            extra="完整活动地点：{省}·{市}·{区}·{学校}·{校区}·{详细地址}，由系统自动拼接"
+            extra="活动地点：{现居地省}·{现居地市}·{现居地区}·{学校}·{详细地址}，由系统自动拼接"
           >
             <Input placeholder="如：清华大学 FIT 楼 3 层多功能厅" />
           </Form.Item>
 
           <Form.Item
-            label="预期活动时间段（宽泛）"
+            label="预期活动时间"
             name="expectedTimeRange"
             rules={[
-              { required: true, message: '请填写预期时间段' },
-              { max: 100, message: '不超过 100 字符' },
+              { required: true, message: '请至少选择 1 个候选日期' },
+              {
+                validator: (_, v: Dayjs[]) =>
+                  v && v.length > 0
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('请至少选择 1 个候选日期')),
+              },
             ]}
-            extra="Frank 27 12:50：填宽泛时间段（如「2026 年 9 月」或「2026 Q3」），具体日期通过成为组织者后在「双方最终确认活动方案」子任务中确定"
+            extra="Frank 27 14:12：最后会协商上从中选定一天作为活动时间，可多选"
           >
-            <Input placeholder="如：2026 年 9 月 / 2026 Q3 / 2026 年 10 月 1 日前后" maxLength={100} />
+            <DatePicker
+              style={{ width: '100%' }}
+              multiple
+              showTime={false}
+              format="YYYY-MM-DD"
+              placeholder="可多选日期"
+            />
           </Form.Item>
 
           <Divider style={{ margin: '24px 0' }} />
