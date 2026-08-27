@@ -328,8 +328,8 @@ describe('stages controller · v16.9 Frank 13:10 反馈 INT-3 自动同步活动
   it('解析 remark 字段的 JSON formData（date/timeRange/location/scale）', () => {
     expect(SRC()).toMatch(/JSON\.parse\(data\.remark\)/);
   });
-  it('同步 4 个活动字段：location + maxParticipants + startDate + endDate', () => {
-    expect(SRC()).toMatch(/activityUpdates\.location\s*=\s*String\(formData\.location\)/);
+  it('同步 4 个活动字段：confirmedAddress + maxParticipants + startDate + endDate（Frank 27 11:20：精确地址写到 confirmedAddress）', () => {
+    expect(SRC()).toMatch(/activityUpdates\.confirmedAddress\s*=\s*String\(formData\.location\)/);
     expect(SRC()).toMatch(/activityUpdates\.maxParticipants\s*=\s*Number\(formData\.scale\)/);
     expect(SRC()).toMatch(/activityUpdates\.startDate\s*=\s*startMs/);
     expect(SRC()).toMatch(/activityUpdates\.endDate\s*=\s*endMs/);

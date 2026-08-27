@@ -229,10 +229,6 @@ describe('申请提交 · APPLICATION_SCHEMA 字段校验', () => {
       organizerPhone: '13800138000',
       organizerEmail: 'a@b.cn',
       expectedDate: Date.now() + 14 * 86400000,
-      // v1.2 Frank 27 09:49 反馈：申请时就要具体时间段 + 精确地址
-      expectedStartTime: '09:00',
-      expectedEndTime: '18:00',
-      confirmedAddress: '清华大学 FIT 楼 3 层多功能厅',
       location: '北京',
       motivation: '推动 AI 教育进校园',
       participantValue: '希望参与者能做出 AI 作品',

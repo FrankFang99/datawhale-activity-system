@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Form, Input, Button, Card, DatePicker, TimePicker, Select, Typography, message,
+  Form, Input, Button, Card, DatePicker, Select, Typography, message,
   Divider, Space, Spin, Result, Modal, Alert, Row, Col, Tag,
 } from 'antd';
 import { ArrowLeftOutlined, EnvironmentOutlined, BankOutlined } from '@ant-design/icons';
@@ -42,10 +42,6 @@ interface FormValues {
   schoolName: string;
   campus: string;     // 校区名
   expectedDate: Dayjs;
-  // v1.2 Frank 27 09:49 反馈：申请时就要具体时间段 + 精确地址
-  expectedStartTime: Dayjs;
-  expectedEndTime: Dayjs;
-  confirmedAddress: string;
   location: string;   // 详细地址（自由填）
   motivation: string;
   participantValue: string;
@@ -169,9 +165,6 @@ export default function ApplicationForm() {
         organizerPhone: values.organizerPhone,
         organizerEmail: values.organizerEmail,
         expectedDate: values.expectedDate.valueOf(),
-        expectedStartTime: values.expectedStartTime.format('HH:mm'),
-        expectedEndTime: values.expectedEndTime.format('HH:mm'),
-        confirmedAddress: values.confirmedAddress,
         location: fullLocation,
         motivation: values.motivation,
         participantValue: values.participantValue,
@@ -449,83 +442,12 @@ export default function ApplicationForm() {
                     : Promise.reject(new Error('活动日期需提前 7 天以上')),
               },
             ]}
+            extra="Frank 设计：先填模糊日期，具体日期在确认意向子任务「双方最终确认活动方案/时间/地点/规模」中由组织者和志愿者一起确定"
           >
             <DatePicker
               style={{ width: '100%' }}
               disabledDate={(d) => d && d.valueOf() < Date.now() + 6 * 24 * 3600 * 1000}
               format="YYYY-MM-DD"
-            />
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="预计开始时间"
-                name="expectedStartTime"
-                rules={[
-                  { required: true, message: '请选择开始时间' },
-                  {
-                    validator: (_, v: Dayjs) =>
-                      v ? Promise.resolve() : Promise.reject(new Error('请选择开始时间')),
-                  },
-                ]}
-                extra="如 09:00 表示早上 9 点开始"
-              >
-                <TimePicker
-                  style={{ width: '100%' }}
-                  format="HH:mm"
-                  minuteStep={15}
-                  placeholder="开始时间"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="预计结束时间"
-                name="expectedEndTime"
-                rules={[
-                  { required: true, message: '请选择结束时间' },
-                  ({ getFieldValue }) => ({
-                    validator(_, v: Dayjs) {
-                      if (!v) return Promise.reject(new Error('请选择结束时间'));
-                      const start = getFieldValue('expectedStartTime');
-                      if (start && v.valueOf() <= start.valueOf()) {
-                        return Promise.reject(new Error('结束时间需晚于开始时间'));
-                      }
-                      return Promise.resolve();
-                    },
-                  }),
-                ]}
-                extra="如 18:00 表示晚上 6 点结束；需晚于开始时间"
-              >
-                <TimePicker
-                  style={{ width: '100%' }}
-                  format="HH:mm"
-                  minuteStep={15}
-                  placeholder="结束时间"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            label={
-              <span>
-                <EnvironmentOutlined /> 精确活动地址
-              </span>
-            }
-            name="confirmedAddress"
-            rules={[
-              { required: true, message: '请填写精确地址' },
-              { max: 200, message: '不超过 200 字符' },
-            ]}
-            extra="精确到门牌号/楼号/楼层/房间号；运营/志愿者确认组织者后，会用此地址替换活动表里的模糊地区"
-          >
-            <Input.TextArea
-              rows={2}
-              maxLength={200}
-              showCount
-              placeholder="如：清华大学 FIT 楼 3 层多功能厅（海淀区清华园 1 号）"
             />
           </Form.Item>
 

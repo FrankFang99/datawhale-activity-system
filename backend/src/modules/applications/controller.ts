@@ -141,10 +141,6 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
     organizerPhone: data.organizerPhone,
     organizerEmail: data.organizerEmail,
     expectedDate: data.expectedDate,
-    // v1.2 Frank 27 09:49 反馈：保存申请时的精确时间段和地址（CONFIRMED 时升级到活动表）
-    expectedStartTime: data.expectedStartTime,
-    expectedEndTime: data.expectedEndTime,
-    confirmedAddress: data.confirmedAddress,
     location: data.location,
     motivation: data.motivation,
     experience: data.experience ?? '',

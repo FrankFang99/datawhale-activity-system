@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Row, Col, Card, Tag, Input, Select, Empty, Spin, Typography, Alert, Button, Space } from 'antd';
 import {
   SearchOutlined, EnvironmentOutlined, CalendarOutlined, TeamOutlined,
-  BookOutlined, QuestionCircleOutlined,
+  BookOutlined, QuestionCircleOutlined, ClockCircleOutlined,
   TrophyOutlined, GlobalOutlined, UserOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
@@ -187,7 +187,8 @@ export default function ActivityList() {
             {list.map((a, idx) => {
               const statusInfo = STATUS_MAP[a.status] ?? { label: a.status, color: 'default' };
               const gradient = COVER_GRADIENTS[idx % COVER_GRADIENTS.length];
-              const isPending = a.status === 'PENDING';
+              // Frank 27 11:20：用后端 needOrganizer 替代 status === 'PENDING'（活动可能是 PUBLISHED + 无组织者）
+              const isPending = a.needOrganizer ?? (a.status === 'PENDING');
               // v16.6 Frank 16:04 Comment 6：img onError fallback + 解析飞书 markdown 链接
               const realCoverUrl = extractRealUrl(a.coverImage);
               return (
@@ -207,7 +208,7 @@ export default function ActivityList() {
                             fontSize: 28,
                             fontWeight: 700,
                             letterSpacing: '-0.02em',
-                            opacity: isPending ? 0.7 : 1,
+                            opacity: isPending ? 0.85 : 1,
                             position: 'relative',
                             overflow: 'hidden',
                           }}
@@ -233,6 +234,43 @@ export default function ActivityList() {
                           )}
                           {/* v16.6 无 coverImage 或加载失败 → 显示标题前 8 字 */}
                           <span style={{ position: 'relative', zIndex: 1 }}>{a.title.slice(0, 8)}</span>
+                          {/* Frank 27 11:20 Comment 1：封面"待组织者"标识（needOrganizer=true 时显示） */}
+                          {isPending && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: 12,
+                                left: 12,
+                                background: 'rgba(245, 158, 11, 0.95)',
+                                color: '#fff',
+                                padding: '4px 10px',
+                                borderRadius: 6,
+                                fontSize: 12,
+                                fontWeight: 600,
+                                zIndex: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                              }}
+                            >
+                              <ClockCircleOutlined style={{ fontSize: 12 }} />
+                              待组织者
+                            </div>
+                          )}
+                          {/* 边框标识（更醒目） */}
+                          {isPending && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                border: '3px solid #F59E0B',
+                                borderRadius: 8,
+                                zIndex: 1,
+                                pointerEvents: 'none',
+                              }}
+                            />
+                          )}
                         </div>
                       }
                     >

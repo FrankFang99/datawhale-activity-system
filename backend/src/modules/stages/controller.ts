@@ -320,13 +320,12 @@ router.post('/stages/:taskId/submit', authRequired, async (req: Request, res: Re
     ? '组织者重传通过（UNCERTAIN 流程 · 运营打回后旁路志愿者/运营）'
     : '组织者自核完成，等待志愿者审核';
 
-  // v16.9 Frank 13:10 反馈：INT-3 双方最终确认活动方案后，自动同步活动基本信息
-  // formData 存到 remark 字段（JSON: {date, timeRange, location, scale, planUrl}）
+  // v16.9 Frank 13:10 + Frank 27 11:20 改：申请时只填模糊，INT-3 双方最终确认时填具体地点 → 写 confirmedAddress
   if (t.fields.subTaskName === '双方最终确认活动方案/时间/地点/规模' && data.remark) {
     try {
       const formData = JSON.parse(data.remark);
       const activityUpdates: Record<string, any> = {};
-      if (formData.location) activityUpdates.location = String(formData.location);
+      if (formData.location) activityUpdates.confirmedAddress = String(formData.location);
       if (formData.scale) activityUpdates.maxParticipants = Number(formData.scale);
       if (formData.date) {
         const startMs = new Date(`${formData.date}T00:00:00+08:00`).getTime();

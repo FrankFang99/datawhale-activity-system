@@ -213,7 +213,9 @@ export default function ActivityDetail() {
   const isPending = activity.needOrganizer ?? (activity.status === 'PENDING');
   const isFinished = activity.status === 'FINISHED' || activity.status === 'CANCELLED';
   const statusInfo = STATUS_MAP[activity.status] ?? { label: activity.status, color: 'default' };
-  const isReadOnlyRole = user && ['ADMIN', 'OPERATOR', 'VOLUNTEER', 'ASSISTANT'].includes(user.role);
+  // Frank 27 11:20 Comment 3：移除 isReadOnlyRole 限制——参与者或普通用户都应该能申请
+  // 后端已有重复申请检查（findDuplicateApplication）防止同一用户重复申请
+  const isReadOnlyRole = false;
 
   return (
     <div>

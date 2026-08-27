@@ -358,31 +358,6 @@ router.post('/:id/approve', authRequired, requireRole('OPERATOR', 'ADMIN'), asyn
   // Frank 2026-08-21 #6 升级：APPROVE 时如果申请者 role = USER 或 PARTICIPANT，自动升级为 ORGANIZER
   // v1 简化：申请通过即升级（v2 加志愿者确认意向步骤后再升级）
   if (newStatus === 'CONFIRMED' && a.fields.userId) {
-    // v1.2 Frank 27 09:49 反馈：CONFIRMED 时升级模糊时间/地点为精确时间/地址（无论用户是否已为 ORGANIZER）
-    // 申请表里组织者填了 expectedStartTime/expectedEndTime/confirmedAddress
-    // 写回活动表 → 活动详情/大厅显示精确时间
-    if (a.fields.activityId) {
-      try {
-        const actRecs = await feishuClient.searchRecords(
-          config.feishu.tables.activities,
-          'activityId',
-          a.fields.activityId
-        );
-        const act = actRecs[0] as LarkRecord | undefined;
-        if (act) {
-          const updateFields: any = {};
-          if (a.fields.expectedStartTime) updateFields.startTime = a.fields.expectedStartTime;
-          if (a.fields.expectedEndTime) updateFields.endTime = a.fields.expectedEndTime;
-          if (a.fields.confirmedAddress) updateFields.confirmedAddress = a.fields.confirmedAddress;
-          if (Object.keys(updateFields).length > 0) {
-            await feishuClient.updateRecord(config.feishu.tables.activities, act.record_id, updateFields);
-          }
-        }
-      } catch (e) {
-        console.log(`[PROMOTE-PRECISE] 升级精确时间失败: ${(e as Error).message}`);
-      }
-    }
-
     // Frank #11: CONFIRMED 时自动初始化 5 阶段 19 个子任务（不再需要运营手动）
     try {
       let activityStartDate = Date.now() + 30 * 24 * 3600 * 1000;
