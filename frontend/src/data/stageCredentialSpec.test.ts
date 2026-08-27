@@ -1,54 +1,51 @@
 /**
- * 凭证规范 v2.0 覆盖
- * - v16.6 Frank 16:04：confirm / form / image / mixed 4 种 proofType
- * - v16.7 Frank 16:44：加 volunteer-first（INT-1/INT-4/REVIEW）
- * - v16.9 Frank 13:54：EXECUTE 1 现场签到与引导 从 volunteer-first 回归 image（组织者提交 + 志愿者审核）
+ * 凭证规范 v3.0（v1.2 Frank 27 简化版）
+ * - 删 proofType（v16.6 引入的 confirm/form/image/mixed/volunteer-first）
+ * - 删 proofCategories（凭证分类）
+ * - 标签按原来设置（v9 Frank 23:35 之前）：只显示 ownerType（志愿者/组织者/运营）
+ * - 保留 whatToDo（操作步骤）+ passCriteria（通过标准）
  */
 import { describe, it, expect } from 'vitest';
 import { CREDENTIAL_SPECS, findCredentialSpec } from './stageCredentialSpec';
 
-describe('凭证规范 · 4 种基础 proofType（v16.6 Frank 16:04）', () => {
-  it('INT-1 互加飞书好友 → volunteer-first（v16.7）', () => {
-    const spec = findCredentialSpec('志愿者和组织者互加飞书好友');
-    expect(spec?.proofType).toBe('volunteer-first');
-  });
-  it('INT-3 双方最终确认活动方案 → form（v16.6 Comment 4）', () => {
-    const spec = findCredentialSpec('双方最终确认活动方案/时间/地点/规模');
-    expect(spec?.proofType).toBe('form');
-  });
-  it('RECRUIT 1 建活动群聊 → image（v16.6 Comment 7）', () => {
-    const spec = findCredentialSpec('建活动群聊');
-    expect(spec?.proofType).toBe('image');
-  });
-  it('REVIEW 3 志愿者审核作品 → volunteer-first（v16.7）', () => {
-    const spec = findCredentialSpec('志愿者审核作品+反馈+可推荐优秀');
-    expect(spec?.proofType).toBe('volunteer-first');
-  });
-});
-
-describe('凭证规范 · v16.9 Frank 13:54 EXECUTE 1 回归 3 步流程', () => {
-  it('EXECUTE 1 现场签到与引导 → image（不是 volunteer-first）', () => {
-    const spec = findCredentialSpec('现场签到与引导');
-    expect(spec?.proofType).toBe('image');
-  });
-  it('EXECUTE 1 passCriteria 不含"志愿者先确认 + 组织者后确认"（3 步流程，无 volunteer-first 描述）', () => {
-    const spec = findCredentialSpec('现场签到与引导');
-    expect(spec?.passCriteria?.some((c) => c.includes('志愿者先确认'))).toBeFalsy();
-    expect(spec?.passCriteria?.some((c) => c.includes('组织者后确认'))).toBeFalsy();
-  });
-});
-
-describe('凭证规范 · CREDENTIAL_SPECS 数据完整性', () => {
-  it('所有 spec 有 matchName（用于 findCredentialSpec 匹配）', () => {
+describe('凭证规范 · 19 个 spec 数据完整性（v1.2 Frank 27）', () => {
+  it('所有 spec 有 matchName（字符级跟 8-25 后端 SUBTASK_TEMPLATES 一致）', () => {
     expect(CREDENTIAL_SPECS.every((s) => s.matchName && s.matchName.length > 0)).toBe(true);
   });
-  it('5 种 proofType 都用上（confirm/form/image/mixed/volunteer-first）', () => {
-    const types = new Set(CREDENTIAL_SPECS.map((s) => s.proofType).filter(Boolean));
-    expect(types.has('confirm')).toBe(true);
-    expect(types.has('form')).toBe(true);
-    expect(types.has('image')).toBe(true);
-    expect(types.has('mixed')).toBe(true);
-    expect(types.has('volunteer-first')).toBe(true);
+
+  it('CREDENTIAL_SPECS 数量 = 19（跟 8-25 后端 SUBTASK_TEMPLATES 一致）', () => {
+    expect(CREDENTIAL_SPECS.length).toBe(19);
+  });
+
+  it('所有 spec 都有 whatToDo（操作步骤）和 passCriteria（通过标准）', () => {
+    CREDENTIAL_SPECS.forEach((s) => {
+      expect(s.whatToDo.length).toBeGreaterThan(0);
+      expect(s.passCriteria.length).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('凭证规范 · 关键子任务验证（v1.2 Frank 27）', () => {
+  it('INTENT 1 互加飞书好友有 3 步操作 + 3 条通过标准', () => {
+    const spec = findCredentialSpec('志愿者和组织者互加飞书好友');
+    expect(spec?.whatToDo.length).toBe(3);
+    expect(spec?.passCriteria.length).toBe(3);
+  });
+
+  it('INTENT 3 双方最终确认活动方案有完整必填/选填区分', () => {
+    const spec = findCredentialSpec('双方最终确认活动方案/时间/地点/规模');
+    expect(spec?.whatToDo.some((s) => s.includes('必填'))).toBe(true);
+  });
+
+  it('RECRUIT 4 启动本地招募宣传有截图类 + 链接类两种凭证类型', () => {
+    const spec = findCredentialSpec('启动本地招募宣传（公众号/朋友圈/群转发）');
+    expect(spec?.passCriteria.some((c) => c.includes('截图类'))).toBe(true);
+    expect(spec?.passCriteria.some((c) => c.includes('链接类'))).toBe(true);
+  });
+
+  it('REVIEW 3 志愿者审核作品有"优秀"标记要求', () => {
+    const spec = findCredentialSpec('志愿者审核作品+反馈+可推荐优秀');
+    expect(spec?.passCriteria.some((c) => c.includes('优秀'))).toBe(true);
   });
 });
 

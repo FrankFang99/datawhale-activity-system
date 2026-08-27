@@ -1,35 +1,35 @@
 /**
- * 5 阶段子任务凭证规范（v1.2 Frank 27 完全对齐 8-25 后端 SUBTASK_TEMPLATES）
+ * 5 阶段子任务凭证规范（v1.2 Frank 27 完全对齐 8-25 后端 SUBTASK_TEMPLATES，简化版）
  *
- * 数据源：
- *  - 8-25 backend SUBTASK_TEMPLATES（v1-delivery/backend/src/modules/stages/controller.ts）
- *  - 8-25 frontend stageSubtasks.ts（同源字符级一致）
- *  - v16.6 Frank 8-24 凭证规范（whatToDo + passCriteria + proofCategories + proofType）
+ * v1.2 Frank 27 #6 反馈：「标签可不可以也按原来设置，也不用写分类凭证」
+ * - 删 proofType 字段（volunteer-first / confirm / mixed / form 等）
+ * - 删 proofCategories 字段（凭证分类）
+ * - 只保留 whatToDo（操作步骤）+ passCriteria（通过标准）
+ * - 标签只显示 ownerType（志愿者/组织者/运营）——按 8-25 之前版本（v9 Frank 23:35）
  *
+ * 数据源：8-25 backend SUBTASK_TEMPLATES（v1-delivery/backend/src/modules/stages/controller.ts）
  * 关键约束：matchName 必须字符级跟 8-25 后端 SUBTASK_TEMPLATES 一致
- *   （findCredentialSpec 用 substring 匹配）
- *
- * 用途：ActivityDetail 5 阶段子任务模板预览的「要做什么 / 通过标准 / 凭证分类」3 个 panel
  */
 
 export interface CredentialSpec {
   /** 8-25 后端 subTaskName（完全一致） */
   matchName: string;
-  /** 凭证类型（v16.6 Frank 8-24 引入） */
-  proofType?: 'image' | 'volunteer-first' | 'confirm' | 'mixed' | 'form';
-  /** 凭证分类（v16.8 Frank 22:16 引入） */
-  proofCategories?: string[];
   /** 该子任务需要做什么（步骤） */
   whatToDo: string[];
   /** 通过标准（怎么算这步完成） */
   passCriteria: string[];
+  /** v1.2 Frank 27 #6：proofType/proofCategories 字段在数据中不填
+   * - 留 type 是为了 TS 兼容（SubTaskCard 还能引用 credSpec?.proofType）
+   * - 数据不填 → spec.proofType === 'image' 全是 false → 全走默认「上传凭证 + 自核」路径
+   * - 跟 v9 Frank 23:35 之前行为一致（"按原来设置"） */
+  proofType?: 'image' | 'volunteer-first' | 'confirm' | 'mixed' | 'form';
+  proofCategories?: string[];
 }
 
 export const CREDENTIAL_SPECS: CredentialSpec[] = [
   // ========== 阶段 1 · INTENT（T-10）· 4 子任务（v13） ==========
   {
     matchName: '志愿者和组织者互加飞书好友',
-    proofType: 'volunteer-first',
     whatToDo: [
       '志愿者在飞书 IM 搜索组织者账号并发送好友申请',
       '组织者接受好友申请',
@@ -43,7 +43,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '阅读并确认行动指南',
-    proofType: 'confirm',
     whatToDo: [
       '打开飞书 docx《Datawhale 生态伙伴 社区行动指南》',
       '完整阅读组织者 Do / Don\'t 规范和权益部分',
@@ -56,7 +55,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '双方最终确认活动方案/时间/地点/规模',
-    proofType: 'form',
     whatToDo: [
       '与志愿者在飞书 IM 沟通活动方案',
       '【必填】日期（精确到日）',
@@ -76,7 +74,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '飞书日历登记活动',
-    proofType: 'volunteer-first',
     whatToDo: [
       '在飞书日历创建事件（标题：AI+X 创造节 · XX 大学站）',
       '填入准确活动开始/结束时间',
@@ -93,12 +90,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   // ========== 阶段 2 · RECRUIT（T-7）· 4 子任务（v13） ==========
   {
     matchName: '建活动群聊',
-    proofType: 'image',
-    proofCategories: [
-      '微信群二维码（必填）',
-      '飞书群 URL（可选）',
-      'QQ 群 URL（可选）',
-    ],
     whatToDo: [
       '组织者自己建群，担任群主',
       '群名格式：【活动日期-AI+X创造节@XX大学站/XX城市站】',
@@ -115,13 +106,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '定制视觉物料（海报/横幅/手举牌）',
-    proofType: 'image',
-    proofCategories: [
-      '旗帜 PNG（多张图片）',
-      '海报 PNG（多张图片）',
-      '横幅 PNG（5m × 0.7m）',
-      '手举牌 PNG（Datawhale + 小浣熊）',
-    ],
     whatToDo: [
       '在 Canva 旗帜模板替换城市/学校/日期',
       '在 Canva 海报模板替换 Datawhale Logo + 商汤小浣熊 Logo',
@@ -139,7 +123,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '复制专题并发布报名表单',
-    proofType: 'confirm',
     whatToDo: [
       '【TODO · Frank 把参与者问卷放到官网即可】',
       '当前 v1 暂用 ailc-admin.datawhale.cn 平台 + 飞书日历',
@@ -153,11 +136,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '启动本地招募宣传（公众号/朋友圈/群转发）',
-    proofType: 'mixed',
-    proofCategories: [
-      '【截图类】朋友圈 / 微信群 / 高校社团群 / 企业园区群（上传截图 ≥1 张）',
-      '【链接类】公众号 / 视频号 / 小红书 / 高校社团自媒体号 / 企业园区自媒体号（上传文章链接 ≥1 个）',
-    ],
     whatToDo: [
       '将定制好的海报通过本地渠道发布',
       '带话题 #DatawhaleAI+X创造节',
@@ -174,12 +152,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   // ========== 阶段 3 · PREPARE（T-5）· 5 子任务（8-25 调整：推文+作品上墙从 EXECUTE 移过来） ==========
   {
     matchName: '确认场地并上传场地信息',
-    proofType: 'image',
-    proofCategories: [
-      '精确地址（必填，填空 · 精确到门牌号）',
-      '使用时段（必填 · 几点到几点的下拉选择）',
-      '现场图片（必上传 · 至少 3 张，含设备/桌椅/网络/入口）',
-    ],
     whatToDo: [
       '确认场地有：投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅',
       '与学校/场地方沟通借用时段',
@@ -208,13 +180,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '准备现场物料（接收/打印/任务卡PPT）',
-    proofType: 'image',
-    proofCategories: [
-      '接收物料（≥1 张照片，联系钱皓亮寄送）',
-      '打印物料（≥1 张照片，含横幅/手卡/手举牌/旗帜）',
-      '任务卡（≥1 张照片，6 种）',
-      'PPT（飞书文档链接 · 更新本站点内容）',
-    ],
     whatToDo: [
       '接收物料：联系钱皓亮提供寄送信息',
       '打印物料：横幅 + Datawhale 手卡 + 小浣熊手举牌 + 旗帜',
@@ -231,11 +196,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '提交宣传推文',
-    proofType: 'mixed',
-    proofCategories: [
-      '【截图类】微信群 / 朋友圈 / 高校社团群（上传截图 ≥1 张）',
-      '【链接类】公众号 / 视频号 / 小红书 / 高校社团自媒体账号（上传文章链接 ≥1 个）',
-    ],
     whatToDo: [
       '在微信群 / 公众号 / 朋友圈 / 视频号 / 小红书 / 高校社团 发布活动推文',
       '带话题 #DatawhaleAI+X创造节',
@@ -250,11 +210,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '参与者上传作品/申请的认证',
-    proofType: 'image',
-    proofCategories: [
-      '作品墙截图（≥1 张，可多张）',
-      '徽章认证截图（≥1 张，可多张）',
-    ],
     whatToDo: [
       '引导参与者在活动前/中提交作品（图片/文档/视频）',
       '确保作品展示在作品墙',
@@ -270,7 +225,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   // ========== 阶段 4 · EXECUTE（T）· 3 子任务（8-25 调整：推文+作品上墙移到 PREPARE） ==========
   {
     matchName: '现场签到与引导',
-    proofType: 'image',
     whatToDo: [
       '引导参与者扫码签到（ailc-admin 平台）',
       '引导参与者入活动群',
@@ -286,7 +240,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '主题分享+带教演示+实操+闪电分享',
-    proofType: 'volunteer-first',
     whatToDo: [
       '环节 0：主题分享（20min · AI 学习经验/成果/路线 · 可以不讲）',
       '环节 1：带教演示（30min）',
@@ -304,12 +257,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '采集现场素材（横版高清）',
-    proofType: 'mixed',
-    proofCategories: [
-      '横版高清照片（≥5 张，每环节至少 1 张）',
-      '视频（可选 · 讲座/实操关键片段）',
-      '社媒截图/链接（参与者发布作品 #DatawhaleAI+X创造节）',
-    ],
     whatToDo: [
       '拍摄横版高清照片（每环节至少 1 张）',
       '视频可选（讲座/实操关键片段）',
@@ -352,7 +299,6 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '志愿者审核作品+反馈+可推荐优秀',
-    proofType: 'volunteer-first',
     whatToDo: [
       '志愿者逐个查看作品并打勾通过/不通过',
       '在作品下方写反馈（≥1 条）',

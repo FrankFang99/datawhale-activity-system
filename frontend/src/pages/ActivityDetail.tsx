@@ -391,9 +391,6 @@ export default function ActivityDetail() {
                         <Tag color={t.ownerType === 'VOLUNTEER' ? 'cyan' : t.ownerType === 'OPERATOR' ? 'orange' : 'blue'}>
                           {t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
                         </Tag>
-                        {spec?.proofType === 'volunteer-first' && <Tag color="purple">志愿者先</Tag>}
-                        {spec?.proofType === 'confirm' && <Tag color="green">双确认</Tag>}
-                        {spec?.proofType === 'mixed' && <Tag color="orange">分类凭证</Tag>}
                       </div>
                       {spec && (
                         <div style={{ paddingLeft: 40, fontSize: 12, color: '#595959' }}>
@@ -408,23 +405,13 @@ export default function ActivityDetail() {
                             </div>
                           )}
                           {spec.passCriteria && spec.passCriteria.length > 0 && (
-                            <div style={{ marginBottom: spec.proofCategories ? 6 : 0 }}>
+                            <div>
                               <div style={{ color: '#8c8c8c', marginBottom: 4 }}>✅ 通过标准：</div>
                               <ul style={{ margin: 0, paddingLeft: 18 }}>
                                 {spec.passCriteria.map((c, i) => (
                                   <li key={i} style={{ marginBottom: 2 }}>{c}</li>
                                 ))}
                               </ul>
-                            </div>
-                          )}
-                          {spec.proofCategories && spec.proofCategories.length > 0 && (
-                            <div>
-                              <div style={{ color: '#8c8c8c', marginBottom: 4 }}>📎 凭证分类：</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                {spec.proofCategories.map((cat, i) => (
-                                  <Tag key={i} color="geekblue" style={{ fontSize: 11 }}>{cat}</Tag>
-                                ))}
-                              </div>
                             </div>
                           )}
                         </div>
