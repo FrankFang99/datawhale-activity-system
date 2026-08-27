@@ -131,6 +131,22 @@ const UNIV_BY_PROVINCE: Record<string, University[]> = {
   '甘肃': [
     { name: '兰州大学', shortName: '兰大', tier: '985', city: '兰州', province: '甘肃', district: '城关区', address: '天水南路222号', campuses: [{ name: '城关', district: '城关区', address: '天水南路222号' }, { name: '榆中', district: '榆中县', address: '夏官营大学城' }] },
   ],
+  // Frank 27 14:12 Comment 1：补全国 34 省（西藏/香港/澳门/台湾）
+  '西藏': [
+    { name: '西藏大学', shortName: '藏大', tier: '211', city: '拉萨', province: '西藏', district: '城关区', address: '藏大东路10号', campuses: [{ name: '河坝林', district: '城关区', address: '藏大东路10号' }] },
+  ],
+  '香港': [
+    { name: '香港大学', shortName: 'HKU', tier: '本科', city: '香港', province: '香港', district: '中西区', address: '薄扶林道', campuses: [{ name: '本部', district: '中西区', address: '薄扶林道' }] },
+    { name: '香港中文大学', shortName: 'CUHK', tier: '本科', city: '香港', province: '香港', district: '沙田区', address: '大学站', campuses: [{ name: '本部', district: '沙田区', address: '大学站' }] },
+    { name: '香港科技大学', shortName: 'HKUST', tier: '本科', city: '香港', province: '香港', district: '西贡区', address: '清水湾', campuses: [{ name: '本部', district: '西贡区', address: '清水湾' }] },
+  ],
+  '澳门': [
+    { name: '澳门大学', shortName: 'UM', tier: '本科', city: '澳门', province: '澳门', district: '氹仔', address: '大学大马路', campuses: [{ name: '本部', district: '氹仔', address: '大学大马路' }] },
+  ],
+  '台湾': [
+    { name: '国立台湾大学', shortName: '台大', tier: '本科', city: '台北', province: '台湾', district: '大安区', address: '罗斯福路四段1号', campuses: [{ name: '校本部', district: '大安区', address: '罗斯福路四段1号' }] },
+    { name: '国立清华大学', shortName: '清大', tier: '本科', city: '新竹', province: '台湾', district: '东区', address: '光复路二段101号', campuses: [{ name: '校本部', district: '东区', address: '光复路二段101号' }] },
+  ],
 };
 
 /**

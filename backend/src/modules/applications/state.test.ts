@@ -219,7 +219,7 @@ describe('申请提交 · APPLICATION_SCHEMA 字段校验', () => {
       location: '北京',
       motivation: '推动 AI 教育进校园',
       participantValue: '希望参与者能做出 AI 作品',
-      experience: '组织过 3 场',
+      experience: '组织过 3 场 AI 分享会、200+ 人参与等',  // Frank 27 14:12 Comment 5：活动经历改必填
       venueStatus: '已确定',
       recruitChannel: ['社群', '公众号'],
     });

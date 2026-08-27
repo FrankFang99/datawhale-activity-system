@@ -457,6 +457,11 @@ export default function ApplicationForm() {
             <Input placeholder="如：清华大学 FIT 楼 3 层多功能厅" />
           </Form.Item>
 
+          {/* Frank 27 14:12 Comment 3：橙色提示挪到预期活动时间之前 */}
+          <div style={{ marginBottom: 16, color: '#F59E0B', fontSize: 13 }}>
+            ⓘ 以下信息请认真填写，涉及申请是否通过。
+          </div>
+
           <Form.Item
             label="预期活动时间"
             name="expectedTimeRange"
@@ -469,7 +474,7 @@ export default function ApplicationForm() {
                     : Promise.reject(new Error('请至少选择 1 个候选日期')),
               },
             ]}
-            extra="Frank 27 14:12：最后会协商上从中选定一天作为活动时间，可多选"
+            extra="最后会协商上从中选定一天作为活动时间，可多选"
           >
             <DatePicker
               style={{ width: '100%' }}
@@ -477,13 +482,16 @@ export default function ApplicationForm() {
               showTime={false}
               format="YYYY-MM-DD"
               placeholder="可多选日期"
+              disabledDate={(d) => {
+                if (!activity?.startDate || !activity?.endDate) return false;
+                const ts = d.valueOf();
+                return ts < new Date(activity.startDate).getTime() ||
+                  ts > new Date(activity.endDate).getTime();
+              }}
             />
           </Form.Item>
 
           <Divider style={{ margin: '24px 0' }} />
-          <div style={{ marginBottom: 16, color: '#F59E0B', fontSize: 13 }}>
-            ⓘ 以下信息请认真填写，涉及申请是否通过。
-          </div>
 
           <Form.Item
             label="是否有预备场地"
@@ -532,7 +540,15 @@ export default function ApplicationForm() {
             />
           </Form.Item>
 
-          <Form.Item label="介绍您组织过的活动经历（选填）" name="experience" rules={[{ max: 500 }]}>
+          <Form.Item
+            label="介绍您组织过的活动经历"
+            name="experience"
+            rules={[
+              { required: true, message: '请填写活动经历' },
+              { max: 500, message: '不超过 500 字符' },
+            ]}
+            extra="如：曾组织过 3 场 AI 分享会、200+ 人参与等（≤500 字符）"
+          >
             <Input.TextArea
               rows={3}
               maxLength={500}

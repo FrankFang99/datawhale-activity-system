@@ -23,7 +23,8 @@ export const APPLICATION_SCHEMA = z.object({
   location: z.string().min(1).max(100),  // 模糊地区（保留给报名者了解）
   motivation: z.string().min(1).max(500),
   participantValue: z.string().min(1).max(500),
-  experience: z.string().max(500).optional(),
+  // Frank 27 14:12 Comment 5：活动经历改必填（之前可选）
+  experience: z.string().min(1, '请填写活动经历').max(500),
   venueStatus: z.enum(['已确定', '有潜在', '暂无']),
   recruitChannel: z.array(z.enum(['社群', '公众号', '高校社团', '企业园区', '暂无'])).min(1, '请至少选择 1 个招募渠道'),
 });
