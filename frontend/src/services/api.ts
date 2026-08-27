@@ -64,8 +64,7 @@ export interface Activity {
   // v1.2 Frank 22:29：是否已确定组织者（false = 还没人申请通过 = 显示「申请成为组织者」按钮）
   hasOrganizer?: boolean;
   needOrganizer?: boolean;
-  // v1.2 Frank 22:29：5 阶段时间线 JSON 字符串
-  stages?: string;
+  // v1.2 Frank 2026-08-27：删了 stages 字段（8-25 设计：活动不存子任务模板）
 }
 
 // ===== 高校库（v1.2 Frank 17:08 加 dw_universities 表）=====

@@ -119,8 +119,6 @@ function serialize(a: ActivityRecord, detail = false, effective: string = normSt
     maxParticipants: a.fields.maxParticipants ?? 0,
     daysToStart,
     requirements: detail ? a.fields.requirements : undefined,
-    // v1.2 Frank 22:29：5 阶段时间线（详情页用）
-    stages: a.fields.stages ?? '',
   };
 }
 

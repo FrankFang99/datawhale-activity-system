@@ -56,9 +56,10 @@ export const STAGE_TEMPLATES_FRANK: Stage[] = [
   },
   {
     // 8-25 调整：PREPARE 从 3 个扩到 5 个（推文 + 作品上墙从 EXECUTE 移过来）
+    // 8-25 STAGE_TEMPLATES：PREPARE daysBeforeStart=5（T-5）
     stage: 'PREPARE',
     title: '现场筹备',
-    hint: 'T-3',
+    hint: 'T-5',
     desc: '确认场地、完成实操教程培训、准备现场物料（接收/打印/任务卡/PPT）、提交宣传推文、推动作品上墙。',
     subTasks: [
       { order: 1, name: '确认场地并上传场地信息', ownerType: 'ORGANIZER', proofHint: '精确地址 + 使用时段 + 现场图片≥3 张' },
@@ -77,7 +78,7 @@ export const STAGE_TEMPLATES_FRANK: Stage[] = [
     desc: '现场签到、主题分享+带教+实操+闪电分享、采集现场素材。',
     subTasks: [
       { order: 1, name: '现场签到与引导', ownerType: 'ORGANIZER', proofHint: '签到截图 + 入群率≥80%' },
-      { order: 2, name: '主题分享+带教实操+闪电分享', ownerType: 'ORGANIZER', proofHint: '现场照片≥3 张（每环节至少 1 张）' },
+      { order: 2, name: '主题分享+带教演示+实操+闪电分享', ownerType: 'ORGANIZER', proofHint: '现场照片≥3 张（每环节至少 1 张）' },
       { order: 3, name: '采集现场素材（横版高清）', ownerType: 'ORGANIZER', proofHint: '横版高清照片≥5 张（≥1920×1080）+ 视频可选' },
     ],
   },

@@ -118,77 +118,17 @@ const createSchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/, 'startTime 需为 HH:mm 格式，如 14:00').optional(),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, 'endTime 需为 HH:mm 格式，如 18:00').optional(),
   confirmedAddress: z.string().max(200).optional(),
-  // v1.2 Frank 22:29 反馈：5 阶段时间线 JSON 字符串
-  // 运营创建活动时存到飞书，活动详情页读出渲染
-  // 空字符串/null = 用代码默认骨架 (DEFAULT_ACTIVITY_STAGES)
-  stages: z.string().max(20000).optional(),
+  // v1.2 Frank 2026-08-27 反馈：完全按 8-25 交付版
+  // 5 阶段子任务模板存在后端 stages/controller.ts 的 SUBTASK_TEMPLATES
+  // 活动创建时不存 stages 模板（删了 v1.2 之前加的 stages 字段写入逻辑）
+  // 19 子任务由 CONFIRMED 时 initializeStageTasks 自动实例化到 dw_stage_tasks
+  // 同 series 模板复用 → v2 完善：dw_activity_series_templates 表（v1 不做）
 });
 
 const updateSchema = createSchema.partial();
 
 // Frank 2026-08-21 #4: HH:mm 格式校验
 const timeRegex = /^\d{2}:\d{2}$/;
-
-// v1.2 Frank 23:50 升级：按 Frank 2026-08-25 交付的 v1 包
-// 数据源：
-//  - frontend/src/data/stageSubtasks.ts（STAGE_TEMPLATES_FRANK）
-//  - frontend/src/data/stageCredentialSpec.ts（v16.6 8-24 改写，凭证规范）
-//  - backend/src/modules/stages/controller.ts 的 SUBTASK_TEMPLATES（8-25 调整：PREPARE 5 个 + EXECUTE 3 个）
-// 同 series 的活动后续会复用此模板作为起点（v2 完善：dw_activity_series_templates 表）
-export const DEFAULT_ACTIVITY_STAGES = [
-  {
-    name: '确认意向', offsetDays: -10, stage: 'INTENT',
-    description: '志愿者与组织者飞书 IM 沟通，最终确定活动方案；组织者阅读并确认行动指南后开始填空表单。',
-    subTasks: [
-      { order: 1, name: '志愿者和组织者互加飞书好友',           ownerType: 'VOLUNTEER', proofHint: '好友关系建立截图' },
-      { order: 2, name: '阅读并确认行动指南',                   ownerType: 'ORGANIZER', proofHint: '飞书文档（已读 + 确认）' },
-      { order: 3, name: '双方最终确认活动方案/时间/地点/规模',    ownerType: 'ORGANIZER', proofHint: '组织者填写具体时间（必填到日，几点到几点可选）、具体地点、预计规模 → 同步飞书 base' },
-      { order: 4, name: '飞书日历登记活动',                     ownerType: 'ORGANIZER', proofHint: '志愿者添加日历后，组织者确认打勾' },
-    ],
-  },
-  {
-    name: '对外招募', offsetDays: -7, stage: 'RECRUIT',
-    description: '建群、定制视觉物料、发布报名表单、启动本地招募宣传。',
-    subTasks: [
-      { order: 1, name: '建活动群聊',                                          ownerType: 'ORGANIZER', proofHint: '群二维码（必填）+ 飞书群/QQ 群 URL（可选）' },
-      { order: 2, name: '定制视觉物料（海报/横幅/手举牌）',                     ownerType: 'ORGANIZER', proofHint: '旗帜/海报/横幅/手举牌 PNG（多张）' },
-      { order: 3, name: '复制专题并发布报名表单',                              ownerType: 'ORGANIZER', proofHint: '报名链接可访问 + 群二维码自动弹出' },
-      { order: 4, name: '启动本地招募宣传（公众号/朋友圈/群转发）',              ownerType: 'ORGANIZER', proofHint: '【截图类】朋友圈/微信群/高校社团群（≥1 张）+【链接类】公众号/视频号/小红书（≥1 个）' },
-    ],
-  },
-  {
-    // 8-25 调整：PREPARE 从 3 个扩到 5 个（推文 + 作品上墙从 EXECUTE 移过来）
-    name: '现场筹备', offsetDays: -3, stage: 'PREPARE',
-    description: '确认场地、完成实操教程培训、准备现场物料（接收/打印/任务卡/PPT）、提交宣传推文、推动作品上墙。',
-    subTasks: [
-      { order: 1, name: '确认场地并上传场地信息',                              ownerType: 'ORGANIZER', proofHint: '精确地址 + 使用时段 + 现场图片≥3 张' },
-      { order: 2, name: '组织者+助教完成实操教程培训',                          ownerType: 'ORGANIZER', proofHint: '教程完整跑通截图 + 培训截图≥2 张' },
-      { order: 3, name: '准备现场物料（接收/打印/任务卡PPT）',                  ownerType: 'ORGANIZER', proofHint: '接收/打印/任务卡/PPT 4 类图片' },
-      // 8-25 移过来的 2 个子任务（原 v9 在 EXECUTE）
-      { order: 4, name: '提交宣传推文',                                        ownerType: 'ORGANIZER', proofHint: '【截图类】微信群/朋友圈/高校社团群 +【链接类】公众号/视频号/小红书' },
-      { order: 5, name: '参与者上传作品/申请的认证',                            ownerType: 'ORGANIZER', proofHint: '作品墙截图 + 徽章认证截图' },
-    ],
-  },
-  {
-    // 8-25 调整：EXECUTE 从 4 个减到 3 个（推文/作品墙上墙移到 PREPARE）
-    name: '活动执行', offsetDays: 0, stage: 'EXECUTE',
-    description: '现场签到、主题分享+带教+实操+闪电分享、采集现场素材。',
-    subTasks: [
-      { order: 1, name: '现场签到与引导',                                       ownerType: 'ORGANIZER', proofHint: '签到截图 + 入群率≥80%' },
-      { order: 2, name: '主题分享+带教实操+闪电分享',                          ownerType: 'ORGANIZER', proofHint: '现场照片≥3 张（每环节至少 1 张）' },
-      { order: 3, name: '采集现场素材（横版高清）',                             ownerType: 'ORGANIZER', proofHint: '横版高清照片≥5 张（≥1920×1080）+ 视频可选' },
-    ],
-  },
-  {
-    name: '活动复盘', offsetDays: 3, stage: 'REVIEW',
-    description: '提交活动复盘（含现场素材到飞书文档）、推动作品上墙（参与 OPC 能力认证）、志愿者审核作品+可推荐优秀。',
-    subTasks: [
-      { order: 1, name: '提交活动复盘（含现场素材到飞书文档）',                 ownerType: 'ORGANIZER', proofHint: '3 天内提交 + 含现场素材 + 不人机' },
-      { order: 2, name: '推动作品上墙（参与 OPC 能力认证）',                  ownerType: 'ORGANIZER', proofHint: '作品链接≥1 + OPC 认证截图≥1' },
-      { order: 3, name: '志愿者审核作品+反馈+可推荐优秀',                      ownerType: 'VOLUNTEER', proofHint: '志愿者先完成 + 组织者确认 + 至少 1 个作品标记"优秀"' },
-    ],
-  },
-];
 
 // GET /api/admin/activities - 活动列表（admin/operator 可见全部）
 router.get('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (_req: Request, res: Response) => {
@@ -206,7 +146,6 @@ router.get('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (_req: Req
     maxParticipants: a.fields.maxParticipants,
     requirements: a.fields.requirements,
     groupQrCode: a.fields.groupQrCode,
-    stages: a.fields.stages,
   }));
   return ok(res, { list, total: list.length });
 });
@@ -226,26 +165,9 @@ router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Req
   }
   const activityId = await nextActivityId();
 
-  // v1.2 Frank 22:29：5 阶段时间线
-  // 1) 运营传了 stages → 用运营的
-  // 2) 没传 + 同 series 有老活动 → 复制同 series 最新一个的 stages（系列复用）
-  // 3) 都没 → 用代码默认骨架
-  let stagesStr = data.stages;
-  if (!stagesStr) {
-    if (data.series) {
-      const sameSeries = (await feishuClient.listRecords(config.feishu.tables.activities, { pageSize: 200 })).items as ActivityRecord[];
-      const latest = sameSeries
-        .filter((a) => a.fields.series === data.series && a.fields.stages)
-        .sort((a, b) => (b.fields.createdAt ?? 0) - (a.fields.createdAt ?? 0))[0];
-      if (latest?.fields.stages) {
-        stagesStr = latest.fields.stages;
-      }
-    }
-    if (!stagesStr) {
-      stagesStr = JSON.stringify(DEFAULT_ACTIVITY_STAGES);
-    }
-  }
-
+  // v1.2 Frank 2026-08-27：完全按 8-25 交付版
+  // 活动创建时不存 stages 模板
+  // 19 子任务由 CONFIRMED 时 initializeStageTasks 自动从 SUBTASK_TEMPLATES 实例化到 dw_stage_tasks
   const recordId = await feishuClient.createRecord(config.feishu.tables.activities, {
     activityId,
     title: data.title,
@@ -259,7 +181,6 @@ router.post('/', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Req
     requirements: data.requirements ?? '',
     groupQrCode: data.groupQrCode ?? '',
     status: 'DRAFT',
-    stages: stagesStr,
   });
   return ok(res, { activityId, recordId, message: '活动已创建（草稿状态）' });
 });
