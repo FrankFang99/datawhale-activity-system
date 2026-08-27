@@ -49,9 +49,7 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
       '完整阅读组织者 Do / Don\'t 规范和权益部分',
     ],
     passCriteria: [
-      '行动指南已完整阅读（Do / Don\'t 规范和权益）',
-      '志愿者先确认（提交 step1）',
-      '组织者后确认（提交 step2）',
+      '组织者与志愿者双方均"我已确认"',
     ],
   },
   {

@@ -106,8 +106,7 @@ describe('5 阶段任务模板（PRD §5.4.3 · v12 19 子任务）', () => {
     const intent = extractSubtasks().filter((t) => t.stage === 'INTENT');
     const guide = intent.find((t) => t.subTaskName === '阅读并确认行动指南');
     expect(guide).toBeTruthy();
-    // Frank 27 21:07 反馈：志愿者先确认 → 组织者后确认
-    expect(guide!.ownerType).toBe('VOLUNTEER');
+    expect(guide!.ownerType).toBe('ORGANIZER');
     expect(guide!.proofHint).toContain('feishu.cn/docx');
   });
 
