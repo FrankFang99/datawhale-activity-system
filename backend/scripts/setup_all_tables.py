@@ -179,6 +179,11 @@ APPLICATIONS_FIELDS = [
     {"name": "organizerPhone", "type": "text", "style": {"type": "phone"}},
     {"name": "organizerEmail", "type": "text", "style": {"type": "email"}},
     {"name": "expectedDate", "type": "datetime"},
+    # v1.2 Frank 27 09:49 反馈：申请时就要具体时间段 + 精确地址
+    # CONFIRMED 时升级到活动表的 startTime/endTime/confirmedAddress
+    {"name": "expectedStartTime", "type": "text", "description": "预计开始时间 HH:mm"},
+    {"name": "expectedEndTime", "type": "text", "description": "预计结束时间 HH:mm"},
+    {"name": "confirmedAddress", "type": "text", "description": "精确地址（楼/层/房间）"},
     {"name": "location", "type": "text"},
     {"name": "motivation", "type": "text", "description": "活动动机"},
     {"name": "participantValue", "type": "text", "description": "对参与者的价值"},

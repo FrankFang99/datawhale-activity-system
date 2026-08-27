@@ -11,6 +11,9 @@ import { authRequired, requireRole } from '../../middleware/auth';
 
 const router = Router();
 
+// 飞书 select 字段返回总是数组；归一化为单个字符串
+const normRole = (r: any): string => (Array.isArray(r) ? String(r[0] ?? '') : String(r ?? ''));
+
 interface ApplicationRecord extends LarkRecord {
   fields: {
     applicationId?: string;
@@ -26,6 +29,10 @@ interface ApplicationRecord extends LarkRecord {
     submittedAt?: number;
     volunteerId?: string;
     organizerPhone?: string;
+    // v1.2 Frank 27 09:49 反馈：精确时间/地址（CONFIRMED 时升级到活动表）
+    expectedStartTime?: string;
+    expectedEndTime?: string;
+    confirmedAddress?: string;
     organizerEmail?: string;
     expectedDate?: number;
     location?: string;
@@ -115,6 +122,10 @@ function serialize(a: ApplicationRecord) {
     organizerPhone: a.fields.organizerPhone,
     organizerEmail: a.fields.organizerEmail,
     expectedDate: a.fields.expectedDate,
+    // v1.2 Frank 27 09:49 反馈：申请时的精确时间段和地址
+    expectedStartTime: a.fields.expectedStartTime,
+    expectedEndTime: a.fields.expectedEndTime,
+    confirmedAddress: a.fields.confirmedAddress,
     location: a.fields.location,
     motivation: a.fields.motivation,
     participantValue: a.fields.participantValue,
@@ -347,6 +358,55 @@ router.post('/:id/approve', authRequired, requireRole('OPERATOR', 'ADMIN'), asyn
   // Frank 2026-08-21 #6 升级：APPROVE 时如果申请者 role = USER 或 PARTICIPANT，自动升级为 ORGANIZER
   // v1 简化：申请通过即升级（v2 加志愿者确认意向步骤后再升级）
   if (newStatus === 'CONFIRMED' && a.fields.userId) {
+    // v1.2 Frank 27 09:49 反馈：CONFIRMED 时升级模糊时间/地点为精确时间/地址（无论用户是否已为 ORGANIZER）
+    // 申请表里组织者填了 expectedStartTime/expectedEndTime/confirmedAddress
+    // 写回活动表 → 活动详情/大厅显示精确时间
+    if (a.fields.activityId) {
+      try {
+        const actRecs = await feishuClient.searchRecords(
+          config.feishu.tables.activities,
+          'activityId',
+          a.fields.activityId
+        );
+        const act = actRecs[0] as LarkRecord | undefined;
+        if (act) {
+          const updateFields: any = {};
+          if (a.fields.expectedStartTime) updateFields.startTime = a.fields.expectedStartTime;
+          if (a.fields.expectedEndTime) updateFields.endTime = a.fields.expectedEndTime;
+          if (a.fields.confirmedAddress) updateFields.confirmedAddress = a.fields.confirmedAddress;
+          if (Object.keys(updateFields).length > 0) {
+            await feishuClient.updateRecord(config.feishu.tables.activities, act.record_id, updateFields);
+          }
+        }
+      } catch (e) {
+        console.log(`[PROMOTE-PRECISE] 升级精确时间失败: ${(e as Error).message}`);
+      }
+    }
+
+    // Frank #11: CONFIRMED 时自动初始化 5 阶段 19 个子任务（不再需要运营手动）
+    try {
+      let activityStartDate = Date.now() + 30 * 24 * 3600 * 1000;
+      if (a.fields.activityId) {
+        const actRecs = await feishuClient.searchRecords(
+          config.feishu.tables.activities,
+          'activityId',
+          a.fields.activityId
+        );
+        const act = actRecs[0] as LarkRecord | undefined;
+        const start = act?.fields?.startDate;
+        if (typeof start === 'number') activityStartDate = start;
+      }
+      const { initializeStageTasks } = await import('../stages/controller');
+      await initializeStageTasks(
+        a.fields.applicationId ?? a.record_id,
+        a.fields.userId,
+        activityStartDate
+      );
+    } catch (e) {
+      console.log(`[STAGE-INIT] 自动初始化 5 阶段任务失败: ${(e as Error).message}`);
+    }
+
+    // 角色升级（普通用户/参与者 → ORGANIZER）
     try {
       const userRecs = await feishuClient.searchRecords(
         config.feishu.tables.users,
@@ -356,35 +416,10 @@ router.post('/:id/approve', authRequired, requireRole('OPERATOR', 'ADMIN'), asyn
       const u = userRecs[0] as UserRecord | undefined;
       if (u) {
         const currentRole = normRole(u.fields.role);
-        // 普通用户（USER）或参与者（PARTICIPANT）申请通过 → 升级 ORGANIZER
         if (['USER', 'PARTICIPANT', ''].includes(currentRole)) {
           await feishuClient.updateRecord(config.feishu.tables.users, u.record_id, {
             role: 'ORGANIZER',
           });
-          // Frank #11: CONFIRMED 时自动初始化 5 阶段 22 个子任务（不再需要运营手动）
-          try {
-            // 查活动 startDate（如查不到用 now + 30 天兜底）
-            let activityStartDate = Date.now() + 30 * 24 * 3600 * 1000;
-            if (a.fields.activityId) {
-              const actRecs = await feishuClient.searchRecords(
-                config.feishu.tables.activities,
-                'activityId',
-                a.fields.activityId
-              );
-              const act = actRecs[0] as LarkRecord | undefined;
-              const start = act?.fields?.startDate;
-              if (typeof start === 'number') activityStartDate = start;
-            }
-            const { initializeStageTasks } = await import('../stages/controller');
-            await initializeStageTasks(
-              a.fields.applicationId ?? a.record_id,
-              a.fields.userId,
-              activityStartDate
-            );
-            console.log(`[STAGE-INIT] 自动初始化 5 阶段任务成功: applicationId=${a.fields.applicationId}`);
-          } catch (e) {
-            console.log(`[STAGE-INIT] 自动初始化 5 阶段任务失败: ${(e as Error).message}`);
-          }
         }
       }
     } catch (e) {

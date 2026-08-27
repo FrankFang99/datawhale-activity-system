@@ -105,6 +105,10 @@ export interface ApplicationInput {
   organizerPhone: string;
   organizerEmail: string;
   expectedDate: number;
+  // v1.2 Frank 27 09:49 反馈：申请时就要具体时间段 + 精确地址
+  expectedStartTime: string;  // HH:mm
+  expectedEndTime: string;    // HH:mm
+  confirmedAddress: string;   // 精确地址
   location: string;
   motivation: string;
   participantValue: string;

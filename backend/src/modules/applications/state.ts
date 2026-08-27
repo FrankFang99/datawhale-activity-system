@@ -16,7 +16,13 @@ export const APPLICATION_SCHEMA = z.object({
   organizerPhone: z.string().regex(/^1\d{10}$/, '请填写 11 位手机号'),
   organizerEmail: z.string().email(),
   expectedDate: z.number().int().positive(),
-  location: z.string().min(1).max(100),
+  // v1.2 Frank 27 09:49 反馈：申请时就要具体时间段 + 精确地址
+  // CONFIRMED 时这两字段升级为活动的 startTime/endTime/confirmedAddress
+  expectedStartTime: z.string().regex(/^\d{2}:\d{2}$/, '请填写开始时间 HH:mm 格式，如 09:00'),
+  expectedEndTime: z.string().regex(/^\d{2}:\d{2}$/, '请填写结束时间 HH:mm 格式，如 18:00'),
+  // Frank：精确地址（精确到门牌号/教室/楼层/房间号）
+  confirmedAddress: z.string().min(1).max(200),
+  location: z.string().min(1).max(100),  // 模糊地区（保留给报名者了解）
   motivation: z.string().min(1).max(500),
   participantValue: z.string().min(1).max(500),
   experience: z.string().max(500).optional(),
