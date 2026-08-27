@@ -117,11 +117,11 @@ describe('5 阶段任务模板（PRD §5.4.3 · v12 19 子任务）', () => {
     expect(confirm!.ownerType).toBe('ORGANIZER');
   });
 
-  it('v13 INTENT 阶段"飞书日历登记活动" ownerType=ORGANIZER（Frank Comment 5 改）', () => {
+  it('v13 INTENT 阶段"飞书日历登记活动" ownerType=VOLUNTEER（volunteer-first：志愿者添加日历后组织者确认打勾）', () => {
     const intent = extractSubtasks().filter((t) => t.stage === 'INTENT');
     const cal = intent.find((t) => t.subTaskName === '飞书日历登记活动');
     expect(cal).toBeTruthy();
-    expect(cal!.ownerType).toBe('ORGANIZER');
+    expect(cal!.ownerType).toBe('VOLUNTEER');
   });
 
   it('ownerType 只包含 ORGANIZER / VOLUNTEER / OPERATOR', () => {

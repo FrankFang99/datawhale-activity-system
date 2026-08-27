@@ -97,8 +97,8 @@ const SUBTASK_TEMPLATES: Array<{
   { stage: 'INTENT', order: 2, subTaskName: '阅读并确认行动指南', ownerType: 'ORGANIZER', proofHint: '飞书文档 https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1（已读 + 确认）' },
   // Comment 4：改 ownerType 为组织者，填空表单（时间+地点+规模）同步飞书 base
   { stage: 'INTENT', order: 3, subTaskName: '双方最终确认活动方案/时间/地点/规模', ownerType: 'ORGANIZER', proofHint: '组织者填写具体时间（必填到日，几点到几点可选）、具体地点、预计规模 → 同步飞书 base' },
-  // Comment 5：志愿者添加日历后，组织者确认打勾（ownerType 改 ORGANIZER）
-  { stage: 'INTENT', order: 4, subTaskName: '飞书日历登记活动', ownerType: 'ORGANIZER', proofHint: '志愿者添加日历后，组织者确认打勾' },
+  // Comment 5：志愿者添加日历后，组织者确认打勾（volunteer-first 流程：志愿者 step1 → 组织者 step2）
+  { stage: 'INTENT', order: 4, subTaskName: '飞书日历登记活动', ownerType: 'VOLUNTEER', proofHint: '志愿者添加日历后，组织者确认打勾' },
   // RECRUIT 阶段
   { stage: 'RECRUIT', order: 1, subTaskName: '建活动群聊', ownerType: 'ORGANIZER', proofHint: '群二维码' },
   { stage: 'RECRUIT', order: 2, subTaskName: '定制视觉物料（海报/横幅/手举牌）', ownerType: 'ORGANIZER', proofHint: '海报链接' },
