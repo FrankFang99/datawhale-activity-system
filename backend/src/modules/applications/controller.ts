@@ -282,8 +282,8 @@ router.get('/:id/dispatch', authRequired, async (req: Request, res: Response) =>
   });
 });
 
-// GET /api/applications/mine
-router.get('/mine', authRequired, requireRole('ORGANIZER', 'ADMIN', 'OPERATOR'), async (req: Request, res: Response) => {
+// GET /api/applications/mine - Frank 27 15:37：所有已登录用户都能看自己提交的申请（不限角色）
+router.get('/mine', authRequired, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
   const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
   const mine = (items as ApplicationRecord[])

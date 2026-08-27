@@ -131,9 +131,8 @@ export const router = createBrowserRouter(
           path: 'my-applications',
           element: (
             <Protected>
-              <RoleGuard allow={['ORGANIZER', 'ASSISTANT']}>
-                <MyApplications />
-              </RoleGuard>
+              {/* Frank 27 15:37：所有已登录用户都能看自己的申请（不限角色）—— 申请提交后立即能看进度 */}
+              <MyApplications />
             </Protected>
           ),
         },
