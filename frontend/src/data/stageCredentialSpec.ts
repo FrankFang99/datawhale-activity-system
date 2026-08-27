@@ -44,7 +44,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   {
     matchName: '阅读并确认行动指南',
     whatToDo: [
-      '打开飞书 docx《Datawhale 生态伙伴 社区行动指南》',
+      // Frank 27 20:18 反馈：补超链接（飞书 docx 实际 URL 来自 v16.7 SUBTASK_TEMPLATES proofHint）
+      '打开[飞书 docx《Datawhale 生态伙伴 社区行动指南》](https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1)',
       '完整阅读组织者 Do / Don\'t 规范和权益部分',
       '在指南末尾点击"已读 + 确认"按钮',
     ],
@@ -61,7 +62,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
       '【选填】时间区间（几点到几点）',
       '【必填】地点（精确到商圈/学校/场地）',
       '【必填】预计规模（不超过 80 人）',
-      '【必填】活动方案（上传飞书 docx 链接）',
+      // Frank 27 20:18 反馈：补飞书 docx 链接（# 占位，等 Frank 给真实 URL）
+      '【必填】活动方案（上传[飞书 docx 链接](#)）',
     ],
     passCriteria: [
       '日期已确定（精确到日）',
@@ -125,7 +127,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     matchName: '复制专题并发布报名表单',
     whatToDo: [
       '【TODO · Frank 把参与者问卷放到官网即可】',
-      '当前 v1 暂用 ailc-admin.datawhale.cn 平台 + 飞书日历',
+      // Frank 27 20:18 反馈：补超链接
+      '当前 v1 暂用 [ailc-admin.datawhale.cn](https://ailc-admin.datawhale.cn) 平台 + 飞书日历',
     ],
     passCriteria: [
       '报名链接可访问（用户扫码后能进表单）',
@@ -138,14 +141,14 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     matchName: '启动本地招募宣传（公众号/朋友圈/群转发）',
     whatToDo: [
       '将定制好的海报通过本地渠道发布',
-      '带话题 #DatawhaleAI+X创造节',
+      '带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
       '鼓励扫码报名 + 进群',
     ],
     passCriteria: [
       '【截图类渠道】朋友圈 / 微信群 / 高校社团群 / 企业园区群：上传推文/朋友圈截图（≥1 张）',
       '【链接类渠道】公众号 / 视频号 / 小红书 / 高校社团自媒体号 / 企业园区自媒体号：上传文章链接（≥1 个）',
-      '话题 #DatawhaleAI+X创造节 已使用',
-      '@Datawhale 官方账号',
+      '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) 已使用',
+      '[@Datawhale](https://www.datawhale.cn/) 官方账号',
     ],
   },
 
@@ -167,7 +170,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   {
     matchName: '组织者+助教完成实操教程培训',
     whatToDo: [
-      '登录学习平台 ailc.datawhale.cn',
+      // Frank 27 20:18 反馈：补 ailc.datawhale.cn 超链接
+      '登录学习平台 [ailc.datawhale.cn](https://ailc.datawhale.cn)',
       '完整跑通本期教程（商汤办公小浣熊 OPC 能力实操）',
       '确保能带教其他参与者',
       '截图保存培训记录',
@@ -198,14 +202,14 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     matchName: '提交宣传推文',
     whatToDo: [
       '在微信群 / 公众号 / 朋友圈 / 视频号 / 小红书 / 高校社团 发布活动推文',
-      '带话题 #DatawhaleAI+X创造节',
+      '带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
       '引导用户扫码报名 + 进群',
     ],
     passCriteria: [
       '推文已发布（≥1 个渠道）',
       '截图类 ≥1 张',
       '链接类 ≥1 个',
-      '话题 #DatawhaleAI+X创造节 已使用',
+      '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) 已使用',
     ],
   },
   {
@@ -226,7 +230,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   {
     matchName: '现场签到与引导',
     whatToDo: [
-      '引导参与者扫码签到（ailc-admin 平台）',
+      // Frank 27 20:18 反馈：补 ailc-admin 超链接
+      '引导参与者扫码签到（[ailc-admin](https://ailc-admin.datawhale.cn) 平台）',
       '引导参与者入活动群',
       '公告现场流程和动手实践链接',
       '解答参与者疑问',
@@ -260,13 +265,13 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     whatToDo: [
       '拍摄横版高清照片（每环节至少 1 张）',
       '视频可选（讲座/实操关键片段）',
-      '引导参与者在社媒发布作品 + 带话题 #DatawhaleAI+X创造节',
-      '@Datawhale 官方账号',
+      '引导参与者在社媒发布作品 \+ 带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
+      '[@Datawhale](https://www.datawhale.cn/) 官方账号',
     ],
     passCriteria: [
       '素材链接 ≥5 个（照片 ≥5 + 视频可选）',
       '横版高清（≥1920×1080）',
-      '话题 #DatawhaleAI+X创造节 + @Datawhale',
+      '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) \+ [@Datawhale](https://www.datawhale.cn/)',
     ],
   },
 
