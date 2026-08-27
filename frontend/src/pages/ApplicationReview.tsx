@@ -1,10 +1,15 @@
 /**
- * 申请详情页（v14 · Frank 2026-08-23 19:46 反馈）
+ * 申请详情页（v15 · Frank 2026-08-27 15:58 反馈）
  *
  * 用途：所有角色可查看任意申请详情
  * - 申请者：看自己提交的申请（含 AI 评分 / 审核日志）
  * - 志愿者：看他所对接的申请（审批前/审核后都能看）
  * - 运营/管理员：所有申请
+ *
+ * v15 修订（Frank 27 15:58 反馈 Comment 1-3）：
+ * - Comment 1：删申请原文 tab 里的「合作资源」栏（申请问卷无此字段，Descriptions 上方已有「招募渠道」Tags）
+ * - Comment 2：删顶部「该申请存在风险项」Alert 整块（不显示风险）
+ * - Comment 3：基础信息 Card 加 title="基本信息"
  *
  * v14 修订（Frank 19:46 反馈 Comment 1）：
  * - 后端 GET /api/applications/:id 已扩展返回飞书 base 全部 14+ 字段
@@ -18,7 +23,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Spin, Tag, Descriptions, Tabs, Button, Space, Typography, Result, Empty, Alert, message, Tooltip,
+  Card, Spin, Tag, Descriptions, Tabs, Button, Space, Typography, Result, Empty, message, Tooltip,
 } from 'antd';
 import { ArrowLeftOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { applicationApi } from '../services/api';
@@ -147,23 +152,9 @@ export default function ApplicationReview() {
         )}
       </Space>
       {/* v14 Frank 19:46 反馈 Comment 1：删 v13 跳转飞书按钮，详情页直接展示完整数据 */}
+      {/* Frank 27 15:58 Comment 2：删风险项 Alert（不显示风险） */}
 
-      {data.riskFlags && (data.riskFlags.motivationShort || data.riskFlags.experienceShort) && (
-        <Alert
-          type="warning"
-          showIcon
-          style={{ marginBottom: 16 }}
-          message="该申请存在风险项"
-          description={
-            <ul style={{ margin: 0, paddingLeft: 20 }}>
-              {data.riskFlags.motivationShort && <li>申请动机内容过短（&lt;30 字）</li>}
-              {data.riskFlags.experienceShort && <li>组织经验内容过短（&lt;20 字）</li>}
-            </ul>
-          }
-        />
-      )}
-
-      <Card style={{ marginBottom: 16 }}>
+      <Card title="基本信息" style={{ marginBottom: 16 }}>
         <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
           <Descriptions.Item label="申请编号">{data.applicationNo}</Descriptions.Item>
           <Descriptions.Item label="申请人">{data.organizerName}</Descriptions.Item>
@@ -219,11 +210,7 @@ export default function ApplicationReview() {
                       {data.experience || '（未填写）'}
                     </Paragraph>
                   </Descriptions.Item>
-                  <Descriptions.Item label="合作资源">
-                    <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
-                      {data.resources || '（未填写）'}
-                    </Paragraph>
-                  </Descriptions.Item>
+                  {/* Frank 27 15:58 Comment 1：删「合作资源」栏（申请问卷里没这个字段；上面 Descriptions 已有「招募渠道」） */}
                   <Descriptions.Item label="参与者价值">
                     <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
                       {data.participantValue || '（未填写）'}
