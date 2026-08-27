@@ -122,9 +122,8 @@ export const router = createBrowserRouter(
           path: 'apply/:activityId',
           element: (
             <Protected>
-              <RoleGuard allow={['ORGANIZER', 'ASSISTANT']}>
-                <ApplicationForm />
-              </RoleGuard>
+              {/* Frank 27 11:20 Comment 3：参与者或普通用户都应该能申请，不限角色（后端 findDuplicateApplication 防重复） */}
+              <ApplicationForm />
             </Protected>
           ),
         },

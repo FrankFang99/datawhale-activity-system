@@ -122,6 +122,30 @@ function serialize(a: ActivityRecord, detail = false, effective: string = normSt
   };
 }
 
+// Frank 27 11:20：建 activityId → 是否已确定组织者 的 Map（list/detail 共用）
+let _appsCache: { at: number; map: Map<string, boolean> } | null = null;
+async function getOrganizerMap(): Promise<Map<string, boolean>> {
+  const now = Date.now();
+  // 缓存 30s（list 多次调用避免重复查）
+  if (_appsCache && now - _appsCache.at < 30_000) return _appsCache.map;
+  try {
+    const { items: apps } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
+    const map = new Map<string, boolean>();
+    for (const x of apps as any[]) {
+      const aid = x.fields.activityId ?? '';
+      const st = normStatusField(x.fields.status);
+      if (!aid) continue;
+      if (['CONFIRMED', 'REVIEWING', 'REVIEW_CONFIRMED', 'COMPLETED', 'PREPARING', 'READY', 'RUNNING'].includes(st)) {
+        map.set(aid, true);
+      }
+    }
+    _appsCache = { at: now, map };
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 // GET /api/activities?keyword=&status=&series=
 router.get('/', async (req: Request, res: Response) => {
   const { keyword, status, series, page = '1', pageSize = '12' } = req.query as Record<string, string>;
@@ -173,7 +197,16 @@ router.get('/', async (req: Request, res: Response) => {
 
   const total = filtered.length;
   const start = (pageNum - 1) * pageSizeNum;
-  const list = filtered.slice(start, start + pageSizeNum).map((a) => serialize(a, false, effectiveStatus(a)));
+  const sliced = filtered.slice(start, start + pageSizeNum);
+  const hasOrganizerMap = await getOrganizerMap();
+  const list = sliced.map((a) => {
+    const data: any = serialize(a, false, effectiveStatus(a));
+    // Frank 27 11:20 Comment 1：列表卡片也要算 needOrganizer（封面「待组织者」徽章需要）
+    const aid = a.fields.activityId ?? '';
+    data.hasOrganizer = hasOrganizerMap.get(aid) ?? false;
+    data.needOrganizer = !data.hasOrganizer;
+    return data;
+  });
 
   // 收集所有系列（前端筛选下拉）
   const allSeries = Array.from(new Set((items as ActivityRecord[]).map((a) => a.fields.series ?? '').filter(Boolean)));
@@ -217,18 +250,15 @@ router.get('/:id', async (req: Request, res: Response) => {
     data.maxParticipants = a.fields.maxParticipants ?? 0;
   } catch { /* 容错 */ }
 
-  // v1.2 Frank 22:29 反馈：判断「是否已确定组织者」
+  // Frank 22:29 + 27 11:20：判断「是否已确定组织者」
   // PENDING 状态 OR 任何状态但没 CONFIRMED/REVIEWING/COMPLETED 的组织者申请 = 还没组织者
   // 没组织者时，活动详情页显示「申请成为组织者」按钮
   try {
-    const { items: apps } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
-    const activityId = a.fields.activityId ?? '';
-    const hasOrganizer = (apps as any[]).some((x) =>
-      x.fields.activityId === activityId &&
-      ['CONFIRMED', 'REVIEWING', 'REVIEW_CONFIRMED', 'COMPLETED', 'PREPARING', 'READY', 'RUNNING'].includes(normStatusField(x.fields.status))
-    );
-    data.hasOrganizer = hasOrganizer;
-    data.needOrganizer = !hasOrganizer;
+    const orgMap = await getOrganizerMap();
+    const aid = a.fields.activityId ?? '';
+    const hasOrg = orgMap.get(aid) ?? false;
+    data.hasOrganizer = hasOrg;
+    data.needOrganizer = !hasOrg;
   } catch { /* 容错 */ data.needOrganizer = (status === 'PENDING'); }
 
   return ok(res, data);

@@ -27,10 +27,18 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 // 解析 [url](url) 格式，提取真实 URL
 function extractRealUrl(coverImage: string | undefined): string | null {
   if (!coverImage) return null;
-  // 飞书 markdown 格式：[https://...](https://...) → 提取 https://...
-  const m = coverImage.match(/\[(https?:\/\/[^\]]+)\]\((https?:\/\/[^)]+)\)/);
-  if (m) return m[1];
-  // 纯 URL
+  // 飞书 markdown 格式：[...](URL) → 提取 (...) 里的 URL
+  // Frank 27 11:20：兼容 [相对路径](http:///路径) 和 [URL](URL) 两种格式
+  const m = coverImage.match(/\[([^\]]*)\]\(([^)]+)\)/);
+  if (m) {
+    const inner = m[2];
+    // http:/// 协议错误（3 斜杠），但路径正确，取 path 部分
+    if (inner.startsWith('http:///')) return inner.slice('http://'.length);
+    if (inner.startsWith('https:///')) return inner.slice('https://'.length);
+    return inner;
+  }
+  // 纯 URL 或相对路径
+  if (coverImage.startsWith('/')) return coverImage;
   if (/^https?:\/\//.test(coverImage)) return coverImage;
   return null;
 }
