@@ -187,6 +187,8 @@ export default function ApplicationForm() {
         recruitChannel: values.recruitChannel,
       });
       setResult(data);
+      // Frank 27 15:25：提交后自动跳「我的申请」看进度（避免用户不知道去哪看）
+      setTimeout(() => navigate('/my-applications'), 100);
     } catch {
       /* 拦截器已处理 */
     } finally {

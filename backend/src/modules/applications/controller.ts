@@ -407,7 +407,7 @@ router.post('/:id/notify-volunteer-review', authRequired, async (req: Request, r
 router.get('/:id', authRequired, async (req: Request, res: Response) => {
   const { id } = req.params;
   // Frank 27 15:05：飞书搜索索引有延迟（提交后立即查 applicationId 字段会 404）
-  // 多字段 fallback：先 applicationId（auto_number）→ 失败再 applicationNo（text）
+  // 多字段 fallback：先 applicationId（auto_number）→ applicationNo（text）→ 整表 list 扫描
   let records: any[] = [];
   for (const field of ['applicationId', 'applicationNo']) {
     records = await feishuClient.searchRecords(
@@ -416,6 +416,15 @@ router.get('/:id', authRequired, async (req: Request, res: Response) => {
       id
     );
     if (records.length > 0) break;
+  }
+  // 仍找不到：list 全表 + 内存过滤（兜底 100% 能找到）
+  if (records.length === 0) {
+    const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 500 });
+    records = items.filter((r: any) =>
+      r.fields.applicationId === id ||
+      r.fields.applicationNo === id ||
+      r.record_id === id
+    );
   }
   const a = records[0] as ApplicationRecord | undefined;
   if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在或飞书索引尚未追上，请稍后再试');
