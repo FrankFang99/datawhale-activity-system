@@ -330,22 +330,112 @@ export default function ActivityDetail() {
           </Card>
         )}
 
-        {!isPending && (
-          <>
-            <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
-            <Segmented
-              block
-              value={selectedStage}
-              onChange={(v) => {
-                const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
-                setSelectedStage(s);
-                loadTasksForStage(s);
-              }}
-              options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
-              style={{ marginBottom: 16 }}
-            />
-          </>
-        )}
+        {/* v1.2 Frank 2026-08-27 反馈：5 阶段时间轴 always-on 展示（之前 !isPending 限制，Frank 8-21 反馈要没组织者也展示）*/}
+        <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
+        <Segmented
+          block
+          value={selectedStage}
+          onChange={(v) => {
+            const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
+            setSelectedStage(s);
+            if (!isPending) loadTasksForStage(s);
+          }}
+          options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
+          style={{ marginBottom: 16 }}
+        />
+
+        {/* v1.2 Frank 2026-08-27 反馈：阶段子任务模板预览 always-on（按 8-25 真实凭证规范）
+            数据源：frontend/data/stageCredentialSpec.ts（v16.6 8-24 改写）
+            包含每个子任务的 whatToDo（操作步骤）+ passCriteria（通过标准）+ proofCategories（凭证分类）
+            之前我没用这个文件，子任务内容是错的（自己脑补） */}
+        {(() => {
+          const template = STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage);
+          if (!template) return null;
+          return (
+            <Card
+              size="small"
+              style={{ marginBottom: 16, background: '#FAFCFF' }}
+              title={
+                <Space>
+                  <FileTextOutlined />
+                  <span>阶段子任务模板 · {template.title}</span>
+                  <Tag color="blue">{template.hint}</Tag>
+                  {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
+                    <Tag color="green">当前阶段</Tag>
+                  )}
+                </Space>
+              }
+            >
+              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                <ClockCircleOutlined /> {template.desc}
+              </Paragraph>
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                {template.subTasks.map((t) => {
+                  const spec = findCredentialSpec(t.name);
+                  return (
+                    <div
+                      key={`${template.stage}-${t.order}`}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        padding: '12px',
+                        background: '#fff',
+                        border: '1px solid #E5EAF3',
+                        borderRadius: 6,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Tag color="default" style={{ minWidth: 32, textAlign: 'center', margin: 0 }}>{t.order}</Tag>
+                        <span style={{ fontWeight: 500, flex: 1 }}>{t.name}</span>
+                        <Tag color={t.ownerType === 'VOLUNTEER' ? 'cyan' : t.ownerType === 'OPERATOR' ? 'orange' : 'blue'}>
+                          {t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
+                        </Tag>
+                        {spec?.proofType === 'volunteer-first' && <Tag color="purple">志愿者先</Tag>}
+                        {spec?.proofType === 'confirm' && <Tag color="green">双确认</Tag>}
+                        {spec?.proofType === 'mixed' && <Tag color="orange">分类凭证</Tag>}
+                      </div>
+                      {spec && (
+                        <div style={{ paddingLeft: 40, fontSize: 12, color: '#595959' }}>
+                          {spec.whatToDo && spec.whatToDo.length > 0 && (
+                            <div style={{ marginBottom: 6 }}>
+                              <div style={{ color: '#8c8c8c', marginBottom: 4 }}>📋 要做什么：</div>
+                              <ol style={{ margin: 0, paddingLeft: 18 }}>
+                                {spec.whatToDo.map((step, i) => (
+                                  <li key={i} style={{ marginBottom: 2 }}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+                          {spec.passCriteria && spec.passCriteria.length > 0 && (
+                            <div style={{ marginBottom: spec.proofCategories ? 6 : 0 }}>
+                              <div style={{ color: '#8c8c8c', marginBottom: 4 }}>✅ 通过标准：</div>
+                              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                                {spec.passCriteria.map((c, i) => (
+                                  <li key={i} style={{ marginBottom: 2 }}>{c}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {spec.proofCategories && spec.proofCategories.length > 0 && (
+                            <div>
+                              <div style={{ color: '#8c8c8c', marginBottom: 4 }}>📎 凭证分类：</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                {spec.proofCategories.map((cat, i) => (
+                                  <Tag key={i} color="geekblue" style={{ fontSize: 11 }}>{cat}</Tag>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </Space>
+            </Card>
+          );
+        })()}
 
         {/* Frank 2026-08-22 14:35 重新排版：
             - 5 阶段可点击 tab 切换（不再只显示当前阶段）
