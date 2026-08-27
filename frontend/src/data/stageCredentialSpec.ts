@@ -47,10 +47,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
       // Frank 27 20:18 反馈：补超链接（飞书 docx 实际 URL 来自 v16.7 SUBTASK_TEMPLATES proofHint）
       '打开[飞书 docx《Datawhale 生态伙伴 社区行动指南》](https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1)',
       '完整阅读组织者 Do / Don\'t 规范和权益部分',
-      '在指南末尾点击"已读 + 确认"按钮',
     ],
     passCriteria: [
-      '已读 + 已确认（飞书 docx 嵌入打勾按钮）',
       '组织者与志愿者双方均"我已确认"',
     ],
   },
@@ -62,15 +60,14 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
       '【选填】时间区间（几点到几点）',
       '【必填】地点（精确到商圈/学校/场地）',
       '【必填】预计规模（不超过 80 人）',
-      // Frank 27 20:18 反馈：补飞书 docx 链接（# 占位，等 Frank 给真实 URL）
-      '【必填】活动方案（上传[飞书 docx 链接](#)）',
+      // Frank 27 20:57 反馈：补活动策划书模板 URL（提供撰写参考）
+      '【必填】活动方案（参考[活动策划书模板](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-Q4qTdGqyoo2ZxMx37ITcKlRin7d)，上传飞书 docx 链接）',
     ],
     passCriteria: [
       '日期已确定（精确到日）',
       '地点已确定（精确到商圈/学校/场地）',
       '规模已确定（不超过 80 人）',
       '活动方案飞书链接已上传',
-      '信息已同步到飞书 base 活动表',
       '组织者与志愿者双方均"我已确认"',
     ],
   },
