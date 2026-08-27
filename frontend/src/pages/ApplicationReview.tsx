@@ -1,14 +1,20 @@
 /**
- * 申请详情页（v16 · Frank 2026-08-27 15:58 反馈）
+ * 申请详情页（v17 · Frank 2026-08-27 16:22 反馈）
  *
  * 用途：所有角色可查看任意申请详情
  * - 申请者：看自己提交的申请（含 AI 评分 / 审核日志）
  * - 志愿者：看他所对接的申请（审批前/审核后都能看）
  * - 运营/管理员：所有申请
  *
+ * v17 修订（Frank 27 16:22 反馈 Comment 1-3）：
+ * - Comment 1：基础信息 Card「活动 ID」改成「活动名」（后端从 dw_activities 取 title）
+ * - Comment 2：申请原文 tab 加「预期日期」行（expectedTimeRange 字符串按「,」拆 Tag 展示，多日期占多行）
+ * - Comment 3：「预期日期/场地状态/招募渠道」从基础信息 Card 挪到申请原文 tab
+ * - AI 评分 tab v2 7 维 → v3 6 维（删 RC001 基础信息）
+ * - 6 维：场地 RC001(20) / 招募 RC002(10) / 经验 RC003(25) / 时间 RC004(15) / 动机 RC005(15) / 价值 RC006(15)
+ *
  * v16 修订（Frank 27 15:58 反馈 Comment 4）：
  * - AI 评分 tab 从 v1 5 个 sub-tab 改成 v2 7 维 Card 网格
- * - 7 维：基础 RC001(10) / 场地 RC002(10) / 招募 RC003(15) / 经验 RC004(25) / 时间 RC005(10) / 动机 RC006(15) / 价值 RC007(15)
  * - 引擎版本：v2
  *
  * v15 修订（Frank 27 15:58 反馈 Comment 1-3）：
@@ -64,6 +70,8 @@ interface ApplicationDetail {
   applicationId: string;
   applicationNo: string;
   activityId: string;
+  // Frank 27 16:22 反馈：详情页给用户看活动名而不是 activityId
+  activityTitle?: string | null;
   organizerName: string;
   organizerPhone: string;
   organizerEmail: string;
@@ -76,6 +84,8 @@ interface ApplicationDetail {
   auditLog?: any[];
   riskFlags?: { motivationShort: boolean; experienceShort: boolean };
   expectedDate?: number;
+  // Frank 27 12:50：宽泛时间（多日期用「,」分隔）
+  expectedTimeRange?: string;
   location?: string;
   motivation?: string;
   experience?: string;
@@ -165,26 +175,15 @@ export default function ApplicationReview() {
           <Descriptions.Item label="申请人">{data.organizerName}</Descriptions.Item>
           <Descriptions.Item label="联系手机">{data.organizerPhone || '—'}</Descriptions.Item>
           <Descriptions.Item label="联系邮箱">{data.organizerEmail || '—'}</Descriptions.Item>
-          <Descriptions.Item label="活动 ID"><Text code>{data.activityId}</Text></Descriptions.Item>
+          {/* Frank 27 16:22 反馈 Comment 1：给用户看的别显示 ID，直接显示活动名 */}
+          <Descriptions.Item label="活动名" span={2}>
+            {data.activityTitle || <Text type="secondary">{data.activityId}（活动名加载中）</Text>}
+          </Descriptions.Item>
           <Descriptions.Item label="角色">
             {data.applicantRole === 'PRIMARY' ? '主组织者' : data.applicantRole === 'ASSISTANT' ? '助教' : '—'}
           </Descriptions.Item>
-          <Descriptions.Item label="预期日期">
-            {data.expectedDate ? new Date(data.expectedDate).toLocaleDateString('zh-CN') : '—'}
-          </Descriptions.Item>
           <Descriptions.Item label="活动地点">{data.location || '—'}</Descriptions.Item>
-          <Descriptions.Item label="场地状态" span={2}>
-            {data.venueStatus && (
-              <Tag color={data.venueStatus === '已确定' ? 'green' : 'gold'}>{data.venueStatus}</Tag>
-            )}
-            {!data.venueStatus && '—'}
-          </Descriptions.Item>
-          <Descriptions.Item label="招募渠道" span={2}>
-            {(data.recruitChannel ?? []).map((ch) => (
-              <Tag key={ch} color="blue">{ch}</Tag>
-            ))}
-            {(!data.recruitChannel || data.recruitChannel.length === 0) && '—'}
-          </Descriptions.Item>
+          {/* Frank 27 16:22 反馈 Comment 3：预期日期/场地状态/招募渠道 挪到申请原文 tab */}
           {data.score != null && (
             <Descriptions.Item label="AI 评分" span={2}>
               <Space>
@@ -205,6 +204,36 @@ export default function ApplicationReview() {
               label: '申请原文',
               children: (
                 <Descriptions column={1} bordered size="small">
+                  {/* Frank 27 16:22 反馈 Comment 3：预期日期挪到这里（多日期可能很多，给够空间） */}
+                  <Descriptions.Item label="预期日期">
+                    {data.expectedTimeRange ? (
+                      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                        {data.expectedTimeRange.split(',').map((d) => d.trim()).filter(Boolean).map((d) => (
+                          <Tag key={d} color="blue">{d}</Tag>
+                        ))}
+                      </Space>
+                    ) : data.expectedDate ? (
+                      new Date(data.expectedDate).toLocaleDateString('zh-CN')
+                    ) : '—'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="场地状态">
+                    {data.venueStatus ? (
+                      <Tag color={data.venueStatus === '已确定' ? 'green' : 'gold'}>{data.venueStatus}</Tag>
+                    ) : '—'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="招募渠道">
+                    {(() => {
+                      const channels = data.recruitChannel ?? [];
+                      if (channels.length === 0) return '—';
+                      return (
+                        <Space wrap size={4}>
+                          {channels.map((ch) => (
+                            <Tag key={ch} color="blue">{ch}</Tag>
+                          ))}
+                        </Space>
+                      );
+                    })()}
+                  </Descriptions.Item>
                   <Descriptions.Item label="申请动机">
                     <Paragraph style={{ whiteSpace: 'pre-wrap', marginBottom: 0 }}>
                       {data.motivation || '（未填写）'}
@@ -230,17 +259,16 @@ export default function ApplicationReview() {
               children: data.scoreBreakdown ? (
                 <div>
                   <Row gutter={[12, 12]}>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="基础信息" code="RC001" data={data.scoreBreakdown.RC001} max={10} /></Col>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="场地"     code="RC002" data={data.scoreBreakdown.RC002} max={10} /></Col>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="招募"     code="RC003" data={data.scoreBreakdown.RC003} max={15} /></Col>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="经验"     code="RC004" data={data.scoreBreakdown.RC004} max={25} /></Col>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="时间"     code="RC005" data={data.scoreBreakdown.RC005} max={10} /></Col>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="申请动机" code="RC006" data={data.scoreBreakdown.RC006} max={15} /></Col>
-                    <Col xs={12} sm={8} md={6}><ScoreCard label="参与者价值" code="RC007" data={data.scoreBreakdown.RC007} max={15} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="场地"   code="RC001" data={data.scoreBreakdown.RC001} max={20} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="招募"   code="RC002" data={data.scoreBreakdown.RC002} max={10} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="经验"   code="RC003" data={data.scoreBreakdown.RC003} max={25} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="时间"   code="RC004" data={data.scoreBreakdown.RC004} max={15} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="申请动机" code="RC005" data={data.scoreBreakdown.RC005} max={15} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="参与者价值" code="RC006" data={data.scoreBreakdown.RC006} max={15} /></Col>
                   </Row>
                   <div style={{ marginTop: 12, fontSize: 12, color: '#999' }}>
                     引擎版本：{data.scoreBreakdown.engineVersion ?? 'v1'}
-                    （v2 7 维：基础/场地/招募/经验/时间/动机/价值）
+                    （v3 6 维：场地/招募/经验/时间/动机/价值）
                   </div>
                 </div>
               ) : (

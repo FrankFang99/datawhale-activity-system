@@ -86,23 +86,22 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
     return fail(res, 409, ErrorCode.APP_003_ALREADY_APPLIED, '您已申请该活动');
   }
 
-  // 4. 跑 7 维评分（Frank 27 15:58 Comment 4：v1 5 维 → v2 7 维）
-  //    RC001 基础信息完整度从 location 字符串里解析出"学校"和"详细地址"
-  const locationParts = (data.location ?? '').split('·');
+  // 4. 跑 6 维评分（Frank 27 16:22 反馈：v2 7 维 → v3 6 维，删 RC001 基础信息维度）
+  //    RC004 时间按 expectedTimeRange 字符串里的日期数量打分
+  const expectedTimeRangeDateCount = (data.expectedTimeRange ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean).length;
   let breakdown: ScoreBreakdown;
   try {
     breakdown = scoreApplication({
-      // RC001 基础信息（v2 新增）
-      hasIdentity: !!data.applicantIdentity,
-      hasLocation3: !!data.currentCity,
-      hasSchool: locationParts.length >= 4 && !!locationParts[3],
-      hasAddress: locationParts.length >= 5 && !!locationParts[4],
       // 已有字段
       venueStatus: data.venueStatus,
       recruitChannel: data.recruitChannel,
       experience: data.experience,
       // Frank 27 12:50：宽泛时间
       expectedTimeRange: data.expectedTimeRange,
+      expectedTimeRangeDateCount,
       expectedDate: data.expectedDate ?? Date.now() + 60 * 24 * 3600 * 1000,
       activityStartDate: activity.fields.startDate ?? Date.now(),
       activityEndDate: activity.fields.endDate ?? Date.now() + 30 * 24 * 3600 * 1000,
@@ -440,6 +439,15 @@ router.get('/:id', authRequired, async (req: Request, res: Response) => {
   if (a.fields.userId !== req.user!.userId && !['ADMIN', 'OPERATOR', 'VOLUNTEER'].includes(req.user!.role)) {
     return fail(res, 403, ErrorCode.FORBIDDEN, '无权查看');
   }
+  // Frank 27 16:22 反馈：详情页给用户看的别显示 activityId，直接显示活动名
+  //   从 dw_activities 拉 title（兜底 list 全表 200 条内存过滤）
+  let activityTitle: string | null = null;
+  try {
+    const act = await feishuClient.searchRecords(config.feishu.tables.activities, 'activityId', a.fields.activityId);
+    if (act.length > 0) {
+      activityTitle = act[0].fields.title ?? null;
+    }
+  } catch { /* 容错：飞书查不到就显示 activityId */ }
   // v4 修订：未审核前不展示 AI 评语；运营/志愿者审核后才展示 scoreBreakdown
   const status = normStatus(a.fields.status);
   const showBreakdown = !['SCREENING', 'DRAFT', 'SUBMITTED'].includes(status);
@@ -468,6 +476,8 @@ router.get('/:id', authRequired, async (req: Request, res: Response) => {
     applicationId: a.fields.applicationId,
     applicationNo: a.fields.applicationNo,
     activityId: a.fields.activityId,
+    // Frank 27 16:22 反馈：给用户看的别显示 activityId，直接显示活动名
+    activityTitle,
     userId: a.fields.userId,
     status,
     applicantRole: (role === 'PRIMARY' || role === 'ASSISTANT') ? role : 'PRIMARY',

@@ -1,39 +1,38 @@
 /**
- * 7 维评分引擎（PRD §5.1 v2 · Frank 2026-08-27 15:58 反馈 Comment 4）
+ * 6 维评分引擎（PRD §5.1 v3 · Frank 2026-08-27 16:22 反馈）
  *
  * 维度（每维对应一个问卷字段，总分 100）：
- * - RC001 基础信息    10 分  身份 + 现居地 3 级 + 学校 + 详细地址
- * - RC002 场地确认    10 分  venueStatus
- * - RC003 招募能力    15 分  recruitChannel
- * - RC004 组织经验    25 分  experience 关键词 + 长度
- * - RC005 时间合理性  10 分  expectedTimeRange 宽泛 / expectedDate 精确
- * - RC006 申请动机    15 分  motivation 关键词 + 长度
- * - RC007 参与者价值  15 分  participantValue 关键词 + 长度
+ * - RC001 场地确认    20 分  venueStatus
+ * - RC002 招募能力    10 分  recruitChannel
+ * - RC003 组织经验    25 分  experience 关键词 + 长度
+ * - RC004 时间合理性  15 分  按预期日期数量（expectedTimeRangeDateCount）
+ * - RC005 申请动机    15 分  motivation 关键词（v1 6 类拆 3 类）+ 长度
+ * - RC006 参与者价值  15 分  participantValue 关键词（v1 6 类拆 3 类）+ 长度
  *
  * 等级：S≥90 / A 75-89 / B 60-74 / C 40-59 / D<40
  *
- * 变更（v2）：
- * - v1 5 维（场地 20 / 招募 20 / 经验 25 / 时间 15 / 价值 20）→ v2 7 维
- * - 新增 RC001 基础信息（对应问卷里 4 个基础字段）
- * - 价值拆成 RC006 动机 + RC007 价值
- * - 总分不变 100
+ * 变更（v3 · Frank 27 16:22 反馈）：
+ * - v2 7 维 → v3 6 维：删 RC001 基础信息维度（基础信息不参与评分）
+ * - 场地：v1 20 分 → v3 20 分（不变）
+ * - 招募：v1 20 分 → v2 15 分 → v3 10 分（缩）
+ * - 时间：v1 15 分 → v2 10 分 → v3 15 分（按预期日期数量分档）
+ * - 动机/价值：v1 共 20 分 → v2 各 15 分 → v3 各 15 分（关键词参考 v1 6 类，3+3 分）
  *
- * 业务对齐（TODO §3）：当前规则为 v2 暂行版，待 Datawhale 业务对齐后调整权重/阈值/关键词。
+ * 关键词分配（v1 RC005 6 类，v3 拆两维各 3 类，比例 5/4/3 + 长度 3）：
+ * - 动机(15)：目标(5) + 实操(4) + 学习(3) + 长度 3
+ * - 价值(15)：社群(5) + 就业(4) + 工具(3) + 长度 3
+ *
+ * 业务对齐（TODO §3）：当前规则为 v3 暂行版。
  */
 
 export interface ScoreInput {
-  // Frank 27 15:58 Comment 4：基础信息完整度
-  hasIdentity: boolean;       // applicantIdentity 有值
-  hasLocation3: boolean;      // currentCity（拼好的"省·市·区"）有值
-  hasSchool: boolean;         // 学校字段有值（从 location 解析或独立字段）
-  hasAddress: boolean;        // 详细地址（非空，location 拼好的最后一段）
-  // 已有字段
   venueStatus: '已确定' | '有潜在' | '暂无';
-  recruitChannel: string[];   // 5 选多
+  recruitChannel: string[];        // 5 选多
   experience?: string;
-  // Frank 27 12:50：申请时只填宽泛时间段，expectedTimeRange 字符串（如「2026 年 9 月」）
-  expectedTimeRange?: string;  // 宽泛时间字符串
-  expectedDate?: number;        // 兼容历史数据
+  // Frank 27 12:50：申请时只填宽泛时间段，expectedTimeRange 字符串（如「2026-09-15,2026-09-20」）
+  expectedTimeRange?: string;      // 宽泛时间字符串（多个日期用「,」分隔）
+  expectedTimeRangeDateCount?: number;  // Frank 27 16:22 反馈：按预期日期数量打分
+  expectedDate?: number;           // 兼容历史数据
   activityStartDate: number;
   activityEndDate: number;
   motivation: string;
@@ -41,48 +40,31 @@ export interface ScoreInput {
 }
 
 export interface ScoreBreakdown {
-  RC001: { score: number; max: 10; reason: string; completeCount?: number };
-  RC002: { score: number; max: 10; reason: string; input?: string };
-  RC003: { score: number; max: 15; reason: string; count?: number };
-  RC004: { score: number; max: 25; reason: string; hitKeywords?: string[]; length?: number };
-  RC005: { score: number; max: 10; reason: string; input?: string };
+  RC001: { score: number; max: 20; reason: string; input?: string };
+  RC002: { score: number; max: 10; reason: string; count?: number };
+  RC003: { score: number; max: 25; reason: string; hitKeywords?: string[]; length?: number };
+  RC004: { score: number; max: 15; reason: string; input?: string; dateCount?: number };
+  RC005: { score: number; max: 15; reason: string; hitKeywords?: string[]; length?: number };
   RC006: { score: number; max: 15; reason: string; hitKeywords?: string[]; length?: number };
-  RC007: { score: number; max: 15; reason: string; hitKeywords?: string[]; length?: number };
   total: number;
   grade: 'S' | 'A' | 'B' | 'C' | 'D';
   scoredAt: string;
   engineVersion: string;
 }
 
-// ===== RC001 基础信息（新增 · Frank 27 15:58 Comment 4）=====
-function scoreBasic(input: ScoreInput): ScoreBreakdown['RC001'] {
-  const completeCount =
-    (input.hasIdentity ? 1 : 0) +
-    (input.hasLocation3 ? 1 : 0) +
-    (input.hasSchool ? 1 : 0) +
-    (input.hasAddress ? 1 : 0);
-  // 4 项全填=10；3 项=8；2 项=5；1 项=3；0 项=0
-  const map: Record<number, number> = { 4: 10, 3: 8, 2: 5, 1: 3, 0: 0 };
-  const score = map[completeCount] ?? 0;
-  const reason = completeCount === 4
-    ? '基础信息完整'
-    : `基础信息 ${completeCount}/4 项完整（身份/现居地/学校/详细地址）`;
-  return { score, max: 10, reason, completeCount };
-}
-
-// ===== RC002 场地确认（v1 RC001 缩到 10 分）=====
-function scoreVenue(input: ScoreInput): ScoreBreakdown['RC002'] {
+// ===== RC001 场地确认（v1 不变 20 分）=====
+function scoreVenue(input: ScoreInput): ScoreBreakdown['RC001'] {
   const map: Record<string, { score: number; reason: string }> = {
-    '已确定': { score: 10, reason: '场地已确认，可直接推进' },
-    '有潜在': { score: 6, reason: '有潜在场地，需协助最终确认' },
+    '已确定': { score: 20, reason: '场地已确认，可直接推进' },
+    '有潜在': { score: 12, reason: '有潜在场地，需协助最终确认' },
     '暂无': { score: 0, reason: '暂无场地，需协助寻找' },
   };
   const v = map[input.venueStatus] ?? { score: 0, reason: '场地信息异常' };
-  return { ...v, max: 10, input: input.venueStatus };
+  return { ...v, max: 20, input: input.venueStatus };
 }
 
-// ===== RC003 招募能力（v1 RC002 缩到 15 分）=====
-function scoreRecruit(input: ScoreInput): ScoreBreakdown['RC003'] {
+// ===== RC002 招募能力（v1 20 → v2 15 → v3 10）=====
+function scoreRecruit(input: ScoreInput): ScoreBreakdown['RC002'] {
   const channels = (input.recruitChannel ?? []).filter((c) => c !== '暂无');
   const count = channels.length;
   let score = 0;
@@ -91,20 +73,20 @@ function scoreRecruit(input: ScoreInput): ScoreBreakdown['RC003'] {
     score = 0;
     reason = '暂无可用招募渠道，需协助搭建';
   } else if (count === 1) {
-    score = 6;
+    score = 4;
     reason = '已有 1 个本地招募渠道';
   } else if (count === 2) {
-    score = 11;
+    score = 7;
     reason = '已有 2 个本地招募渠道，招募能力良好';
   } else {
-    score = 15;
+    score = 10;
     reason = `已有 ${count} 个本地招募渠道，招募能力强`;
   }
-  return { score, max: 15, reason, count };
+  return { score, max: 10, reason, count };
 }
 
-// ===== RC004 组织经验（v1 RC003 不变，25 分）=====
-function scoreExperience(input: ScoreInput): ScoreBreakdown['RC004'] {
+// ===== RC003 组织经验（v1 不变 25 分）=====
+function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
   const text = input.experience?.trim() ?? '';
   if (!text) return { score: 0, max: 25, reason: '未填写组织经验' };
 
@@ -160,33 +142,48 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC004'] {
   };
 }
 
-// ===== RC005 时间合理性（v1 RC004 缩到 10 分）=====
-function scoreDate(input: ScoreInput): ScoreBreakdown['RC005'] {
-  // 优先：精确日期（兼容历史 + 未来扩展）
+// ===== RC004 时间合理性（v3 · Frank 27 16:22 反馈：按预期日期数量）=====
+// 规则：1 个最优（明确能定）；2-3 协商区间；4+ 太多（没规划好）；0 没填
+//   1 个 = 15
+//   2 个 = 12
+//   3 个 = 8
+//   4+ 个 = 4
+//   0 个 = 0
+// 兼容：expectedDate（历史精确日期）= 15 分
+function scoreDate(input: ScoreInput): ScoreBreakdown['RC004'] {
+  // 兼容历史：精确日期
   const d = input.expectedDate;
   if (d) {
     const start = input.activityStartDate;
     const end = input.activityEndDate;
     if (start && end && d >= start && d <= end + 24 * 3600 * 1000) {
-      return { score: 10, max: 10, reason: '活动时间在周期内，安排合理', input: new Date(d).toISOString().slice(0, 10) };
+      return { score: 15, max: 15, reason: '活动时间在周期内，安排合理', input: new Date(d).toISOString().slice(0, 10), dateCount: 1 };
     }
     if (start && d < start) {
-      return { score: 10, max: 10, reason: '活动时间在活动开始前，安排合理', input: new Date(d).toISOString().slice(0, 10) };
+      return { score: 15, max: 15, reason: '活动时间在活动开始前，安排合理', input: new Date(d).toISOString().slice(0, 10), dateCount: 1 };
     }
-    return { score: 5, max: 10, reason: '活动时间偏离周期，需协调', input: new Date(d).toISOString().slice(0, 10) };
+    return { score: 4, max: 15, reason: '活动时间偏离周期，需协调', input: new Date(d).toISOString().slice(0, 10), dateCount: 1 };
   }
-  // 宽泛时间（Frank 27 12:50）
-  const tr = (input.expectedTimeRange ?? '').trim();
-  if (tr) {
-    // 填了宽泛时间 → 8 分（信号少，10 分制下给 8）
-    return { score: 8, max: 10, reason: `已填写宽泛时间「${tr}」`, input: tr };
+  // 宽泛时间（Frank 27 12:50）：按日期数量
+  const dc = input.expectedTimeRangeDateCount ?? 0;
+  if (dc === 0) {
+    return { score: 0, max: 15, reason: '未提供候选日期', input: '', dateCount: 0 };
   }
-  return { score: 0, max: 10, reason: '未提供有效活动时间', input: '' };
+  if (dc === 1) {
+    return { score: 15, max: 15, reason: '已选 1 个候选日期（最明确）', input: '1 个日期', dateCount: dc };
+  }
+  if (dc === 2) {
+    return { score: 12, max: 15, reason: '已选 2 个候选日期（合理协商区间）', input: '2 个日期', dateCount: dc };
+  }
+  if (dc === 3) {
+    return { score: 8, max: 15, reason: '已选 3 个候选日期（协商成本高）', input: '3 个日期', dateCount: dc };
+  }
+  return { score: 4, max: 15, reason: `已选 ${dc}+ 个候选日期（过多，需明确优先）`, input: `${dc}+ 个日期`, dateCount: dc };
 }
 
-// ===== RC006 申请动机（v1 RC005 拆出 15 分）=====
-// 关键词聚焦"申请人的目标"：目标/实操/学习
-function scoreMotivation(input: ScoreInput): ScoreBreakdown['RC006'] {
+// ===== RC005 申请动机（v3 · 关键词参考 v1 6 类拆 3 类）=====
+// 目标(5) + 实操(4) + 学习(3) + 长度(3) = 15
+function scoreMotivation(input: ScoreInput): ScoreBreakdown['RC005'] {
   const text = (input.motivation ?? '').trim();
   if (!text) return { score: 0, max: 15, reason: '未填写申请动机' };
 
@@ -202,8 +199,8 @@ function scoreMotivation(input: ScoreInput): ScoreBreakdown['RC006'] {
   };
 
   let score = 0;
-  score += add('目标清晰', ['目标', '规划', '计划', '旨在', '致力于'], 4);
-  score += add('实操价值', ['实操', '实战', '项目', '作品', '落地', '上手'], 3);
+  score += add('目标清晰', ['目标', '规划', '计划', '旨在', '致力于'], 5);
+  score += add('实操价值', ['实操', '实战', '项目', '作品', '落地', '上手'], 4);
   score += add('学习习惯', ['习惯', '坚持', '打卡', '共学', '陪伴', '学习'], 3);
 
   const len = text.length;
@@ -232,9 +229,9 @@ function scoreMotivation(input: ScoreInput): ScoreBreakdown['RC006'] {
   };
 }
 
-// ===== RC007 参与者价值（v1 RC005 拆出 15 分）=====
-// 关键词聚焦"给参与者的好处"：社群/就业/工具
-function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC007'] {
+// ===== RC006 参与者价值（v3 · 关键词参考 v1 6 类拆 3 类）=====
+// 社群(5) + 就业(4) + 工具(3) + 长度(3) = 15
+function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC006'] {
   const text = (input.participantValue ?? '').trim();
   if (!text) return { score: 0, max: 15, reason: '未填写参与者价值' };
 
@@ -250,8 +247,8 @@ function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC007'] {
   };
 
   let score = 0;
-  score += add('社群建设', ['社群', '社区', '交流', '平台', '网络', '圈子'], 4);
-  score += add('就业指导', ['就业', '职业', '求职', '简历', '面试', '工作'], 3);
+  score += add('社群建设', ['社群', '社区', '交流', '平台', '网络', '圈子'], 5);
+  score += add('就业指导', ['就业', '职业', '求职', '简历', '面试', '工作'], 4);
   score += add('工具使用', ['工具', 'AI', '大模型', '提示词', 'Prompt', '应用'], 3);
 
   const len = text.length;
@@ -282,18 +279,17 @@ function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC007'] {
 
 // ===== 评分汇总 =====
 export function scoreApplication(input: ScoreInput): ScoreBreakdown {
-  const RC001 = scoreBasic(input);
-  const RC002 = scoreVenue(input);
-  const RC003 = scoreRecruit(input);
-  const RC004 = scoreExperience(input);
-  const RC005 = scoreDate(input);
-  const RC006 = scoreMotivation(input);
-  const RC007 = scoreParticipantValue(input);
+  const RC001 = scoreVenue(input);
+  const RC002 = scoreRecruit(input);
+  const RC003 = scoreExperience(input);
+  const RC004 = scoreDate(input);
+  const RC005 = scoreMotivation(input);
+  const RC006 = scoreParticipantValue(input);
   const total = Math.max(
     0,
     Math.min(
       100,
-      RC001.score + RC002.score + RC003.score + RC004.score + RC005.score + RC006.score + RC007.score,
+      RC001.score + RC002.score + RC003.score + RC004.score + RC005.score + RC006.score,
     ),
   );
   const grade: ScoreBreakdown['grade'] =
@@ -302,10 +298,10 @@ export function scoreApplication(input: ScoreInput): ScoreBreakdown {
     total >= 60 ? 'B' :
     total >= 40 ? 'C' : 'D';
   return {
-    RC001, RC002, RC003, RC004, RC005, RC006, RC007,
+    RC001, RC002, RC003, RC004, RC005, RC006,
     total,
     grade,
     scoredAt: new Date().toISOString(),
-    engineVersion: 'v2',
+    engineVersion: 'v3',
   };
 }
