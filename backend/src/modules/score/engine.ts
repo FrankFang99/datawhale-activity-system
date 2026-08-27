@@ -11,11 +11,11 @@
  *
  * 等级：S≥90 / A 75-89 / B 60-74 / C 40-59 / D<40
  *
- * 变更（v3 · Frank 27 16:22 反馈）：
+ * 变更（v3 · Frank 27 16:22/16:42 反馈）：
  * - v2 7 维 → v3 6 维：删 RC001 基础信息维度（基础信息不参与评分）
  * - 场地：v1 20 分 → v3 20 分（不变）
  * - 招募：v1 20 分 → v2 15 分 → v3 10 分（缩）
- * - 时间：v1 15 分 → v2 10 分 → v3 15 分（按预期日期数量分档）
+ * - 时间：v1 15 分 → v2 10 分 → v3 15 分（Frank 16:42 改成 1:1 严格：每日期 1 分，封顶 10）
  * - 动机/价值：v1 共 20 分 → v2 各 15 分 → v3 各 15 分（关键词参考 v1 6 类，3+3 分）
  *
  * 关键词分配（v1 RC005 6 类，v3 拆两维各 3 类，比例 5/4/3 + 长度 3）：
@@ -142,43 +142,30 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
   };
 }
 
-// ===== RC004 时间合理性（v3 · Frank 27 16:22 反馈：按预期日期数量）=====
-// 规则：1 个最优（明确能定）；2-3 协商区间；4+ 太多（没规划好）；0 没填
-//   1 个 = 15
-//   2 个 = 12
-//   3 个 = 8
-//   4+ 个 = 4
+// ===== RC004 时间合理性（v3 · Frank 27 16:42 反馈：1:1 严格）=====
+// 规则：每个日期 1 分，封顶 10 分
 //   0 个 = 0
-// 兼容：expectedDate（历史精确日期）= 15 分
+//   1 个 = 1
+//   2 个 = 2
+//   ...
+//   10 个 = 10
+//   10+ 个 = 10（封顶）
+// 兼容：expectedDate（历史精确日期）= 1 分（按 1 个日期计）
 function scoreDate(input: ScoreInput): ScoreBreakdown['RC004'] {
-  // 兼容历史：精确日期
+  // 兼容历史：精确日期按 1 个日期计
   const d = input.expectedDate;
   if (d) {
-    const start = input.activityStartDate;
-    const end = input.activityEndDate;
-    if (start && end && d >= start && d <= end + 24 * 3600 * 1000) {
-      return { score: 15, max: 15, reason: '活动时间在周期内，安排合理', input: new Date(d).toISOString().slice(0, 10), dateCount: 1 };
-    }
-    if (start && d < start) {
-      return { score: 15, max: 15, reason: '活动时间在活动开始前，安排合理', input: new Date(d).toISOString().slice(0, 10), dateCount: 1 };
-    }
-    return { score: 4, max: 15, reason: '活动时间偏离周期，需协调', input: new Date(d).toISOString().slice(0, 10), dateCount: 1 };
+    return { score: 1, max: 15, reason: '已选 1 个候选日期（历史精确日期）', input: '1 个日期', dateCount: 1 };
   }
   // 宽泛时间（Frank 27 12:50）：按日期数量
   const dc = input.expectedTimeRangeDateCount ?? 0;
   if (dc === 0) {
     return { score: 0, max: 15, reason: '未提供候选日期', input: '', dateCount: 0 };
   }
-  if (dc === 1) {
-    return { score: 15, max: 15, reason: '已选 1 个候选日期（最明确）', input: '1 个日期', dateCount: dc };
+  if (dc >= 10) {
+    return { score: 10, max: 15, reason: `已选 ${dc} 个候选日期（每日期 1 分，已封顶 10）`, input: `${dc} 个日期`, dateCount: dc };
   }
-  if (dc === 2) {
-    return { score: 12, max: 15, reason: '已选 2 个候选日期（合理协商区间）', input: '2 个日期', dateCount: dc };
-  }
-  if (dc === 3) {
-    return { score: 8, max: 15, reason: '已选 3 个候选日期（协商成本高）', input: '3 个日期', dateCount: dc };
-  }
-  return { score: 4, max: 15, reason: `已选 ${dc}+ 个候选日期（过多，需明确优先）`, input: `${dc}+ 个日期`, dateCount: dc };
+  return { score: dc, max: 15, reason: `已选 ${dc} 个候选日期（每日期 1 分）`, input: `${dc} 个日期`, dateCount: dc };
 }
 
 // ===== RC005 申请动机（v3 · 关键词参考 v1 6 类拆 3 类）=====

@@ -488,6 +488,9 @@ router.get('/:id', authRequired, async (req: Request, res: Response) => {
     organizerEmail: a.fields.organizerEmail,
     // 活动规划
     expectedDate: a.fields.expectedDate,
+    // Frank 27 16:22 反馈：申请原文 tab 预期日期要展示 expectedTimeRange 字符串
+    // （飞书 base 没这个字段时落空，让前端兼容历史 expectedDate）
+    expectedTimeRange: a.fields.expectedTimeRange ?? null,
     location: a.fields.location,
     motivation: a.fields.motivation,
     experience: a.fields.experience,

@@ -10,7 +10,8 @@ function baseInput(overrides: Partial<ScoreInput> = {}): ScoreInput {
     venueStatus: '已确定',
     recruitChannel: ['社群', '公众号', '高校社团'],
     experience: '组织过 3 场校内 AI 分享会',
-    expectedDate: Date.now() + 14 * 24 * 3600 * 1000,
+    // Frank 27 16:42 反馈：v3 RC004 按 expectedTimeRangeDateCount 1:1 严格打分
+    // baseInput 不再预设 expectedDate（历史字段），让时间测试显式 override
     activityStartDate: Date.now() + 7 * 24 * 3600 * 1000,
     activityEndDate: Date.now() + 60 * 24 * 3600 * 1000,
     expectedTimeRangeDateCount: 1,
@@ -41,6 +42,7 @@ describe('6 维评分 · 等级边界（exact）', () => {
       venueStatus: '已确定',
       recruitChannel: ['社群', '公众号', '高校社团', '企业园区'],
       experience: '组织过多场系统活动连续主办 Datawhale 千人参与 100+ 负责人角色 主席 组长 50+ 大会主席',
+      expectedTimeRangeDateCount: 10,  // Frank 27 16:42 1:1 严格封顶 10
       motivation: '目标是推动 AI 工具使用门槛降低；让零基础同学快速上手；通过实操让同学们掌握大模型应用；坚持共学打卡建立学习习惯。',
       participantValue: '搭建本地 AI 交流社群；提供就业指导帮助职业简历；熟练使用 AI 工具和大模型应用。',
     });
@@ -101,15 +103,16 @@ describe('6 维评分 · 极端输入不崩', () => {
       motivation: '',
       participantValue: '',
     });
-    // 20 + 4 + 0 + 15 + 0 + 0 = 39 → D
+    // Frank 27 16:42：1:1 严格，1 个日期 = 1 分
+    // 20 + 4 + 0 + 1 + 0 + 0 = 25 → D
     expect(r.RC001.score).toBe(20);
     expect(r.RC002.score).toBe(4);
     expect(r.RC003.score).toBe(0);
-    expect(r.RC004.score).toBe(15);
+    expect(r.RC004.score).toBe(1);
     expect(r.RC004.dateCount).toBe(1);
     expect(r.RC005.score).toBe(0);
     expect(r.RC006.score).toBe(0);
-    expect(r.total).toBe(39);
+    expect(r.total).toBe(25);
     expect(r.grade).toBe('D');
   });
 });

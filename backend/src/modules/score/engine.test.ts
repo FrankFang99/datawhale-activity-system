@@ -10,7 +10,8 @@ function baseInput(overrides: Partial<ScoreInput> = {}): ScoreInput {
     venueStatus: '已确定',
     recruitChannel: ['社群', '公众号', '高校社团'],
     experience: '曾组织过 3 场校内 AI 分享会，累计参与人数 100+',
-    expectedDate: Date.now() + 14 * 24 * 3600 * 1000,
+    // Frank 27 16:42 反馈：v3 RC004 按 expectedTimeRangeDateCount 1:1 严格打分
+    // baseInput 不再预设 expectedDate（历史字段），让时间测试显式 override
     activityStartDate: Date.now() + 7 * 24 * 3600 * 1000,
     activityEndDate: Date.now() + 60 * 24 * 3600 * 1000,
     expectedTimeRangeDateCount: 1,
@@ -118,40 +119,58 @@ describe('RC003 组织经验（25 分 · 不变）', () => {
   });
 });
 
-describe('RC004 时间合理性（15 分 · v3 新规则：按预期日期数量）', () => {
-  it('1 个日期（最明确）→ 15 分', () => {
+describe('RC004 时间合理性（15 分 · Frank 27 16:42：1:1 严格，每日期 1 分封顶 10）', () => {
+  it('1 个日期 → 1 分', () => {
     const r = scoreApplication(baseInput({
       expectedDate: undefined,
       expectedTimeRange: '2026-09-15',
       expectedTimeRangeDateCount: 1,
     }));
-    expect(r.RC004.score).toBe(15);
+    expect(r.RC004.score).toBe(1);
     expect(r.RC004.dateCount).toBe(1);
   });
-  it('2 个日期（合理协商区间）→ 12 分', () => {
+  it('2 个日期 → 2 分', () => {
     const r = scoreApplication(baseInput({
       expectedDate: undefined,
       expectedTimeRange: '2026-09-15,2026-09-20',
       expectedTimeRangeDateCount: 2,
     }));
-    expect(r.RC004.score).toBe(12);
+    expect(r.RC004.score).toBe(2);
     expect(r.RC004.dateCount).toBe(2);
   });
-  it('3 个日期（协商成本高）→ 8 分', () => {
+  it('3 个日期 → 3 分', () => {
     const r = scoreApplication(baseInput({
       expectedDate: undefined,
       expectedTimeRange: '2026-09-15,2026-09-20,2026-09-25',
       expectedTimeRangeDateCount: 3,
     }));
-    expect(r.RC004.score).toBe(8);
+    expect(r.RC004.score).toBe(3);
   });
-  it('4+ 个日期（过多）→ 4 分', () => {
+  it('9 个日期 → 9 分', () => {
+    const dates = Array.from({ length: 9 }, (_, i) => `2026-09-${15 + i}`).join(',');
     const r = scoreApplication(baseInput({
       expectedDate: undefined,
-      expectedTimeRange: '2026-09-15,2026-09-20,2026-09-25,2026-09-30',
-      expectedTimeRangeDateCount: 4,
+      expectedTimeRange: dates,
+      expectedTimeRangeDateCount: 9,
     }));
-    expect(r.RC004.score).toBe(4);
+    expect(r.RC004.score).toBe(9);
+  });
+  it('10 个日期 → 10 分（封顶）', () => {
+    const dates = Array.from({ length: 10 }, (_, i) => `2026-09-${15 + i}`).join(',');
+    const r = scoreApplication(baseInput({
+      expectedDate: undefined,
+      expectedTimeRange: dates,
+      expectedTimeRangeDateCount: 10,
+    }));
+    expect(r.RC004.score).toBe(10);
+  });
+  it('11+ 个日期 → 10 分（封顶）', () => {
+    const r = scoreApplication(baseInput({
+      expectedDate: undefined,
+      expectedTimeRange: '11 个日期',
+      expectedTimeRangeDateCount: 11,
+    }));
+    expect(r.RC004.score).toBe(10);
   });
   it('未填任何时间 → 0 分', () => {
     const r = scoreApplication(baseInput({
@@ -161,7 +180,7 @@ describe('RC004 时间合理性（15 分 · v3 新规则：按预期日期数量
     }));
     expect(r.RC004.score).toBe(0);
   });
-  it('历史精确日期（兼容）→ 15 分', () => {
+  it('历史精确日期（兼容）→ 1 分', () => {
     const start = Date.now() + 30 * 24 * 3600 * 1000;
     const end = start + 14 * 24 * 3600 * 1000;
     const r = scoreApplication(baseInput({
@@ -171,7 +190,7 @@ describe('RC004 时间合理性（15 分 · v3 新规则：按预期日期数量
       activityStartDate: start,
       activityEndDate: end,
     }));
-    expect(r.RC004.score).toBe(15);
+    expect(r.RC004.score).toBe(1);
   });
 });
 
@@ -241,9 +260,11 @@ describe('总分 + 等级映射', () => {
       venueStatus: '已确定',
       recruitChannel: ['社群', '公众号', '高校社团', '企业园区'],
       experience: '曾组织过多场 Datawhale 校内 AI 分享会、编程工坊等活动，累计参与人数 100+ 人',
+      expectedTimeRangeDateCount: 10,  // Frank 27 16:42 1:1 严格封顶 10
       motivation: '目标是降低 AI 工具使用门槛；让零基础同学快速上手；通过实操让同学们掌握大模型应用；搭建本地 AI 交流社群，助力就业；坚持共学打卡。',
-      participantValue: '希望参与者能加入本地 AI 社群；通过作品集积累求职简历竞争力；熟练使用 AI 工具。',
+      participantValue: '希望参与者能加入本地 AI 社群；通过作品集积累求职简历竞争力；熟练使用 AI 工具和大模型应用。',
     }));
+    // 20+10+23+10+13+15 = 91
     expect(r.total).toBeGreaterThanOrEqual(90);
     expect(r.grade).toBe('S');
   });
@@ -251,11 +272,12 @@ describe('总分 + 等级映射', () => {
     const r = scoreApplication(baseInput({
       venueStatus: '已确定',
       recruitChannel: ['社群', '公众号', '高校社团'],
-      experience: '曾组织过 AI 分享会，参与人数 50+',
-      motivation: '目标是降低 AI 工具使用门槛；让零基础同学通过实操上手',
+      experience: '曾组织过校内 AI 分享会，参与人数 100+',
+      expectedTimeRangeDateCount: 10,  // Frank 27 16:42 1:1 严格封顶 10
+      motivation: '目标是推动 AI 教育进校园；通过实操让同学们掌握 AI 工具',
       participantValue: '希望参与者能加入本地 AI 社群；通过作品集积累求职竞争力；熟练使用 AI 工具',
     }));
-    // 20+10+12+15+7+13 = 77
+    // 20+10+13+10+9+14 = 76
     expect(r.total).toBeGreaterThanOrEqual(75);
     expect(r.total).toBeLessThan(90);
     expect(r.grade).toBe('A');
@@ -264,11 +286,12 @@ describe('总分 + 等级映射', () => {
     const r = scoreApplication(baseInput({
       venueStatus: '已确定',
       recruitChannel: ['社群', '公众号'],
-      experience: '组织过几次活动',
-      motivation: '目标是推动 AI 教育进校园，希望同学们学习',
-      participantValue: '希望参与者能做出 AI 作品',
+      experience: '曾组织过校内 AI 分享会',
+      expectedTimeRangeDateCount: 10,
+      motivation: '目标是推动 AI 教育进校园',
+      participantValue: '希望参与者能加入本地 AI 社群；通过作品集积累求职竞争力；熟练使用 AI 工具',
     }));
-    // 20+7+9+15+9+4 = 64
+    // 20+7+9+10+5+14 = 65
     expect(r.total).toBeGreaterThanOrEqual(60);
     expect(r.total).toBeLessThan(75);
     expect(r.grade).toBe('B');
@@ -276,10 +299,12 @@ describe('总分 + 等级映射', () => {
   it('C 级（40-59）= 较弱', () => {
     const r = scoreApplication(baseInput({
       venueStatus: '有潜在',
-      recruitChannel: ['社群'],
-      experience: '曾参与过几次活动',
-      motivation: '希望让同学了解 AI 工具，实操上手。',
+      recruitChannel: ['社群', '公众号'],
+      experience: '曾组织过几次活动',
+      motivation: '目标是通过实操让同学们了解 AI 工具',
+      participantValue: '希望参与者能做出 AI 作品',
     }));
+    // 12+7+9+1+9+3 = 41
     expect(r.total).toBeGreaterThanOrEqual(40);
     expect(r.total).toBeLessThan(60);
     expect(r.grade).toBe('C');
