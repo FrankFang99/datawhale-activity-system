@@ -12,7 +12,7 @@ import {
 import { activityApi, participantApi, interestApi, materialApi, applicationApi, stageApi, uploadApi, Material, Activity, StageTask } from '../services/api';
 import { authStore } from '../store/auth';
 import { STAGE_TEMPLATES_FRANK, canViewSubTasks, Stage, SubTask } from '../data/stageSubtasks';
-import { findCredentialSpec } from '../data/stageCredentialSpec';
+import { findCredentialSpec, getButtonType } from '../data/stageCredentialSpec';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -891,6 +891,8 @@ function SubTaskCard({
   // v16.5 Frank 14:04 反馈：状态机太乱 → 简化为 3 种统一状态文案
   // 16.5 凭证规范引用（v16.7 Frank 16:44：先声明 credSpec，simpleStatus 依赖它）
   const credSpec = findCredentialSpec(task.subTaskName ?? task.title);
+  // v1.3 Frank 27 23:50 TDD 迭代：按钮按 ownerType + subTaskName 双重判断（不引 proofType 字段）
+  const buttonType = getButtonType(task.subTaskName ?? task.title, ownerTypeStr);
 
   // v16.7 Frank 16:44 反馈：volunteer-first 流程 → 状态文案分两套
   //   · 默认（confirm/image/mixed/form/未设）：待组织者上传 → 待志愿者审核 → 已完成
@@ -939,9 +941,11 @@ function SubTaskCard({
             {task.subTaskName ?? task.title}
           </Text>
         </div>
-        {/* 按钮（按角色 + v16.6/v16.7 proofType） */}
-        {/* v16.7 volunteer-first 流程：志愿者 step1（先） + 组织者 step2（后） */}
-        {isVolunteerFirstSubTask(ownerTypeStr) && !step1Done && (
+        {/* 按钮（按角色 + v1.3 buttonType 字符串匹配） */}
+        {/* v1.3 Frank 27 23:50 TDD 迭代：buttonType 不引 proofType 字段，按 subTaskName 匹配
+            · confirm / form / mixed / image → 1 个按钮
+            · volunteer-first → 2 个按钮（志愿者 step1 + 组织者 step2） */}
+        {buttonType === 'volunteer-first' && !step1Done && (
           /* step1：志愿者自核（v1.2 Frank 27 21:40：VOLUNTEER 必须是 appVolunteerId；ADMIN 全管） */
           (role === 'ADMIN' || (role === 'VOLUNTEER' && isAppVolunteer)) && (
             <Button
@@ -956,7 +960,7 @@ function SubTaskCard({
             </Button>
           )
         )}
-        {isVolunteerFirstSubTask(ownerTypeStr) && step1Done && !step2Done && (
+        {buttonType === 'volunteer-first' && step1Done && !step2Done && (
           /* step2：组织者确认（v1.2 Frank 27 21:40：ADMIN 全管；ORGANIZER/ASSISTANT 必须是 appUserId） */
           (isAdminOp || ((role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer)) && (
             <Button
@@ -971,10 +975,10 @@ function SubTaskCard({
             </Button>
           )
         )}
-        {canOrganizerSubmit && !step1Done && credSpec?.proofType !== 'volunteer-first' && (
+        {canOrganizerSubmit && !step1Done && buttonType !== 'volunteer-first' && (
           <>
-            {/* v16.6 Frank 16:04 文字反馈：双方确认（confirm）→ 按钮"我已确认"，无 Modal */}
-            {credSpec?.proofType === 'confirm' && (
+            {/* v1.3 按钮按 buttonType 区分（不引 proofType 字段） */}
+            {buttonType === 'confirm' && (
               <Button
                 type="primary"
                 size="small"
@@ -986,8 +990,7 @@ function SubTaskCard({
                 ✓ 我已确认
               </Button>
             )}
-            {/* v16.6 Comment 4 双方最终确认 = 填空表单（form）→ 弹 form Modal */}
-            {credSpec?.proofType === 'form' && (
+            {buttonType === 'form' && (
               <Button
                 type="primary"
                 size="small"
@@ -998,8 +1001,7 @@ function SubTaskCard({
                 📝 填写活动方案
               </Button>
             )}
-            {/* v16.6 凭证类（image/mixed） + v16.5 默认（未设 proofType）→ 上传凭证 + 自核 Modal */}
-            {(credSpec?.proofType === 'image' || credSpec?.proofType === 'mixed' || !credSpec?.proofType) && (
+            {(buttonType === 'image' || buttonType === 'mixed') && (
               <Button
                 type="primary"
                 size="small"
@@ -1012,7 +1014,7 @@ function SubTaskCard({
             )}
           </>
         )}
-        {canVolunteerReview && credSpec?.proofType !== 'volunteer-first' && (
+        {canVolunteerReview && buttonType !== 'volunteer-first' && (
           <Button
             type="primary"
             size="small"
@@ -1023,7 +1025,7 @@ function SubTaskCard({
             志愿者审核
           </Button>
         )}
-        {canOperatorReview && !step3Done && credSpec?.proofType !== 'volunteer-first' && (
+        {canOperatorReview && !step3Done && buttonType !== 'volunteer-first' && (
           <Button
             type="primary"
             ghost

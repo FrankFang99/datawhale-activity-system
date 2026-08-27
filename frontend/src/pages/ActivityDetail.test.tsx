@@ -158,19 +158,19 @@ describe('ActivityDetail · v16.5/v16.6 simpleStatus 5 种状态文案', () => {
   });
 });
 
-describe('ActivityDetail · v16.6 凭证规范 proofType 5 种分支', () => {
-  it('proofType=confirm → "我已确认" 按钮', () => {
-    expect(SRC()).toMatch(/proofType === 'confirm'/);
+describe('ActivityDetail · v1.3 凭证规范 buttonType 5 种分支（Frank 27 23:50 TDD 迭代）', () => {
+  it('buttonType=confirm → "我已确认" 按钮', () => {
+    expect(SRC()).toMatch(/buttonType === 'confirm'/);
   });
-  it('proofType=form → "填写活动方案" 按钮', () => {
-    expect(SRC()).toMatch(/proofType === 'form'/);
+  it('buttonType=form → "填写活动方案" 按钮', () => {
+    expect(SRC()).toMatch(/buttonType === 'form'/);
   });
-  it('proofType=image/mixed/未设 → "上传凭证" 按钮', () => {
-    expect(SRC()).toMatch(/proofType === 'image'/);
-    expect(SRC()).toMatch(/proofType === 'mixed'/);
+  it('buttonType=image/mixed → "上传凭证" 按钮', () => {
+    expect(SRC()).toMatch(/buttonType === 'image'/);
+    expect(SRC()).toMatch(/buttonType === 'mixed'/);
   });
-  it('proofType=volunteer-first → 双按钮（志愿者 step1 + 组织者 step2）', () => {
-    expect(SRC()).toMatch(/proofType === 'volunteer-first'/);
+  it('buttonType=volunteer-first → 双按钮（志愿者 step1 + 组织者 step2）', () => {
+    expect(SRC()).toMatch(/buttonType === 'volunteer-first'/);
   });
 });
 

@@ -1,11 +1,16 @@
 /**
- * 5 阶段子任务凭证规范（v1.2 Frank 27 完全对齐 8-25 后端 SUBTASK_TEMPLATES，简化版）
+ * 5 阶段子任务凭证规范（v1.2 Frank 27 #6 + v1.3 Frank 27 23:50 TDD 迭代）
  *
  * v1.2 Frank 27 #6 反馈：「标签可不可以也按原来设置，也不用写分类凭证」
  * - 删 proofType 字段（volunteer-first / confirm / mixed / form 等）
- * - 删 proofCategories 字段（凭证分类）
+ * - 保留 proofCategories 字段（凭证分类）— 19 个子任务按 v1 8-25 数据补全
  * - 只保留 whatToDo（操作步骤）+ passCriteria（通过标准）
  * - 标签只显示 ownerType（志愿者/组织者/运营）——按 8-25 之前版本（v9 Frank 23:35）
+ *
+ * v1.3 Frank 27 23:50 TDD 迭代：
+ * - 恢复 v1 8-25 的 proofCategories 数组（"上传的内容的区隔"）
+ * - 恢复关键超链接（Canva 模板/任务卡 wiki/ailc-admin/ailc）
+ * - proofType 字段保持删除（Frank 27 "按原来设置"）
  *
  * 数据源：8-25 backend SUBTASK_TEMPLATES（v1-delivery/backend/src/modules/stages/controller.ts）
  * 关键约束：matchName 必须字符级跟 8-25 后端 SUBTASK_TEMPLATES 一致
@@ -18,12 +23,23 @@ export interface CredentialSpec {
   whatToDo: string[];
   /** 通过标准（怎么算这步完成） */
   passCriteria: string[];
-  /** v1.2 Frank 27 #6：proofType/proofCategories 字段在数据中不填
+  /**
+   * v16.8 Frank 22:16 反馈 Comment 1：凭证分类
+   *  - 未设：Form 用 1 个 textarea（每行 1 个 URL）
+   *  - 设了：Form 按类别渲染 N 个 Form.Item，每类独立 textarea
+   *    · 提交时合并成 JSON：{ "类别1": "url1\nurl2", "类别2": "url3" } 存 proofFile
+   *    · 显示时按类别展开（避免 Frank 提到"不知道哪个链接对应哪个"）
+   *  - 例：'建活动群聊' → ['微信群二维码（必填）', '飞书群 URL（可选）', 'QQ 群 URL（可选）']
+   */
+  proofCategories?: string[];
+  /**
+   * v1.2 Frank 27 #6：proofType 字段在数据中不填
    * - 留 type 是为了 TS 兼容（SubTaskCard 还能引用 credSpec?.proofType）
    * - 数据不填 → spec.proofType === 'image' 全是 false → 全走默认「上传凭证 + 自核」路径
-   * - 跟 v9 Frank 23:35 之前行为一致（"按原来设置"） */
+   * - 跟 v9 Frank 23:35 之前行为一致（"按原来设置"）
+   * - 按钮按 ownerType + subTaskName 字符串匹配（v1.3 新增，见 ActivityDetail.tsx）
+   */
   proofType?: 'image' | 'volunteer-first' | 'confirm' | 'mixed' | 'form';
-  proofCategories?: string[];
 }
 
 export const CREDENTIAL_SPECS: CredentialSpec[] = [
@@ -89,6 +105,11 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   // ========== 阶段 2 · RECRUIT（T-7）· 4 子任务（v13） ==========
   {
     matchName: '建活动群聊',
+    proofCategories: [
+      '微信群二维码（必填）',
+      '飞书群 URL（可选）',
+      'QQ 群 URL（可选）',
+    ],
     whatToDo: [
       '组织者自己建群，担任群主',
       '群名格式：【活动日期-AI+X创造节@XX大学站/XX城市站】',
@@ -105,14 +126,22 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '定制视觉物料（海报/横幅/手举牌）',
+    proofCategories: [
+      '旗帜 PNG（多张图片）',
+      '海报 PNG（多张图片）',
+      '横幅 PNG（5m × 0.7m）',
+      '手举牌 PNG（Datawhale + 小浣熊）',
+    ],
     whatToDo: [
-      '在 Canva 旗帜模板替换城市/学校/日期',
-      '在 Canva 海报模板替换 Datawhale Logo + 商汤小浣熊 Logo',
+      // v1.3 恢复 v1 8-25 Canva 模板超链接
+      '在 [Canva 旗帜模板](https://www.canva.cn/design/DAHK2gF5sm0/ylFWiumDKJsLf_l4jsSeig/edit)（144cm × 96cm），替换城市/学校/日期',
+      '在 [Canva 海报模板](https://khsj.cn/kldl7no55sa79g0)（少文字、引导报名）',
+      '替换 Datawhale Logo + 商汤小浣熊 Logo',
       '导出 PNG 格式',
       '与志愿者确认视觉统一',
     ],
     passCriteria: [
-      '旗帜 PNG 已导出',
+      '旗帜 PNG 已导出（各站点统一，需回收复用）',
       '海报 PNG 已导出（引导报名）',
       '横幅 PNG 已导出（5m × 0.7m）',
       '手举牌 PNG 已导出（Datawhale + 小浣熊）',
@@ -136,6 +165,10 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '启动本地招募宣传（公众号/朋友圈/群转发）',
+    proofCategories: [
+      '【截图类】朋友圈 / 微信群 / 高校社团群 / 企业园区群（上传截图 ≥1 张）',
+      '【链接类】公众号 / 视频号 / 小红书 / 高校社团自媒体号 / 企业园区自媒体号（上传文章链接 ≥1 个）',
+    ],
     whatToDo: [
       '将定制好的海报通过本地渠道发布',
       '带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
@@ -149,9 +182,14 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     ],
   },
 
-  // ========== 阶段 3 · PREPARE（T-5）· 5 子任务（8-25 调整：推文+作品上墙从 EXECUTE 移过来） ==========
+  // ========== 阶段 3 · PREPARE（T-5）· 5 子任务 ==========
   {
     matchName: '确认场地并上传场地信息',
+    proofCategories: [
+      '精确地址（必填，填空 · 精确到门牌号）',
+      '使用时段（必填 · 几点到几点的下拉选择）',
+      '现场图片（必上传 · 至少 3 张，含设备/桌椅/网络/入口）',
+    ],
     whatToDo: [
       '确认场地有：投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅',
       '与学校/场地方沟通借用时段',
@@ -181,10 +219,18 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '准备现场物料（接收/打印/任务卡PPT）',
+    proofCategories: [
+      '接收物料（≥1 张照片，联系钱皓亮寄送）',
+      '打印物料（≥1 张照片，含横幅/手卡/手举牌/旗帜）',
+      '任务卡（≥1 张照片，6 种：简历优化/活动策划/学习计划/公众号推文/社团招新方案/数据分析）',
+      'PPT（飞书文档链接 · 更新本站点内容）',
+    ],
     whatToDo: [
-      '接收物料：联系钱皓亮提供寄送信息',
-      '打印物料：横幅 + Datawhale 手卡 + 小浣熊手举牌 + 旗帜',
-      '任务卡/PPT：下载本站点任务卡 + 更新 PPT',
+      // v1.3 恢复 v1 8-25 关键超链接（任务卡 wiki + Canva 模板）
+      '接收物料：联系钱皓亮提供寄送信息（商汤会员卡传单 + 周边 + Datawhale 周边）',
+      '打印物料：横幅（[5m × 0.7m 模板](https://khsj.cn/iate3d70g7apoa2)）+ Datawhale 手卡（[手卡素材 1](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-TEvndHk65oHDSDxEj7tcOXGXn3b) / [手卡素材 2](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-XVyxdoP2Yod4Xpx5fzcc15AKn1g)）+ 小浣熊手举牌（[素材](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc)）+ 旗帜（[Canva 模板](https://www.canva.cn/design/DAHK2gF5sm0/ylFWiumDKJsLf_l4jsSeig/edit)）',
+      '任务卡/PPT：下载本站点任务卡（[简历优化](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-GwaxdnTkMokkYRxaw2DcVvNTndW) / [活动策划案](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-H2dDdwEMmoK7K1xucqVcIGJdnZf) / [学习计划](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-NEpadJ5XloaruQxQqVRcNthRnOf) / [公众号推文](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-KtRJdL6N8omF38xtSpCcrs25njb) / [社团招新方案](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-CP12dFLXYoKumtxp0vcc6Ternre) / [数据分析](https://datawhaler.feishu.cn/wiki/LuBKwQdrQiBLYokvTUzccKVunDc#share-IlY0dqC1uouo6wxXda2copLHnhh)）',
+      '更新 PPT（[模板](https://khsj.cn/8jvibqsu36lmspf)，加入本站点内容；PPT 上传飞书文档链接）',
       '准备摄影设备（手机即可，确保横版高清）',
     ],
     passCriteria: [
@@ -197,6 +243,10 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '提交宣传推文',
+    proofCategories: [
+      '【截图类】微信群 / 朋友圈 / 高校社团群（上传截图 ≥1 张）',
+      '【链接类】公众号 / 视频号 / 小红书 / 高校社团自媒体账号（上传文章链接 ≥1 个）',
+    ],
     whatToDo: [
       '在微信群 / 公众号 / 朋友圈 / 视频号 / 小红书 / 高校社团 发布活动推文',
       '带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
@@ -211,6 +261,10 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '参与者上传作品/申请的认证',
+    proofCategories: [
+      '作品墙截图（≥1 张，可多张）',
+      '徽章认证截图（≥1 张，可多张）',
+    ],
     whatToDo: [
       '引导参与者在活动前/中提交作品（图片/文档/视频）',
       '确保作品展示在作品墙',
@@ -223,7 +277,7 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     ],
   },
 
-  // ========== 阶段 4 · EXECUTE（T）· 3 子任务（8-25 调整：推文+作品上墙移到 PREPARE） ==========
+  // ========== 阶段 4 · EXECUTE（T）· 3 子任务 ==========
   {
     matchName: '现场签到与引导',
     whatToDo: [
@@ -259,16 +313,21 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   },
   {
     matchName: '采集现场素材（横版高清）',
+    proofCategories: [
+      '横版高清照片（≥5 张，每环节至少 1 张）',
+      '视频（可选 · 讲座/实操关键片段）',
+      '社媒截图/链接（参与者发布作品 #DatawhaleAI+X创造节）',
+    ],
     whatToDo: [
       '拍摄横版高清照片（每环节至少 1 张）',
       '视频可选（讲座/实操关键片段）',
-      '引导参与者在社媒发布作品 \+ 带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
+      '引导参与者在社媒发布作品 + 带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
       '[@Datawhale](https://www.datawhale.cn/) 官方账号',
     ],
     passCriteria: [
       '素材链接 ≥5 个（照片 ≥5 + 视频可选）',
       '横版高清（≥1920×1080）',
-      '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) \+ [@Datawhale](https://www.datawhale.cn/)',
+      '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) + [@Datawhale](https://www.datawhale.cn/)',
     ],
   },
 
@@ -320,4 +379,58 @@ export function findCredentialSpec(subTaskName: string | undefined): CredentialS
   const exact = CREDENTIAL_SPECS.find((s) => s.matchName === subTaskName);
   if (exact) return exact;
   return CREDENTIAL_SPECS.find((s) => subTaskName.includes(s.matchName) || s.matchName.includes(subTaskName));
+}
+
+/**
+ * v1.3 Frank 27 23:50 TDD 迭代：按钮按 ownerType + subTaskName 双重判断（不引 proofType 字段）
+ *
+ * 4 种 buttonType → 4 种按钮：
+ *  - confirm: "我已确认"（无 Modal，直接调 submit）
+ *  - form: "填写活动方案"（弹 form Modal）
+ *  - image | mixed: "上传凭证 + 自核"（弹分类 Modal，mixed 按 proofCategories 分块）
+ *  - volunteer-first: 2 步（志愿者"我已确认" + 组织者"我已确认"）
+ *
+ * 4 个 volunteer-first 子任务（v1 后端 SUBTASK_TEMPLATES 确认）：
+ *  - INT-1 互加飞书好友 (ownerType=VOLUNTEER)
+ *  - INT-4 飞书日历登记活动 (ownerType=VOLUNTEER)
+ *  - REVIEW-3 志愿者审核作品 (ownerType=VOLUNTEER)
+ *  - 注意：EXECUTE-2 主题分享虽然 v1.6 stageCredentialSpec 写过 volunteer-first，但后端 ownerType=ORGANIZER
+ *    → 不应走 volunteer-first（按 v13/v1.6 Frank 改的 19 个子任务，EXECUTE 2 是 ORGANIZER）
+ */
+export type ButtonType = 'confirm' | 'form' | 'image' | 'mixed' | 'volunteer-first';
+
+export function getButtonType(
+  subTaskName: string | undefined,
+  ownerType?: string
+): ButtonType {
+  if (!subTaskName) return 'image';
+  // volunteer-first: 3 个子任务（必须 ownerType=VOLUNTEER + 是特殊流程子任务）
+  if (
+    ownerType === 'VOLUNTEER' &&
+    (subTaskName.includes('互加飞书好友') ||
+      subTaskName.includes('飞书日历登记活动') ||
+      subTaskName.includes('志愿者审核作品'))
+  ) {
+    return 'volunteer-first';
+  }
+  // form: 1 个子任务（INT-3 双方最终确认）
+  if (subTaskName.includes('双方最终确认活动方案')) {
+    return 'form';
+  }
+  // confirm: 2 个子任务（INT-2 行动指南 + RECRUIT 3 复制专题）
+  if (
+    subTaskName.includes('阅读并确认行动指南') ||
+    subTaskName.includes('复制专题并发布报名表单')
+  ) {
+    return 'confirm';
+  }
+  // mixed: 2 个子任务（启动本地招募 + 提交宣传推文）
+  if (
+    subTaskName.includes('启动本地招募宣传') ||
+    subTaskName.includes('提交宣传推文')
+  ) {
+    return 'mixed';
+  }
+  // image: 其余 11 个子任务（默认走"上传凭证 + 自核"）
+  return 'image';
 }
