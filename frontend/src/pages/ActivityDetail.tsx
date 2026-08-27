@@ -14,10 +14,6 @@ import { authStore } from '../store/auth';
 import { STAGE_TEMPLATES_FRANK, canViewSubTasks, Stage, SubTask } from '../data/stageSubtasks';
 import { findCredentialSpec } from '../data/stageCredentialSpec';
 
-// v1.2 Frank 2026-08-27：删了 ActivityStageTemplate interface（v1 之前的设计：dw_activities.stages 预设 19 子任务模板）
-// 现在完全按 8-25 交付版：subTasks 由 CONFIRMED 时从后端 SUBTASK_TEMPLATES 实例化到 dw_stage_tasks
-// 前端用 stageApi.list(appId) 读取，不再读 activity.stages 字段
-
 const { Title, Paragraph, Text } = Typography;
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -31,8 +27,7 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 const STAGES = [
   { stage: 'INTENT' as const,  title: '确认意向', desc: 'T-10' },
   { stage: 'RECRUIT' as const, title: '对外招募', desc: 'T-7' },
-  // v1.2 Frank 2026-08-27：8-25 STAGE_TEMPLATES PREPARE daysBeforeStart=5（T-5，不是 T-3）
-  { stage: 'PREPARE' as const, title: '现场筹备', desc: 'T-5' },
+  { stage: 'PREPARE' as const, title: '现场筹备', desc: 'T-3' },
   { stage: 'EXECUTE' as const, title: '活动执行', desc: 'T' },
   { stage: 'REVIEW' as const,  title: '活动复盘', desc: 'T+3' },
 ];
@@ -212,11 +207,7 @@ export default function ActivityDetail() {
   if (loading) return <Spin style={{ display: 'block', margin: 64 }} />;
   if (!activity) return <Empty description="活动不存在或已下架" />;
 
-  // v1.2 Frank 22:29：判断「是否已确定组织者」
-  // 后端返回 needOrganizer（true=还没组织者；活动已上架但无 CONFIRMED 申请者）
-  // PENDING 状态也隐含 needOrganizer
-  const needOrganizer = activity.needOrganizer ?? (activity.status === 'PENDING');
-  const isPending = needOrganizer;  // 兼容旧代码
+  const isPending = activity.status === 'PENDING';
   const isFinished = activity.status === 'FINISHED' || activity.status === 'CANCELLED';
   const statusInfo = STATUS_MAP[activity.status] ?? { label: activity.status, color: 'default' };
   const isReadOnlyRole = user && ['ADMIN', 'OPERATOR', 'VOLUNTEER', 'ASSISTANT'].includes(user.role);
@@ -339,93 +330,47 @@ export default function ActivityDetail() {
           </Card>
         )}
 
-        {/* v1.2 Frank 2026-08-27 反馈：没组织者时也展示 5 阶段 + 19 子任务模板（按 Frank 27 反馈加回 always-on）
-            数据源：前端代码 STAGE_TEMPLATES_FRANK（不预设到 dw_activities.stages 字段，跟 8-25 后端 SUBTASK_TEMPLATES 字符级一致）
-            CONFIRMED 后再额外展示子任务实例（来自 dw_stage_tasks） */}
-        <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
-        <Segmented
-          block
-          value={selectedStage}
-          onChange={(v) => {
-            const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
-            setSelectedStage(s);
-            if (!isPending) loadTasksForStage(s);
-          }}
-          options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
-          style={{ marginBottom: 16 }}
-        />
+        {!isPending && (
+          <>
+            <Title level={4} style={{ marginTop: 24 }}>5 阶段时间轴</Title>
+            <Segmented
+              block
+              value={selectedStage}
+              onChange={(v) => {
+                const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
+                setSelectedStage(s);
+                loadTasksForStage(s);
+              }}
+              options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
+              style={{ marginBottom: 16 }}
+            />
+          </>
+        )}
 
-        {/* 阶段子任务模板预览（always-on · 所有用户可见，只读）
-            数据源：STAGE_TEMPLATES_FRANK（前端代码，跟 8-25 后端 SUBTASK_TEMPLATES 一致）
-            即使没组织者，所有用户都能看到 5 阶段每阶段要做什么子任务（让"我要参与"+"申请组织者"的用户知道流程） */}
-        {(() => {
-          const template = STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage);
-          if (!template) return null;
-          return (
-            <Card
-              size="small"
-              style={{ marginBottom: 16, background: '#FAFCFF' }}
-              title={
-                <Space>
-                  <FileTextOutlined />
-                  <span>阶段子任务模板 · {template.title}</span>
-                  <Tag color="blue">{template.hint}</Tag>
-                  {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
-                    <Tag color="green">当前阶段</Tag>
-                  )}
-                </Space>
-              }
-            >
-              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-                <ClockCircleOutlined /> {template.desc}
-              </Paragraph>
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                {template.subTasks.map((t) => (
-                  <div
-                    key={`${template.stage}-${t.order}`}
-                    style={{
-                      display: 'flex',
-                      gap: 12,
-                      padding: '10px 12px',
-                      background: '#fff',
-                      border: '1px solid #E5EAF3',
-                      borderRadius: 6,
-                    }}
-                  >
-                    <Tag color="default" style={{ minWidth: 32, textAlign: 'center', margin: 0 }}>{t.order}</Tag>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 500, marginBottom: 4 }}>
-                        {t.name}
-                        <Tag color={t.ownerType === 'VOLUNTEER' ? 'cyan' : t.ownerType === 'OPERATOR' ? 'orange' : 'blue'} style={{ marginLeft: 8 }}>
-                          {t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
-                        </Tag>
-                      </div>
-                      {t.proofHint && (
-                        <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-                          📎 凭证：{t.proofHint}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </Space>
-            </Card>
-          );
-        })()}
-
-        {/* 子任务执行实例（CONFIRMED 才有 — 来自 dw_stage_tasks） */}
+        {/* Frank 2026-08-22 14:35 重新排版：
+            - 5 阶段可点击 tab 切换（不再只显示当前阶段）
+            - 每个子任务卡片按角色展示 3 步进度：组织者自核 → 志愿者审核 → 运营复核
+            - 操作按钮按角色显示
+            - ORGANIZER/ASSISTANT/VOLUNTEER/OPERATOR/ADMIN：可看子任务
+            - PARTICIPANT/USER：保持现有 5 阶段时间轴即可，不展开子任务 */}
         {!isPending && canViewSubTasks(user?.role) && appId && (
           <Card
             size="small"
-            style={{ marginBottom: 16, background: '#F0FDF4' }}
+            style={{ marginBottom: 16, background: '#FAFCFF' }}
             title={
               <Space>
                 <FileTextOutlined />
-                <span>阶段任务执行进度 · {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.title ?? ''}</span>
-                <Tag color="green">CONFIRMED · 19 子任务已实例化</Tag>
+                <span>阶段任务 · {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.title ?? ''}</span>
+                <Tag color="blue">{STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.hint ?? ''}</Tag>
+                {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
+                  <Tag color="green">当前阶段</Tag>
+                )}
               </Space>
             }
           >
+            <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+              <ClockCircleOutlined /> {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.desc}
+            </Paragraph>
             {tasksLoading && <Spin />}
             {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
               <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
@@ -443,6 +388,59 @@ export default function ActivityDetail() {
                   />
                 ))}
             </Space>
+            {/* v16.2 Frank 10:30 Comment 3：不显示提示块 */}
+
+            {/* Frank 2026-08-23 09:17 反馈 Comment 5：每阶段底部"进入下一阶段"按钮
+                - 阶段所有子任务 COMPLETED → 激活
+                - 未完成 → 灰色锁定 + 提示"完成本阶段 N 项后激活"
+                - 点击 → 切换到下一阶段
+                - 最后阶段 REVIEW → 显示"活动已完结"
+                - v13 Frank 14:12 反馈 Comment 6：组织者完成所有子任务 → 解锁此按钮 → 消息通知志愿者审核
+                - v16.2 Frank 10:30 反馈 Comment 4：按 ownerType 区分
+                  · ownerType=ORGANIZER 子任务：需 3 步都完成（自核 + 志愿者审核通过 + 运营复核通过）
+                  · ownerType=VOLUNTEER 子任务：需自己打勾（自核完成）
+                  · ownerType=OPERATOR 子任务：不计入解锁条件
+                - v16.4 Frank 13:26 反馈：运营复核只在 UNCERTAIN 时介入
+                  · ORGANIZER 子任务：自核 + 志愿者审核通过 = 完成（**不依赖运营复核**）
+                  · 运营复核只在志愿者 UNCERTAIN（无法判断）时介入 */}
+            {(() => {
+              const stageTasks = tasks.filter((t) => t.stage === selectedStage);
+              const stageOrder = STAGES.findIndex((s) => s.stage === selectedStage);
+              const nextStage = STAGES[stageOrder + 1];
+              // v16.8 Frank 11:35 反馈：unlock 条件简化 —— 只看子任务 status==='COMPLETED' 即可
+              // 不再依赖 step1Done + reviewStatus 组合判断（志愿者/运营审核都旁路后，COMPLETED 由 submit 端点决定）
+              const completed = stageTasks.length > 0 && stageTasks.every((t) => t.status === 'COMPLETED');
+              const isLast = !nextStage;
+              // v16.9 Frank 13:10 反馈："已说过不需要志愿者审核。直接去掉此按钮"
+              // 删 unlockNextStage 按钮 + notifyVolunteerReview API 调用
+              // 阶段切换靠用户点 5 阶段 tab 完成（line 343 setSelectedStage(s)）
+              const stageCompletedCount = stageTasks.filter((t) => t.status === 'COMPLETED').length;
+
+              return (
+                <div style={{ marginTop: 16, textAlign: 'center' }}>
+                  {isLast ? (
+                    completed ? (
+                      <Button size="large" type="primary" icon={<CheckCircleOutlined />} disabled>
+                        活动已完结
+                      </Button>
+                    ) : (
+                      <Button size="large" disabled>
+                        🔒 完成本阶段 {stageCompletedCount}/{stageTasks.length} 项后解锁
+                      </Button>
+                    )
+                  ) : completed ? (
+                    // v16.9 Frank 13:10：完成且非最后阶段 → 提示用户点 tab 切换下一阶段（不再通知志愿者）
+                    <Button size="large" disabled icon={<CheckCircleOutlined />} style={{ background: '#D1FAE5', color: '#10B981', borderColor: '#10B981' }}>
+                      ✓ 本阶段已完成（点击上方 tab 进入「{nextStage.title}」）
+                    </Button>
+                  ) : (
+                    <Button size="large" disabled icon={<CheckCircleOutlined />}>
+                      🔒 完成本阶段 {stageCompletedCount}/{stageTasks.length} 项后解锁「{nextStage.title}」
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
           </Card>
         )}
 
