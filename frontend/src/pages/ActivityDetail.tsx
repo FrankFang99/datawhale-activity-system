@@ -32,6 +32,25 @@ const STAGES = [
   { stage: 'REVIEW' as const,  title: '活动复盘', desc: 'T+3' },
 ];
 
+/**
+ * Frank 27 20:03 反馈 Comment 2/3：v1 流程"志愿者先 → 组织者 confirm"在前端没体现
+ *
+ * v16.7 Frank 16:44 引入 volunteer-first 流程（3 个 ownerType=VOLUNTEER 子任务）：
+ *   - INT-1 志愿者和组织者互加飞书好友
+ *   - INT-4 飞书日历登记活动
+ *   - REVIEW-3 志愿者审核作品+反馈+可推荐优秀
+ *
+ * v16.7 当时用 `credSpec?.proofType === 'volunteer-first'` 判断
+ * v1.2 Frank 27 删了 stageCredentialSpec.proofType 字段（"按原来设置"简化）→ credSpec.proofType 永远 undefined
+ * → 整条 volunteer-first 流程在 v1.2 之后被禁用了，所有子任务走默认"组织者上传 → 志愿者审 → 运营复核"3 步
+ * → SubTaskCard 永远不会显示"志愿者先 → 组织者 confirm"流程
+ *
+ * 修复：用 task.ownerType === 'VOLUNTEER' 判断（v1 后端 SUBTASK_TEMPLATES 写死的 ownerType 是真实数据源）
+ */
+function isVolunteerFirstSubTask(ownerTypeStr: string | undefined): boolean {
+  return ownerTypeStr === 'VOLUNTEER';
+}
+
 export default function ActivityDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -926,7 +945,7 @@ function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; on
   //   · UNCERTAIN：保留 organizerSubmittedAt → step1Done=true → 显示"已请求运营介入"
   // v16.8 Frank 22:16 反馈：运营打回状态（operatorReviewStatus=REJECTED）
   const simpleStatus = (() => {
-    const isVolunteerFirst = credSpec?.proofType === 'volunteer-first';
+    const isVolunteerFirst = isVolunteerFirstSubTask(ownerTypeStr);
     if (!step1Done) {
       return isVolunteerFirst
         ? { color: '#6B7280', bg: '#F3F4F6', label: '待志愿者完成' }
@@ -967,7 +986,7 @@ function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; on
         </div>
         {/* 按钮（按角色 + v16.6/v16.7 proofType） */}
         {/* v16.7 volunteer-first 流程：志愿者 step1（先） + 组织者 step2（后） */}
-        {credSpec?.proofType === 'volunteer-first' && !step1Done && (
+        {isVolunteerFirstSubTask(ownerTypeStr) && !step1Done && (
           /* step1：志愿者自核（VOLUNTEER/ADMIN 角色可见） */
           (role === 'VOLUNTEER' || role === 'ADMIN') && (
             <Button
@@ -982,7 +1001,7 @@ function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; on
             </Button>
           )
         )}
-        {credSpec?.proofType === 'volunteer-first' && step1Done && !step2Done && (
+        {isVolunteerFirstSubTask(ownerTypeStr) && step1Done && !step2Done && (
           /* step2：组织者确认（ORGANIZER/ASSISTANT/ADMIN 角色可见） */
           (role === 'ORGANIZER' || role === 'ASSISTANT' || role === 'ADMIN') && (
             <Button
