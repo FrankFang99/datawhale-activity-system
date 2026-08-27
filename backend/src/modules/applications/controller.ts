@@ -86,10 +86,18 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
     return fail(res, 409, ErrorCode.APP_003_ALREADY_APPLIED, '您已申请该活动');
   }
 
-  // 4. 跑 5 维评分
+  // 4. 跑 7 维评分（Frank 27 15:58 Comment 4：v1 5 维 → v2 7 维）
+  //    RC001 基础信息完整度从 location 字符串里解析出"学校"和"详细地址"
+  const locationParts = (data.location ?? '').split('·');
   let breakdown: ScoreBreakdown;
   try {
     breakdown = scoreApplication({
+      // RC001 基础信息（v2 新增）
+      hasIdentity: !!data.applicantIdentity,
+      hasLocation3: !!data.currentCity,
+      hasSchool: locationParts.length >= 4 && !!locationParts[3],
+      hasAddress: locationParts.length >= 5 && !!locationParts[4],
+      // 已有字段
       venueStatus: data.venueStatus,
       recruitChannel: data.recruitChannel,
       experience: data.experience,

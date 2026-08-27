@@ -1,21 +1,26 @@
 /**
- * 申请详情页（v15 · Frank 2026-08-27 15:58 反馈）
+ * 申请详情页（v16 · Frank 2026-08-27 15:58 反馈）
  *
  * 用途：所有角色可查看任意申请详情
  * - 申请者：看自己提交的申请（含 AI 评分 / 审核日志）
  * - 志愿者：看他所对接的申请（审批前/审核后都能看）
  * - 运营/管理员：所有申请
  *
+ * v16 修订（Frank 27 15:58 反馈 Comment 4）：
+ * - AI 评分 tab 从 v1 5 个 sub-tab 改成 v2 7 维 Card 网格
+ * - 7 维：基础 RC001(10) / 场地 RC002(10) / 招募 RC003(15) / 经验 RC004(25) / 时间 RC005(10) / 动机 RC006(15) / 价值 RC007(15)
+ * - 引擎版本：v2
+ *
  * v15 修订（Frank 27 15:58 反馈 Comment 1-3）：
- * - Comment 1：删申请原文 tab 里的「合作资源」栏（申请问卷无此字段，Descriptions 上方已有「招募渠道」Tags）
- * - Comment 2：删顶部「该申请存在风险项」Alert 整块（不显示风险）
+ * - Comment 1：删申请原文 tab 里的「合作资源」栏
+ * - Comment 2：删顶部「该申请存在风险项」Alert 整块
  * - Comment 3：基础信息 Card 加 title="基本信息"
  *
  * v14 修订（Frank 19:46 反馈 Comment 1）：
  * - 后端 GET /api/applications/:id 已扩展返回飞书 base 全部 14+ 字段
- * - 删 v13 顶部"在飞书中查看完整记录"跳转按钮（Frank 否决跳转方案）
- * - 删顶部"本页面展示申请摘要"Alert（因为现在就是完整数据）
- * - 志愿者/运营完整可见联系信息（志愿者需要联系申请者）
+ * - 删 v13 顶部"在飞书中查看完整记录"跳转按钮
+ * - 删顶部"本页面展示申请摘要"Alert
+ * - 志愿者/运营完整可见联系信息
  *
  * 路由：/applications/:id
  * 接口：GET /api/applications/:id
@@ -23,7 +28,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card, Spin, Tag, Descriptions, Tabs, Button, Space, Typography, Result, Empty, message, Tooltip,
+  Card, Spin, Tag, Descriptions, Tabs, Button, Space, Typography, Result, Empty, message, Tooltip, Row, Col,
 } from 'antd';
 import { ArrowLeftOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { applicationApi } from '../services/api';
@@ -223,15 +228,21 @@ export default function ApplicationReview() {
               key: 'ai',
               label: 'AI 评分',
               children: data.scoreBreakdown ? (
-                <Tabs
-                  items={[
-                    { key: 'RC001', label: '场地 (RC001)', children: <DimensionPanel data={data.scoreBreakdown.RC001} max={20} /> },
-                    { key: 'RC002', label: '招募 (RC002)', children: <DimensionPanel data={data.scoreBreakdown.RC002} max={20} /> },
-                    { key: 'RC003', label: '经验 (RC003)', children: <DimensionPanel data={data.scoreBreakdown.RC003} max={25} /> },
-                    { key: 'RC004', label: '时间 (RC004)', children: <DimensionPanel data={data.scoreBreakdown.RC004} max={15} /> },
-                    { key: 'RC005', label: '价值 (RC005)', children: <DimensionPanel data={data.scoreBreakdown.RC005} max={20} /> },
-                  ]}
-                />
+                <div>
+                  <Row gutter={[12, 12]}>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="基础信息" code="RC001" data={data.scoreBreakdown.RC001} max={10} /></Col>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="场地"     code="RC002" data={data.scoreBreakdown.RC002} max={10} /></Col>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="招募"     code="RC003" data={data.scoreBreakdown.RC003} max={15} /></Col>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="经验"     code="RC004" data={data.scoreBreakdown.RC004} max={25} /></Col>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="时间"     code="RC005" data={data.scoreBreakdown.RC005} max={10} /></Col>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="申请动机" code="RC006" data={data.scoreBreakdown.RC006} max={15} /></Col>
+                    <Col xs={12} sm={8} md={6}><ScoreCard label="参与者价值" code="RC007" data={data.scoreBreakdown.RC007} max={15} /></Col>
+                  </Row>
+                  <div style={{ marginTop: 12, fontSize: 12, color: '#999' }}>
+                    引擎版本：{data.scoreBreakdown.engineVersion ?? 'v1'}
+                    （v2 7 维：基础/场地/招募/经验/时间/动机/价值）
+                  </div>
+                </div>
               ) : (
                 <Empty description="暂无 AI 评分（申请尚未通过初筛或分数未生成）" />
               ),
@@ -312,5 +323,41 @@ function DimensionPanel({ data, max }: { data: any; max: number }) {
         <Text type="secondary" style={{ fontSize: 13 }}>{reason}</Text>
       </div>
     </div>
+  );
+}
+
+// Frank 27 15:58 Comment 4：v2 7 维评分用 ScoreCard（label/code/score/max/reason），
+// 在 AI 评分 tab 里以 7 个 Card 网格展示，比 7 个 sub-tab 更易读
+function ScoreCard({ label, code, data, max }: { label: string; code: string; data: any; max: number }) {
+  if (!data) return <Card size="small" title={`${label} (${code})`}><Text type="secondary">无数据</Text></Card>;
+  const score = data.score ?? 0;
+  const reason = data.reason ?? '—';
+  const percent = max > 0 ? (score / max) * 100 : 0;
+  return (
+    <Card size="small" title={`${label} (${code})`} bodyStyle={{ padding: 12 }}>
+      <div style={{ marginBottom: 8 }}>
+        <Text strong style={{ fontSize: 20, color: '#3370FF' }}>{score}</Text>
+        <Text type="secondary"> / {max}</Text>
+      </div>
+      <div
+        style={{
+          height: 6,
+          background: '#F0F0F0',
+          borderRadius: 3,
+          overflow: 'hidden',
+          marginBottom: 8,
+        }}
+      >
+        <div
+          style={{
+            width: `${percent}%`,
+            height: '100%',
+            background: percent >= 75 ? '#52c41a' : percent >= 50 ? '#3370FF' : '#faad14',
+            transition: 'width 0.3s',
+          }}
+        />
+      </div>
+      <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.4 }}>{reason}</Text>
+    </Card>
   );
 }
