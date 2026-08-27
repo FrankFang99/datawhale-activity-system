@@ -225,6 +225,7 @@ export default function ApplicationForm() {
         <Modal
           open={true}
           title={`扫码加入 ${result.activityTitle ?? '活动'} 飞书群`}
+          onCancel={() => setResult(null)}  // Frank 27 14:12 Comment 1：X 关闭按钮生效
           footer={[
             <Button key="ok" type="primary" onClick={() => {
               // 关闭后询问是否已加入（v4 PRD §4.1.4 步骤 3）
