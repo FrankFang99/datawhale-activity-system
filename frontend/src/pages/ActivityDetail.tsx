@@ -207,7 +207,10 @@ export default function ActivityDetail() {
   if (loading) return <Spin style={{ display: 'block', margin: 64 }} />;
   if (!activity) return <Empty description="活动不存在或已下架" />;
 
-  const isPending = activity.status === 'PENDING';
+  // v1.2 Frank 27 09:41 反馈：活动没组织者时显示 Alert + 双按钮
+  // 之前的 isPending = activity.status === 'PENDING' 不准确（活动可能是 PUBLISHED 但实际没组织者）
+  // 改用后端返回的 needOrganizer 字段（活动详情接口已返回）
+  const isPending = activity.needOrganizer ?? (activity.status === 'PENDING');
   const isFinished = activity.status === 'FINISHED' || activity.status === 'CANCELLED';
   const statusInfo = STATUS_MAP[activity.status] ?? { label: activity.status, color: 'default' };
   const isReadOnlyRole = user && ['ADMIN', 'OPERATOR', 'VOLUNTEER', 'ASSISTANT'].includes(user.role);
