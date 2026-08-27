@@ -1,12 +1,15 @@
 /**
- * 5 阶段子任务描述（v9 · Frank 2026-08-21 23:35 #2）
+ * 5 阶段子任务模板（v1.2 Frank 27 完全对齐 8-25 后端 SUBTASK_TEMPLATES）
  *
- * 数据来源：Frank 在浏览器评论中给出的 5 阶段子任务内容（comment 2-6）
- * 与后端 stages/controller.ts 的 SUBTASK_TEMPLATES 对齐
+ * 数据源：v1-delivery/backend/src/modules/stages/controller.ts SUBTASK_TEMPLATES
+ *   （v13 Frank 14:12 改 INT 4 / RECRUIT 4 / PREPARE 5 / EXECUTE 3 / REVIEW 3 = 19 个）
  *
- * 用途：ActivityDetail 5 阶段子任务区域（按角色权限显示）
- *  - ORGANIZER / ASSISTANT / VOLUNTEER / OPERATOR / ADMIN：完整子任务
- *  - PARTICIPANT / USER：只看到 5 阶段时间轴（Frank 23:35 #2）
+ * 用途：ActivityDetail 5 阶段子任务模板预览
+ *  - ORGANIZER / ASSISTANT / VOLUNTEER / OPERATOR / ADMIN：完整子任务 + 凭证规范
+ *  - PARTICIPANT / USER：5 阶段时间轴即可（保持 v9 Frank 23:35 行为）
+ *
+ * 关键约束：subTaskName 必须字符级跟 8-25 后端 SUBTASK_TEMPLATES 完全一致
+ *   （前端 findCredentialSpec 用 substring 匹配，名字不一致就找不到凭证规范）
  */
 
 export interface SubTask {
@@ -19,17 +22,18 @@ export interface SubTask {
 export interface Stage {
   stage: 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
   title: string;
-  hint: string;       // T-N 时间标记
+  hint: string;       // T-N 时间标记（8-25 STAGE_TEMPLATES daysBeforeStart）
   desc: string;       // 阶段说明
   subTasks: SubTask[];
 }
 
 export const STAGE_TEMPLATES_FRANK: Stage[] = [
   {
+    // 8-25 STAGE_TEMPLATES：INTENT daysBeforeStart=10（T-10）
     stage: 'INTENT',
     title: '确认意向',
     hint: 'T-10',
-    desc: '志愿者与组织者飞书 IM 沟通，最终确定活动方案；组织者阅读并确认行动指南后开始填空表单。',
+    desc: '志愿者加组织者飞书 IM 好友；双方最终确认活动方案/时间/地点/规模；飞书日历登记。',
     subTasks: [
       // v13 Frank 14:12 反馈：Comment 3/4/5 改
       { order: 1, name: '志愿者和组织者互加飞书好友', ownerType: 'VOLUNTEER', proofHint: '好友关系建立截图' },
@@ -42,50 +46,60 @@ export const STAGE_TEMPLATES_FRANK: Stage[] = [
     ],
   },
   {
+    // 8-25 STAGE_TEMPLATES：RECRUIT daysBeforeStart=7（T-7）
     stage: 'RECRUIT',
     title: '对外招募',
     hint: 'T-7',
-    desc: '建群、定制视觉物料、发布报名表单、联系助教/嘉宾、启动本地招募宣传。',
+    desc: '建活动群聊；定制视觉物料（海报/横幅）；发布报名表单；启动本地招募宣传。',
     subTasks: [
-      { order: 1, name: '建立活动群聊（现场微信群、飞书 QQ 兴趣群等）', ownerType: 'ORGANIZER', proofHint: '群二维码或链接' },
-      { order: 2, name: '定制视觉物料（海报、横幅、手举牌、旗帜、推文等）', ownerType: 'ORGANIZER', proofHint: '海报图' },
-      { order: 3, name: '启动招募宣传（公众号、朋友圈、微信群、小红书等）', ownerType: 'ORGANIZER', proofHint: '推文截图' },
-      { order: 4, name: '联系助教 / 主讲嘉宾', ownerType: 'ORGANIZER', proofHint: '沟通记录' },
+      // 跟 8-25 后端 SUBTASK_TEMPLATES 字符级一致
+      { order: 1, name: '建活动群聊', ownerType: 'ORGANIZER', proofHint: '群二维码' },
+      { order: 2, name: '定制视觉物料（海报/横幅/手举牌）', ownerType: 'ORGANIZER', proofHint: '海报链接' },
+      { order: 3, name: '复制专题并发布报名表单', ownerType: 'ORGANIZER', proofHint: '报名链接' },
+      { order: 4, name: '启动本地招募宣传（公众号/朋友圈/群转发）', ownerType: 'ORGANIZER', proofHint: '推文截图' },
     ],
   },
   {
+    // 8-25 STAGE_TEMPLATES：PREPARE daysBeforeStart=5（T-5，wiki 文档写 T-5）
+    // 8-25 后端调整：PREPARE 从 3 个扩到 5 个（推文 + 作品上墙从 EXECUTE 移过来）
     stage: 'PREPARE',
     title: '现场筹备',
-    hint: 'T-3',
-    desc: '确认场地、运营/组织者/助教完成实操教程培训、准备现场物料（邮寄/打印/PPT/相机）。',
+    hint: 'T-5',
+    desc: '确认场地；组织者+助教完成培训；准备现场物料；提交宣传推文；参与者上传作品。',
     subTasks: [
-      { order: 1, name: '确认场地并上传信息', ownerType: 'ORGANIZER', proofHint: '场地照片 + 精确地址' },
-      { order: 2, name: '和助教一起完成实操教程', ownerType: 'ORGANIZER', proofHint: '培训截图' },
-      { order: 3, name: '准备现场物料（邮寄、打印、PPT、相机等）', ownerType: 'ORGANIZER', proofHint: '物料清单' },
+      // 跟 8-25 后端 SUBTASK_TEMPLATES 字符级一致
+      { order: 1, name: '确认场地并上传场地信息', ownerType: 'ORGANIZER', proofHint: '场地照片' },
+      { order: 2, name: '组织者+助教完成实操教程培训', ownerType: 'ORGANIZER', proofHint: '培训完成截图' },
+      { order: 3, name: '准备现场物料（接收/打印/任务卡PPT）', ownerType: 'ORGANIZER', proofHint: '物料清单' },
+      { order: 4, name: '提交宣传推文', ownerType: 'ORGANIZER', proofHint: '推文截图' },
+      { order: 5, name: '参与者上传作品/申请的认证', ownerType: 'ORGANIZER', proofHint: '作品链接 + 认证截图' },
     ],
   },
   {
-    // v1.2 Frank 27：EXECUTE 阶段与后端 SUBTASK_TEMPLATES 对齐（3 个，跟 8-25 调整一致）
-    // 之前 v13 改成了 4 个（多了「引导参与者上传到作品墙」），但后端 8-25 已删
+    // 8-25 STAGE_TEMPLATES：EXECUTE daysBeforeStart=0（T）
+    // 8-25 后端调整：EXECUTE 从 4 个减到 3 个（推文/作品墙上墙移到 PREPARE）
     stage: 'EXECUTE',
     title: '活动执行',
     hint: 'T',
-    desc: '现场签到、主题分享+带教演示+实操+闪电分享、采集现场素材。',
+    desc: '现场签到；主题分享 20min + 带教演示 30min + 实操 40+min + 闪电分享 20-30min；采集素材。',
     subTasks: [
+      // 跟 8-25 后端 SUBTASK_TEMPLATES 字符级一致
       { order: 1, name: '现场签到与引导', ownerType: 'ORGANIZER', proofHint: '签到截图' },
       { order: 2, name: '主题分享+带教演示+实操+闪电分享', ownerType: 'ORGANIZER', proofHint: '现场照片' },
       { order: 3, name: '采集现场素材（横版高清）', ownerType: 'ORGANIZER', proofHint: '现场照片≥3 张' },
     ],
   },
   {
+    // 8-25 STAGE_TEMPLATES：REVIEW daysBeforeStart=-3（T+3）
     stage: 'REVIEW',
     title: '活动复盘',
     hint: 'T+3',
-    desc: '提交复盘文档（含现场素材）、整理活动素材、志愿者审核。',
+    desc: '提交复盘文档（含现场素材）；推动作品上墙；志愿者审核+可推荐优秀（v4 运营默认不介入）。',
     subTasks: [
-      { order: 1, name: '提交活动复盘', ownerType: 'ORGANIZER', proofHint: '复盘文档' },
-      { order: 2, name: '整理活动素材', ownerType: 'ORGANIZER', proofHint: '素材汇总' },
-      { order: 3, name: '志愿者审核 + 可推荐优秀', ownerType: 'VOLUNTEER', proofHint: 'reviewStatus=APPROVED' },
+      // 跟 8-25 后端 SUBTASK_TEMPLATES 字符级一致
+      { order: 1, name: '提交活动复盘（含现场素材到飞书文档）', ownerType: 'ORGANIZER', proofHint: '复盘文档' },
+      { order: 2, name: '推动作品上墙（参与 OPC 能力认证）', ownerType: 'ORGANIZER', proofHint: '作品链接' },
+      { order: 3, name: '志愿者审核作品+反馈+可推荐优秀', ownerType: 'VOLUNTEER', proofHint: 'reviewStatus + excellentOrganizer' },
     ],
   },
 ];

@@ -22,21 +22,27 @@ describe('Frank 23:35 #2 5 阶段子任务描述（来自 comment 2-6）', () =>
     expect(confirm?.ownerType).toBe('ORGANIZER');
   });
 
-  it('RECRUIT 阶段含"建群+定制视觉物料+启动招募+联系嘉宾"子任务（comment 3）', () => {
+  // v1.2 Frank 27：跟 8-25 后端 SUBTASK_TEMPLATES 对齐
+  it('RECRUIT 阶段含"建群+视觉物料+专题+招募宣传"4 子任务（8-25 后端）', () => {
     const recruit = STAGE_TEMPLATES_FRANK.find((s) => s.stage === 'RECRUIT');
     const names = recruit!.subTasks.map((s) => s.name);
-    expect(names.some((n) => n.includes('群聊'))).toBe(true);
+    expect(names.length).toBe(4);
+    expect(names.some((n) => n.includes('建活动群聊'))).toBe(true);
     expect(names.some((n) => n.includes('视觉物料'))).toBe(true);
+    expect(names.some((n) => n.includes('复制专题并发布报名表单'))).toBe(true);
     expect(names.some((n) => n.includes('招募宣传'))).toBe(true);
-    expect(names.some((n) => n.includes('嘉宾'))).toBe(true);
   });
 
-  it('PREPARE 阶段含"确认场地+实操教程+物料"子任务（comment 4）', () => {
+  // v1.2 Frank 27：PREPARE 8-25 后端是 5 个子任务（推文+作品上墙从 EXECUTE 移过来）
+  it('PREPARE 阶段含"确认场地+实操教程+物料+推文+作品"5 子任务（8-25 后端）', () => {
     const prepare = STAGE_TEMPLATES_FRANK.find((s) => s.stage === 'PREPARE');
     const names = prepare!.subTasks.map((s) => s.name);
-    expect(names.some((n) => n.includes('场地'))).toBe(true);
-    expect(names.some((n) => n.includes('实操教程'))).toBe(true);
-    expect(names.some((n) => n.includes('物料'))).toBe(true);
+    expect(names.length).toBe(5);
+    expect(names.some((n) => n.includes('确认场地并上传场地信息'))).toBe(true);
+    expect(names.some((n) => n.includes('实操教程培训'))).toBe(true);
+    expect(names.some((n) => n.includes('准备现场物料'))).toBe(true);
+    expect(names.some((n) => n.includes('提交宣传推文'))).toBe(true);
+    expect(names.some((n) => n.includes('参与者上传作品'))).toBe(true);
   });
 
   // v1.2 Frank 27：跟 8-25 后端 SUBTASK_TEMPLATES 对齐（3 个子任务）
