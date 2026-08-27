@@ -23,6 +23,7 @@ import { config } from '../../config';
 import { feishuClient, LarkRecord } from '../../services/feishu/client';
 import { ok, fail, ErrorCode } from '../../utils/response';
 import { authRequired, requireRole } from '../../middleware/auth';
+import { isAppVolunteerOrAdmin } from '../../utils/ownership';
 
 const router = Router();
 
@@ -182,9 +183,12 @@ const reviewSchema = z.object({
   reviewRemark: z.string().max(500).optional(),
 });
 
+// POST /api/reimbursements/:id/review
+// v1.2 Frank 27 21:40 反馈：资源所有权检查（org-thu 改 NO.018 报销 bug）
 router.post('/reimbursements/:id/review', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), async (req: Request, res: Response) => {
   const { id } = req.params;
   const reviewerId = req.user!.userId;
+  const role = req.user!.role;
   const data = reviewSchema.parse(req.body);
 
   const { items } = await feishuClient.listRecords(config.feishu.tables.reimbursements, { pageSize: 200 });
@@ -192,6 +196,20 @@ router.post('/reimbursements/:id/review', authRequired, requireRole('OPERATOR', 
     (x) => x.record_id === id || `${x.fields.applicationId}-${x.fields.organizerId}` === id
   );
   if (!r) return fail(res, 404, ErrorCode.NOT_FOUND, '报销单不存在');
+
+  // v1.2 资源所有权检查：OPERATOR/ADMIN 全管；VOLUNTEER 必须是 app.volunteerId
+  // 查 application（用 reimbursement 的 applicationId）
+  if (r.fields.applicationId) {
+    const appRecs = await feishuClient.searchRecords(
+      config.feishu.tables.applications,
+      'applicationId',
+      r.fields.applicationId
+    );
+    const app = appRecs[0] as any;
+    if (!isAppVolunteerOrAdmin(app, reviewerId, role)) {
+      return fail(res, 403, ErrorCode.FORBIDDEN, '仅该申请的运营、对接志愿者或管理员可审核报销');
+    }
+  }
 
   const currentStatus = normStatus(r.fields.status);
   if (currentStatus !== 'SUBMITTED') {

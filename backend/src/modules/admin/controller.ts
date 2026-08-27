@@ -8,6 +8,7 @@ import { config } from '../../config';
 import { feishuClient, LarkRecord } from '../../services/feishu/client';
 import { ok, fail, ErrorCode } from '../../utils/response';
 import { authRequired, requireRole } from '../../middleware/auth';
+import { isAppStakeholderOrAdmin } from '../../utils/ownership';
 
 const router = Router();
 
@@ -192,6 +193,7 @@ router.get('/review-pending', authRequired, requireRole('OPERATOR', 'ADMIN'), as
 //   - 加 3 重搜索 fallback（飞书索引 100ms-2min 延迟，避免 404）
 //   - 查 dw_activities 拿 activityTitle
 //   - 删 riskFlags（Frank 16:22 反馈：整块不显示）
+// v1.2 Frank 27 21:40 反馈：资源所有权检查（org-thu 改 NO.018 bug）
 router.get('/:id', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), async (req, res) => {
   const { id } = req.params;
   // Frank 27 15:05 反馈：飞书搜索索引有延迟
@@ -215,6 +217,11 @@ router.get('/:id', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), 
   }
   const a = records[0] as ApplicationRecord | undefined;
   if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在或飞书索引尚未追上，请稍后再试');
+
+  // v1.2 资源所有权检查：OPERATOR/ADMIN 全管；VOLUNTEER 必须是 app.volunteerId
+  if (!isAppStakeholderOrAdmin(a, req.user!.userId, req.user!.role)) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该申请的运营、对接志愿者或管理员可查看');
+  }
 
   // 查 dw_activities 拿 activityTitle（兜底 list 200 条内存过滤）
   let activityTitle: string | null = null;
@@ -248,6 +255,7 @@ router.get('/:id', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), 
 });
 
 // GET /api/admin/applications/:id/audit-log
+// v1.2 Frank 27 21:40 反馈：资源所有权检查
 router.get('/:id/audit-log', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), async (req, res) => {
   const { id } = req.params;
   const records = await feishuClient.searchRecords(
@@ -257,6 +265,10 @@ router.get('/:id/audit-log', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOL
   );
   const a = records[0] as ApplicationRecord | undefined;
   if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在');
+  // v1.2 资源所有权检查
+  if (!isAppStakeholderOrAdmin(a, req.user!.userId, req.user!.role)) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该申请的运营、对接志愿者或管理员可查看审计日志');
+  }
   return ok(res, { auditLog: getAuditLog(a.fields.scoreBreakdown) });
 });
 
@@ -304,6 +316,11 @@ router.post('/:id/draft-review', authRequired, requireRole('OPERATOR', 'ADMIN', 
   );
   const a = records[0] as ApplicationRecord | undefined;
   if (!a) return fail(res, 404, ErrorCode.APP_004_NOT_FOUND, '申请不存在');
+
+  // v1.2 Frank 27 21:40 反馈：资源所有权检查
+  if (!isAppStakeholderOrAdmin(a, req.user!.userId, req.user!.role)) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该申请的运营、对接志愿者或管理员可草拟审核意见');
+  }
 
   const grade = Array.isArray(a.fields.grade) ? String(a.fields.grade[0] ?? 'C') : String(a.fields.grade ?? 'C');
   const score = a.fields.score ?? 0;
@@ -387,6 +404,31 @@ router.post('/:id/approve', authRequired, requireRole('OPERATOR', 'ADMIN'), asyn
   const updateFields: Record<string, any> = { scoreBreakdown: newScoreBreakdown };
   if (newStatus) updateFields.status = newStatus;
   await feishuClient.updateRecord(config.feishu.tables.applications, a.record_id, updateFields);
+
+  // v1.2 Frank 27 21:40 反馈：申请审批通过（CONFIRMED）时自动写 organizerId 到活动表
+  // 用途：5 阶段子任务资源所有权检查（避免 org-thu 改 NO.018 bug）
+  if (newStatus === 'CONFIRMED' && a.fields.activityId && a.fields.userId) {
+    try {
+      const actRecs = await feishuClient.searchRecords(
+        config.feishu.tables.activities,
+        'activityId',
+        a.fields.activityId
+      );
+      const act = actRecs[0] as LarkRecord | undefined;
+      if (act) {
+        // 仅当 organizerId 为空时写入（避免覆盖已分配的组织者）
+        const currentOrgId = (act.fields as any).organizerId;
+        if (!currentOrgId) {
+          await feishuClient.updateRecord(config.feishu.tables.activities, act.record_id, {
+            organizerId: a.fields.userId,
+          });
+          console.log(`[APPROVE] 已写 organizerId=${a.fields.userId} 到活动 ${a.fields.activityId}`);
+        }
+      }
+    } catch (e) {
+      console.log(`[APPROVE] 写 organizerId 失败: ${(e as Error).message}`);
+    }
+  }
 
   // Frank 2026-08-21 #6 升级：APPROVE 时如果申请者 role = USER 或 PARTICIPANT，自动升级为 ORGANIZER
   // v1 简化：申请通过即升级（v2 加志愿者确认意向步骤后再升级）

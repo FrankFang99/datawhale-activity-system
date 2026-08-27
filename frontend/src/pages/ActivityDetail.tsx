@@ -69,6 +69,9 @@ export default function ActivityDetail() {
   const [appId, setAppId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<StageTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
+  // v1.2 Frank 27 21:40 反馈：存 application 的 userId/volunteerId，给 SubTaskCard 过滤按钮用
+  const [appUserId, setAppUserId] = useState<string | null>(null);
+  const [appVolunteerId, setAppVolunteerId] = useState<string | null>(null);
   // v13 Frank 14:12 Comment 6：组织者解锁下一阶段 loading（已删，v16.9 Frank 13:10 反馈"不需要志愿者审核，去掉此按钮"）
   // v16.7 Frank 20:35 反馈：unlock 后按钮变"已解锁下一阶段"（已删）
   const user = authStore((s) => s.user);
@@ -100,10 +103,14 @@ export default function ActivityDetail() {
         const confirmed = byAct.list[0];
         if (confirmed) {
           setAppId(confirmed.applicationId);
+          setAppUserId(confirmed.userId ?? null);  // v1.2：组织者 userId
+          setAppVolunteerId(confirmed.volunteerId ?? null);  // v1.2：对接志愿者 userId
           const t = await stageApi.list(confirmed.applicationId);
           setTasks(t.list);
         } else {
           setAppId(null);
+          setAppUserId(null);
+          setAppVolunteerId(null);
           setTasks([]);
         }
       } catch { /* 容错 */ }
@@ -408,6 +415,9 @@ export default function ActivityDetail() {
                     key={t.taskId}
                     task={t}
                     user={user}
+                    // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
+                    appUserId={appUserId}
+                    appVolunteerId={appVolunteerId}
                     onRefresh={load}
                   />
                 ))}
@@ -616,7 +626,20 @@ function getCurrentStage(a: Activity): number {
 //  3. 上传凭证显式 Input + 拖拽区（不是 Modal 才看到）
 //  4. 打勾确认/审核按钮加大（size="default"） + 大图标
 //  5. 当前激活步骤高亮
-function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; onRefresh: () => Promise<void> }) {
+// v1.2 Frank 27 21:40 反馈：加 appUserId/appVolunteerId 过滤按钮显示（org-thu 改 NO.018 bug 前端防御）
+function SubTaskCard({
+  task,
+  user,
+  appUserId,
+  appVolunteerId,
+  onRefresh,
+}: {
+  task: StageTask;
+  user: any;
+  appUserId: string | null;       // 活动组织者 userId（application.userId）
+  appVolunteerId: string | null;  // 对接志愿者 userId（application.volunteerId）
+  onRefresh: () => Promise<void>;
+}) {
   // v16.8 Frank 10:53 反馈 Comment 2：把 [文字](URL) markdown 链接解析为可点击 link
   // 不显示完整 URL（避免 whatToDo/passCriteria 列表里堆一长串网址）
   const renderTextWithLinks = (text: string) => {
@@ -677,15 +700,24 @@ function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; on
 
   // 角色权限
   // v16.8 Frank 22:16 反馈：UNCERTAIN 后志愿者不能再审（等运营介入）；REJECTED 后志愿者不能再审（等组织者重传）
-  const canOrganizerSubmit = (role === 'ORGANIZER' || role === 'ASSISTANT') && show3Step;
+  // v1.2 Frank 27 21:40 反馈：加 application userId/volunteerId 比对（org-thu 改 NO.018 bug 前端防御）
+  //   - canOrganizerSubmit：ADMIN/OPERATOR 全管；ORGANIZER/ASSISTANT 必须是 appUserId
+  //   - canVolunteerReview：仅 VOLUNTEER（后端 requireRole 挡 ADMIN/OPERATOR/USER/PARTICIPANT/ORGANIZER）+ 必须是 appVolunteerId
+  //   - canOperatorReview：ADMIN/OPERATOR 全管（运营不需要 application 匹配）
+  const isAppOrganizer = !!appUserId && appUserId === user?.userId;
+  const isAppVolunteer = !!appVolunteerId && appVolunteerId === user?.userId;
+  const isAdminOp = role === 'ADMIN' || role === 'OPERATOR';
+  const canOrganizerSubmit = isAdminOp
+    ? show3Step
+    : (role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer && show3Step;
   const canVolunteerReview =
-    role === 'VOLUNTEER' && show3Step && step1Done
+    role === 'VOLUNTEER' && isAppVolunteer && show3Step && step1Done
     && task.reviewStatus !== 'APPROVED'
     && task.reviewStatus !== 'UNCERTAIN'
     && task.reviewStatus !== 'REJECTED';
   // v16.8 Frank 22:16 反馈：APPROVED/REJECTED 后运营不能再复核
   const canOperatorReview =
-    (role === 'OPERATOR' || role === 'ADMIN') && show3Step && step1Done
+    isAdminOp && show3Step && step1Done
     && task.operatorReviewStatus !== 'APPROVED'
     && task.operatorReviewStatus !== 'REJECTED';
 
@@ -910,8 +942,8 @@ function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; on
         {/* 按钮（按角色 + v16.6/v16.7 proofType） */}
         {/* v16.7 volunteer-first 流程：志愿者 step1（先） + 组织者 step2（后） */}
         {isVolunteerFirstSubTask(ownerTypeStr) && !step1Done && (
-          /* step1：志愿者自核（VOLUNTEER/ADMIN 角色可见） */
-          (role === 'VOLUNTEER' || role === 'ADMIN') && (
+          /* step1：志愿者自核（v1.2 Frank 27 21:40：VOLUNTEER 必须是 appVolunteerId；ADMIN 全管） */
+          (role === 'ADMIN' || (role === 'VOLUNTEER' && isAppVolunteer)) && (
             <Button
               type="primary"
               size="small"
@@ -925,8 +957,8 @@ function SubTaskCard({ task, user, onRefresh }: { task: StageTask; user: any; on
           )
         )}
         {isVolunteerFirstSubTask(ownerTypeStr) && step1Done && !step2Done && (
-          /* step2：组织者确认（ORGANIZER/ASSISTANT/ADMIN 角色可见） */
-          (role === 'ORGANIZER' || role === 'ASSISTANT' || role === 'ADMIN') && (
+          /* step2：组织者确认（v1.2 Frank 27 21:40：ADMIN 全管；ORGANIZER/ASSISTANT 必须是 appUserId） */
+          (isAdminOp || ((role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer)) && (
             <Button
               type="primary"
               size="small"

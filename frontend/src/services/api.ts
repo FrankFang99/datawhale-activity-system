@@ -129,9 +129,10 @@ export const applicationApi = {
       .get<{ code: 0; data: { list: any[]; total: number } }>('/applications/mine')
       .then((r) => r.data.data),
   // v10 找该活动当前 CONFIRMED 申请（让志愿者/运营/助教可拿 applicationId 看 3 步进度）
+  // v1.2 Frank 27 21:40：加 userId + volunteerId 字段供前端权限过滤（org-thu 改 NO.018 bug）
   byActivity: (activityId: string) =>
     api
-      .get<{ code: 0; data: { list: Array<{ applicationId: string; applicationNo: string; organizerName: string; organizerId: string }>; total: number } }>(`/applications/by-activity/${activityId}`)
+      .get<{ code: 0; data: { list: Array<{ applicationId: string; applicationNo: string; organizerName: string; organizerId: string; userId?: string; volunteerId?: string }>; total: number } }>(`/applications/by-activity/${activityId}`)
       .then((r) => r.data.data),
   get: (id: string) =>
     api.get<{ code: 0; data: any }>(`/applications/${id}`).then((r) => r.data.data),

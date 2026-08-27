@@ -100,3 +100,43 @@ describe('admin controller · 活动管理页志愿者配置', () => {
     expect(slice).toMatch(/requireRole\(['"]ADMIN['"]\s*,\s*['"]OPERATOR['"]\)/);
   });
 });
+
+describe('admin controller · v1.2 Frank 27 21:40 资源所有权检查（权限漏洞修复）', () => {
+  it('import isAppStakeholderOrAdmin from utils/ownership', () => {
+    expect(SRC()).toMatch(/import\s*\{\s*isAppStakeholderOrAdmin\s*\}\s*from\s*['"]\.\.\/\.\.\/utils\/ownership['"]/);
+  });
+
+  it('GET /:id 路由加 stakeholder check（stakeholder + admin/operator 通过）', () => {
+    const s = SRC();
+    const getIdx = s.search(/router\.get\(['"]\/:id['"]/);
+    const after = s.slice(getIdx, getIdx + 3000);
+    expect(after).toMatch(/isAppStakeholderOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+  });
+
+  it('GET /:id/audit-log 路由加 stakeholder check', () => {
+    const s = SRC();
+    const getIdx = s.search(/router\.get\(['"]\/:id\/audit-log['"]/);
+    const after = s.slice(getIdx, getIdx + 2000);
+    expect(after).toMatch(/isAppStakeholderOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+  });
+
+  it('POST /:id/draft-review 路由加 stakeholder check', () => {
+    const s = SRC();
+    const draftIdx = s.search(/router\.post\(['"]\/:id\/draft-review['"]/);
+    const after = s.slice(draftIdx, draftIdx + 2000);
+    expect(after).toMatch(/isAppStakeholderOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+  });
+
+  it('POST /:id/approve 路由 CONFIRMED 时自动写 organizerId 到活动表（兜底兼容：仅当为空时写）', () => {
+    const s = SRC();
+    const approveIdx = s.search(/router\.post\(['"]\/:id\/approve['"]/);
+    const after = s.slice(approveIdx, approveIdx + 4000);
+    expect(after).toMatch(/newStatus === ['"]CONFIRMED['"]/);
+    expect(after).toMatch(/organizerId:\s*a\.fields\.userId/);
+    // 兼容：仅当 organizerId 为空时才写，避免覆盖已分配的组织者
+    expect(after).toMatch(/!currentOrgId/);
+  });
+});

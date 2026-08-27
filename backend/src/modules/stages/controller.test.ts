@@ -149,7 +149,8 @@ describe('stages controller · v16.7 REJECT/UNCERTAIN 持久化（Frank 21:19 �
   it('REJECT 时重置 organizerSubmittedAt + proofFile（让组织者重新上传）', () => {
     const s = SRC();
     const routeIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/review['"]/);
-    const slice = s.slice(routeIdx, routeIdx + 4000);
+    // v1.2 Frank 27 21:40 加资源所有权检查后路由变长，slice 范围 4000 → 7000
+    const slice = s.slice(routeIdx, routeIdx + 7000);
     expect(slice).toMatch(/organizerSubmittedAt: null/);
     expect(slice).toMatch(/proofFile: null/);
   });
@@ -204,7 +205,8 @@ describe('stages controller · v16.8 Frank 11:11 UNCERTAIN 旁路逻辑', () => 
   it('submit 端点：UNCERTAIN 旁路时 operatorReviewStatus 也清成 APPROVED', () => {
     const s = SRC();
     const routeIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/submit['"]/);
-    const slice = s.slice(routeIdx, routeIdx + 4000);
+    // v1.2 Frank 27 21:40 加资源所有权检查 + INT-3 复用 submitApp 后路由变长，slice 4000 → 6000
+    const slice = s.slice(routeIdx, routeIdx + 6000);
     expect(slice).toMatch(/operatorReviewStatus: finalOperatorReviewStatus/);
   });
 });
@@ -377,5 +379,50 @@ describe('stages controller · v16.9 Frank 13:54 反馈 submit 端点通知志�
     const submitIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/submit['"]/);
     const after = s.slice(submitIdx, submitIdx + 8000);
     expect(after).toMatch(/link\s*=\s*`\/activities\/\$\{app\?\.fields\?\.activityId/);
+  });
+});
+
+describe('stages controller · v1.2 Frank 27 21:40 资源所有权检查（权限漏洞修复）', () => {
+  it('顶部定义 isAppOrganizerOrAdmin + isAppVolunteerOrAdmin helper 函数', () => {
+    const s = SRC();
+    expect(s).toMatch(/function\s+isAppOrganizerOrAdmin\s*\(/);
+    expect(s).toMatch(/function\s+isAppVolunteerOrAdmin\s*\(/);
+  });
+
+  it('GET /applications/:id/tasks 路由加 stakeholder check（org + volunteer + admin）', () => {
+    const s = SRC();
+    const getIdx = s.search(/router\.get\(['"]\/applications\/:id\/tasks['"]/);
+    const after = s.slice(getIdx, getIdx + 3000);
+    expect(after).toMatch(/isAppOrganizerOrAdmin/);
+    expect(after).toMatch(/isAppVolunteerOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+    expect(after).toMatch(/仅该活动的组织者、对接志愿者、运营或管理员/);
+  });
+
+  it('POST /stages/:taskId/submit 路由加 organizer check（仅 app.userId + admin/operator）', () => {
+    const s = SRC();
+    const submitIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/submit['"]/);
+    const after = s.slice(submitIdx, submitIdx + 3000);
+    expect(after).toMatch(/isAppOrganizerOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+    expect(after).toMatch(/仅该活动的组织者、运营或管理员/);
+  });
+
+  it('POST /stages/:taskId/review 路由加 volunteer check（仅 app.volunteerId + admin/operator）', () => {
+    const s = SRC();
+    const reviewIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/review['"]/);
+    const after = s.slice(reviewIdx, reviewIdx + 3000);
+    expect(after).toMatch(/isAppVolunteerOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+    expect(after).toMatch(/仅该活动的对接志愿者、运营或管理员/);
+  });
+
+  it('POST /stages/:taskId/organizer-confirm 路由加 organizer check（仅 app.userId + admin）', () => {
+    const s = SRC();
+    const confirmIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/organizer-confirm['"]/);
+    const after = s.slice(confirmIdx, confirmIdx + 3000);
+    expect(after).toMatch(/isAppOrganizerOrAdmin/);
+    expect(after).toMatch(/ErrorCode\.FORBIDDEN/);
+    expect(after).toMatch(/仅该活动的组织者或管理员/);
   });
 });

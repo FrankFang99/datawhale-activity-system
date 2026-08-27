@@ -59,6 +59,30 @@ interface StageTaskRecord extends LarkRecord {
 
 const normStatus = (s: any): string => (Array.isArray(s) ? String(s[0] ?? '') : String(s ?? ''));
 
+// v1.2 Frank 27 21:40 反馈：权限漏洞修复（org-thu 之前能改 NO.018 子任务）
+// 资源所有权检查：仅 application.userId（活动组织者本人） + 运营/管理员可操作
+function isAppOrganizerOrAdmin(
+  app: { fields: { userId?: string } } | undefined,
+  userId: string,
+  role: string
+): boolean {
+  if (role === 'ADMIN' || role === 'OPERATOR') return true;
+  if (!app) return false;
+  return app.fields.userId === userId;
+}
+
+// v1.2 Frank 27 21:40 反馈：权限漏洞修复
+// 资源所有权检查：仅 application.volunteerId（对接志愿者本人） + 运营/管理员可操作
+function isAppVolunteerOrAdmin(
+  app: { fields: { volunteerId?: string } } | undefined,
+  userId: string,
+  role: string
+): boolean {
+  if (role === 'ADMIN' || role === 'OPERATOR') return true;
+  if (!app) return false;
+  return app.fields.volunteerId === userId;
+}
+
 // 5 阶段任务模板（PRD §5.4.2）
 const STAGE_TEMPLATES: Array<{
   stage: 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
@@ -223,6 +247,21 @@ function serialize(t: StageTaskRecord) {
 // GET /api/applications/:id/tasks
 router.get('/applications/:id/tasks', authRequired, async (req: Request, res: Response) => {
   const { id } = req.params;
+  const userId = req.user!.userId;
+  const role = req.user!.role;
+  // v1.2 Frank 27 21:40 反馈：资源所有权检查（org-thu 改 NO.018 bug）
+  // 仅活动组织者 / 对接志愿者 / 运营 / 管理员可看任务列表
+  const appRecs = await feishuClient.searchRecords(
+    config.feishu.tables.applications,
+    'applicationId',
+    id
+  );
+  const app = appRecs[0] as any;
+  const isStakeholder =
+    isAppOrganizerOrAdmin(app, userId, role) || isAppVolunteerOrAdmin(app, userId, role);
+  if (!isStakeholder) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该活动的组织者、对接志愿者、运营或管理员可查看任务');
+  }
   const { items } = await feishuClient.listRecords(config.feishu.tables.stageTasks, { pageSize: 200 });
   const tasks = (items as StageTaskRecord[])
     .filter((t) => t.fields.applicationId === id)
@@ -285,6 +324,7 @@ const submitSchema = z.object({
 router.post('/stages/:taskId/submit', authRequired, async (req: Request, res: Response) => {
   const { taskId } = req.params;
   const userId = req.user!.userId;
+  const role = req.user!.role;
   const data = submitSchema.parse(req.body);
 
   const records = await feishuClient.searchRecords(
@@ -294,6 +334,18 @@ router.post('/stages/:taskId/submit', authRequired, async (req: Request, res: Re
   );
   const t = records[0] as StageTaskRecord | undefined;
   if (!t) return fail(res, 404, ErrorCode.NOT_FOUND, '任务不存在');
+
+  // v1.2 Frank 27 21:40 反馈：资源所有权检查（org-thu 改 NO.018 bug）
+  // submit 是组织者操作 → 仅 app.userId（活动组织者本人） + ADMIN/OPERATOR
+  const submitAppRecs = await feishuClient.searchRecords(
+    config.feishu.tables.applications,
+    'applicationId',
+    t.fields.applicationId!
+  );
+  const submitApp = submitAppRecs[0] as any;
+  if (!isAppOrganizerOrAdmin(submitApp, userId, role)) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该活动的组织者、运营或管理员可提交凭证');
+  }
 
   const currentStatus = normStatus(t.fields.status);
   if (currentStatus === 'COMPLETED') {
@@ -335,12 +387,8 @@ router.post('/stages/:taskId/submit', authRequired, async (req: Request, res: Re
       }
       if (formData.timeRange) activityUpdates.startTime = String(formData.timeRange);
       if (Object.keys(activityUpdates).length > 0) {
-        const appRecords = await feishuClient.searchRecords(
-          config.feishu.tables.applications,
-          'applicationId',
-          t.fields.applicationId
-        );
-        const app = appRecords[0] as any;
+        // v1.2 Frank 27 21:40：复用前面已查的 submitApp（避免重复 searchRecords）
+        const app = submitApp;
         if (app?.fields?.activityId) {
           const actRecords = await feishuClient.searchRecords(
             config.feishu.tables.activities,
@@ -420,6 +468,7 @@ const reviewSchema = z.object({
 router.post('/stages/:taskId/review', authRequired, requireRole('VOLUNTEER'), async (req: Request, res: Response) => {
   const { taskId } = req.params;
   const reviewerId = req.user!.userId;
+  const role = req.user!.role;
   const data = reviewSchema.parse(req.body);
 
   const records = await feishuClient.searchRecords(
@@ -429,6 +478,19 @@ router.post('/stages/:taskId/review', authRequired, requireRole('VOLUNTEER'), as
   );
   const t = records[0] as StageTaskRecord | undefined;
   if (!t) return fail(res, 404, ErrorCode.NOT_FOUND, '任务不存在');
+
+  // v1.2 Frank 27 21:40 反馈：资源所有权检查
+  // review 是志愿者操作 → 仅 app.volunteerId（对接志愿者本人） + ADMIN/OPERATOR
+  // requireRole(VOLUNTEER) 已挡住 USER/PARTICIPANT；这里再挡"别的活动的志愿者"
+  const reviewAppRecs = await feishuClient.searchRecords(
+    config.feishu.tables.applications,
+    'applicationId',
+    t.fields.applicationId!
+  );
+  const reviewApp = reviewAppRecs[0] as any;
+  if (!isAppVolunteerOrAdmin(reviewApp, reviewerId, role)) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该活动的对接志愿者、运营或管理员可审核');
+  }
 
   const currentStatus = normStatus(t.fields.status);
   if (currentStatus === 'COMPLETED' && data.action === 'APPROVE') {
@@ -780,6 +842,7 @@ const organizerConfirmSchema = z.object({
 router.post('/stages/:taskId/organizer-confirm', authRequired, requireRole('ORGANIZER', 'ASSISTANT', 'ADMIN'), async (req: Request, res: Response) => {
   const { taskId } = req.params;
   const organizerReviewerId = req.user!.userId;
+  const role = req.user!.role;
   const data = organizerConfirmSchema.parse(req.body);
 
   const records = await feishuClient.searchRecords(
@@ -789,6 +852,19 @@ router.post('/stages/:taskId/organizer-confirm', authRequired, requireRole('ORGA
   );
   const t = records[0] as StageTaskRecord | undefined;
   if (!t) return fail(res, 404, ErrorCode.NOT_FOUND, '任务不存在');
+
+  // v1.2 Frank 27 21:40 反馈：资源所有权检查
+  // organizer-confirm 是组织者操作 → 仅 app.userId（活动组织者本人） + ADMIN
+  // requireRole 已挡住 VOLUNTEER/PARTICIPANT；这里再挡"别的活动的 ORGANIZER"
+  const confirmAppRecs = await feishuClient.searchRecords(
+    config.feishu.tables.applications,
+    'applicationId',
+    t.fields.applicationId!
+  );
+  const confirmApp = confirmAppRecs[0] as any;
+  if (!isAppOrganizerOrAdmin(confirmApp, organizerReviewerId, role)) {
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该活动的组织者或管理员可确认');
+  }
 
   const step1Done = !!t.fields.organizerSubmittedAt;
   if (!step1Done) {
