@@ -462,22 +462,35 @@ export default function ActivityDetail() {
                 {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
                   <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 )}
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                  {tasks
-                    .filter((t) => t.stage === selectedStage)
-                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                    .map((t) => (
-                      <SubTaskCard
-                        key={t.taskId}
-                        task={t}
-                        user={user}
-                        // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
-                        appUserId={appUserId}
-                        appVolunteerId={appVolunteerId}
-                        onRefresh={load}
-                      />
-                    ))}
-                </Space>
+                {/* v1.9.18 Frank 28 21:19 反馈：上一阶段子任务没全完成时，下一阶段子任务按钮应 disabled */}
+                {(() => {
+                  const stageIdx = STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage);
+                  const prevStage = stageIdx > 0 ? STAGE_TEMPLATES_FRANK[stageIdx - 1] : null;
+                  const prevStageTasks = prevStage ? tasks.filter((t) => t.stage === prevStage.stage) : [];
+                  // 第一个阶段（INTENT）永远没 prevStage → true
+                  const prevStageCompleted =
+                    !prevStage || (prevStageTasks.length > 0 && prevStageTasks.every((t) => t.status === 'COMPLETED'));
+                  return (
+                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      {tasks
+                        .filter((t) => t.stage === selectedStage)
+                        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                        .map((t) => (
+                          <SubTaskCard
+                            key={t.taskId}
+                            task={t}
+                            user={user}
+                            // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
+                            appUserId={appUserId}
+                            appVolunteerId={appVolunteerId}
+                            onRefresh={load}
+                            prevStageCompleted={prevStageCompleted}
+                            prevStageName={prevStage?.title}
+                          />
+                        ))}
+                    </Space>
+                  );
+                })()}
               </>
             ) : (
               // Frank 28 14:39 反馈：没申请的活动用 STAGE_TEMPLATES_FRANK 模板渲染
@@ -748,12 +761,17 @@ function SubTaskCard({
   appUserId,
   appVolunteerId,
   onRefresh,
+  prevStageCompleted = true,
+  prevStageName,
 }: {
   task: StageTask;
   user: any;
   appUserId: string | null;       // 活动组织者 userId（application.userId）
   appVolunteerId: string | null;  // 对接志愿者 userId（application.volunteerId）
   onRefresh: () => Promise<void>;
+  // v1.9.18 Frank 28 21:19 反馈：上一阶段子任务没全完成时，gate 当前阶段的操作按钮
+  prevStageCompleted?: boolean;
+  prevStageName?: string;
 }) {
   // v16.8 Frank 10:53 反馈 Comment 2：把 [文字](URL) markdown 链接解析为可点击 link
   // 不显示完整 URL（避免 whatToDo/passCriteria 列表里堆一长串网址）
@@ -822,12 +840,13 @@ function SubTaskCard({
   //   - canOrganizerSubmit：ADMIN/OPERATOR 全管；ORGANIZER/ASSISTANT 必须是 appUserId
   //   - canVolunteerReview：仅 VOLUNTEER（后端 requireRole 挡 ADMIN/OPERATOR/USER/PARTICIPANT/ORGANIZER）+ 必须是 appVolunteerId
   //   - canOperatorReview：ADMIN/OPERATOR 全管（运营不需要 application 匹配）
+  // v1.9.18 Frank 28 21:19 反馈：prevStageCompleted 兜底（上一阶段子任务没全完成 → 当前阶段按钮 disabled）
   const isAppOrganizer = !!appUserId && appUserId === user?.userId;
   const isAppVolunteer = !!appVolunteerId && appVolunteerId === user?.userId;
   const isAdminOp = role === 'ADMIN' || role === 'OPERATOR';
   const canOrganizerSubmit = isAdminOp
-    ? show3Step
-    : (role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer && show3Step;
+    ? show3Step && prevStageCompleted
+    : (role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer && show3Step && prevStageCompleted;
   const canVolunteerReview =
     role === 'VOLUNTEER' && isAppVolunteer && show3Step && step1Done
     && task.reviewStatus !== 'APPROVED'
@@ -841,7 +860,8 @@ function SubTaskCard({
     isAdminOp && show3Step && step1Done
     && task.reviewStatus === 'UNCERTAIN'
     && task.operatorReviewStatus !== 'APPROVED'
-    && task.operatorReviewStatus !== 'REJECTED';
+    && task.operatorReviewStatus !== 'REJECTED'
+    && prevStageCompleted;
 
   // v16.8 Frank 9:04 反馈：图片上传（v1 简化版：上传后把 URL 追加到对应 Form 字段）
   const handleUploadImage = async (file: File, fieldName: string): Promise<boolean> => {
@@ -1051,6 +1071,12 @@ function SubTaskCard({
       // v16.8 Frank 23:03 反馈：站内信跳转定位（用 data-task-id 做 scroll target）
       data-task-id={task.taskId}
     >
+      {/* v1.9.18 Frank 28 21:19 反馈：上一阶段未完成时显示 lock banner */}
+      {!prevStageCompleted && (
+        <div style={{ marginBottom: 8, fontSize: 12, background: '#FEF3C7', color: '#92400E', padding: '6px 10px', borderRadius: 6, border: '1px solid #FCD34D' }}>
+          🔒 上一阶段「{prevStageName ?? '前一阶段'}」未全部完成，本阶段子任务先解锁
+        </div>
+      )}
       {/* 标题行：圆形编号 + 子任务名 + 按钮（同行右侧）+ ownerType tag */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
         <div style={{
@@ -1068,8 +1094,9 @@ function SubTaskCard({
             · confirm / form / mixed / image → 1 个按钮
             · volunteer-first → 2 个按钮（志愿者 step1 + 组织者 step2） */}
         {buttonType === 'volunteer-first' && !step1Done && (
-          /* step1：志愿者自核（v1.2 Frank 27 21:40：VOLUNTEER 必须是 appVolunteerId；ADMIN 全管） */
-          (role === 'ADMIN' || (role === 'VOLUNTEER' && isAppVolunteer)) && (
+          /* step1：志愿者自核（v1.2 Frank 27 21:40：VOLUNTEER 必须是 appVolunteerId；ADMIN 全管）
+             v1.9.18 Frank 21:19 反馈：prevStageCompleted 兜底 */
+          (role === 'ADMIN' || (role === 'VOLUNTEER' && isAppVolunteer)) && prevStageCompleted && (
             <Button
               type="primary"
               size="small"
@@ -1083,8 +1110,9 @@ function SubTaskCard({
           )
         )}
         {buttonType === 'volunteer-first' && step1Done && !step2Done && (
-          /* step2：组织者确认（v1.2 Frank 27 21:40：ADMIN 全管；ORGANIZER/ASSISTANT 必须是 appUserId） */
-          (isAdminOp || ((role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer)) && (
+          /* step2：组织者确认（v1.2 Frank 27 21:40：ADMIN 全管；ORGANIZER/ASSISTANT 必须是 appUserId）
+             v1.9.18 prevStageCompleted 兜底 */
+          (isAdminOp || ((role === 'ORGANIZER' || role === 'ASSISTANT') && isAppOrganizer)) && prevStageCompleted && (
             <Button
               type="primary"
               size="small"
