@@ -429,13 +429,13 @@ export default function ActivityDetail() {
             - ORGANIZER/ASSISTANT/VOLUNTEER/OPERATOR/ADMIN：可看子任务
             - PARTICIPANT：Frank 28 14:13 反馈也能看（决定是否要成为组织者）
             - USER：保持现有 5 阶段时间轴，不展开子任务 */}
-        {canViewSubTasks(user?.role) && appId && (
-          // Frank 28 14:13 反馈：去掉 !isPending 限制
+        {canViewSubTasks(user?.role) && (
+          // Frank 28 14:13 反馈：去掉 !isPending + appId 限制
           // - 即使活动没组织者（isPending=true），参与者也要能看完整 5 阶段 + 19 子任务
           // - 决定是否要申请成为组织者
-          // - 没申请过的活动（appId=null）自然拿不到任务 → 不渲染
-          // - SubTaskCard 内部按钮由 canOrganizerSubmit / canVolunteerReview / canOperatorReview
-          //   过滤，参与者不会看到任何操作按钮（不是 disabled，是完全不渲染）
+          // - Frank 28 14:39 反馈：NO.042 等没申请的活动也要看 19 子任务模板
+          //   - appId 有：用真实 stage_tasks（后端）渲染 SubTaskCard，按 stakeholder 决定按钮
+          //   - appId 没：用 STAGE_TEMPLATES_FRANK 模板渲染，无操作按钮（纯预览）
           <Card
             size="small"
             style={{ marginBottom: 16, background: '#FAFCFF' }}
@@ -447,32 +447,44 @@ export default function ActivityDetail() {
                 {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
                   <Tag color="green">当前阶段</Tag>
                 )}
+                {!appId && <Tag color="orange">模板预览（活动未申请）</Tag>}
               </Space>
             }
           >
             <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
               <ClockCircleOutlined /> {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.desc}
             </Paragraph>
-            {tasksLoading && <Spin />}
-            {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
-              <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-            )}
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
-              {tasks
-                .filter((t) => t.stage === selectedStage)
-                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                .map((t) => (
-                  <SubTaskCard
-                    key={t.taskId}
-                    task={t}
-                    user={user}
-                    // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
-                    appUserId={appUserId}
-                    appVolunteerId={appVolunteerId}
-                    onRefresh={load}
-                  />
+            {appId ? (
+              <>
+                {tasksLoading && <Spin />}
+                {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
+                  <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                )}
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  {tasks
+                    .filter((t) => t.stage === selectedStage)
+                    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                    .map((t) => (
+                      <SubTaskCard
+                        key={t.taskId}
+                        task={t}
+                        user={user}
+                        // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
+                        appUserId={appUserId}
+                        appVolunteerId={appVolunteerId}
+                        onRefresh={load}
+                      />
+                    ))}
+                </Space>
+              </>
+            ) : (
+              // Frank 28 14:39 反馈：没申请的活动用 STAGE_TEMPLATES_FRANK 模板渲染
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                {(STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.subTasks ?? []).map((t) => (
+                  <TemplateSubTaskCard key={`${selectedStage}-${t.order}`} template={t} />
                 ))}
-            </Space>
+              </Space>
+            )}
             {/* v16.2 Frank 10:30 Comment 3：不显示提示块 */}
 
             {/* Frank 2026-08-23 09:17 反馈 Comment 5：每阶段底部"进入下一阶段"按钮
@@ -668,6 +680,56 @@ function getCurrentStage(a: Activity): number {
   if (now < end) return 3;
   if (now < T_PLUS_3) return 4;
   return 4;
+}
+
+// Frank 28 14:39 反馈：没申请的活动也显示 19 子任务模板（用 STAGE_TEMPLATES_FRANK 模板数据）
+// 纯预览：title + ownerType 标签 + proofHint + 凭证规范，不显示任何操作按钮
+function TemplateSubTaskCard({ template }: { template: SubTask }) {
+  const credSpec = findCredentialSpec(template.name);
+  const ownerLabel = template.ownerType === 'VOLUNTEER' ? '志愿者' : template.ownerType === 'ORGANIZER' ? '组织者' : '运营';
+  const ownerColor = template.ownerType === 'VOLUNTEER' ? 'green' : template.ownerType === 'ORGANIZER' ? 'blue' : 'purple';
+  return (
+    <div
+      style={{
+        background: '#fff',
+        border: '1px solid #E5E7EB',
+        borderRadius: 8,
+        padding: '12px 16px',
+        marginBottom: 8,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: '#3370FF' }}>{template.order}.</span>
+        <span style={{ fontWeight: 600, fontSize: 14, color: '#111827', flex: 1 }}>{template.name}</span>
+        <Tag color={ownerColor} style={{ marginRight: 0 }}>👤 {ownerLabel}</Tag>
+      </div>
+      {template.proofHint && (
+        <div style={{ color: '#6B7280', fontSize: 12, marginBottom: 6 }}>
+          📎 凭证：{template.proofHint}
+        </div>
+      )}
+      {credSpec && (
+        <div style={{ marginTop: 6, fontSize: 12, color: '#374151' }}>
+          <div style={{ marginBottom: 4 }}>
+            <Text strong style={{ color: '#3370FF' }}>📋 需要做什么：</Text>
+          </div>
+          <ol style={{ margin: '0 0 6px 0', paddingLeft: 20 }}>
+            {credSpec.whatToDo.map((step, i) => (
+              <li key={i} style={{ marginBottom: 2 }}>{step}</li>
+            ))}
+          </ol>
+          <div style={{ marginBottom: 4 }}>
+            <Text strong style={{ color: '#10B981' }}>✅ 通过标准：</Text>
+          </div>
+          <ol style={{ margin: 0, paddingLeft: 20 }}>
+            {credSpec.passCriteria.map((c, i) => (
+              <li key={i} style={{ marginBottom: 2 }}>{c}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // v15 SubTaskCard（Frank 2026-08-23 20:49 反馈：换 UI 设计）
