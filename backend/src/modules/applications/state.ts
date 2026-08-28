@@ -16,7 +16,9 @@ export const APPLICATION_SCHEMA = z.object({
   organizerPhone: z.string().regex(/^1\d{10}$/, '请填写 11 位手机号'),
   organizerEmail: z.string().email(),
   // Frank 27 12:50 反馈：宽泛时间段（月份/季度），不强制具体日期
-  expectedTimeRange: z.string().min(1).max(100),
+  // Frank 28 11:15 反馈：max 100 太短，前端是 Date[] join（如 30 天日期 join 后 > 100 字符）
+  // 改 max 500（容纳 ~80 个日期 join）
+  expectedTimeRange: z.string().min(1).max(500),
   // Frank 27 12:50 反馈：基础信息增加身份 + 现居地
   applicantIdentity: z.enum(['在校', '在职', '自由职业', '其他']),
   currentCity: z.string().min(1).max(50),
