@@ -335,9 +335,15 @@ router.get('/mine', authRequired, async (req: Request, res: Response) => {
 router.get('/by-activity/:activityId', authRequired, async (req: Request, res: Response) => {
   const { activityId } = req.params;
   const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
-  // 仅返回 CONFIRMED 状态的申请（v10 限定：3 步进度只对已确认组织者的活动展示）
+  // Frank 28 13:58 反馈：放宽到 SCREENING + CONFIRMED 都返回
+  // - 演示场景 SCREENING 申请（如 NO.047 已 init 19 个 stage_tasks）也要能看 5 阶段任务
+  // - 前端 ActivityDetail L142 拿 list[0]，如果只有 SCREENING 申请会拿不到 → 整个"阶段任务" Card 不渲染
+  // - REJECTED 仍过滤（已拒绝的不需要展示子任务）
   const list = (items as ApplicationRecord[])
-    .filter((a) => a.fields.activityId === activityId && normStatus(a.fields.status) === 'CONFIRMED')
+    .filter((a) => {
+      const st = normStatus(a.fields.status);
+      return a.fields.activityId === activityId && (st === 'CONFIRMED' || st === 'SCREENING');
+    })
     .map((a) => ({
       applicationId: a.fields.applicationId,
       applicationNo: a.fields.applicationNo,
