@@ -375,36 +375,36 @@ export default function ActivityDetail() {
           style={{ marginBottom: 16 }}
         />
 
-        {/* v1.5 Frank 28 09:12 反馈：完整 5 阶段时间轴（公开显示所有 19 子任务）
-            公开页面（未登录 / PARTICIPANT / USER）也看得到全部阶段 + 子任务
-            模板数据来自 STAGE_TEMPLATES_FRANK（跟后端 SUBTASK_TEMPLATES 字符级一致）
-            - 不需要登录（不依赖 canViewSubTasks）
-            - 不显示操作按钮（上传凭证 / 审核）— 那是 stakeholder 权限
-            - 显示：stage 标题 + T-时间 + desc + 子任务列表（ownerType + 标题 + proofHint） */}
-        <Card
-          size="small"
-          style={{ marginBottom: 16 }}
-          title={
-            <Space>
-              <UnorderedListOutlined />
-              <span>阶段任务预览（公开版）</span>
-              <Tag color="blue">5 阶段 · 19 子任务</Tag>
-            </Space>
-          }
-        >
-          {STAGE_TEMPLATES_FRANK.map((s) => (
-            <div key={s.stage} style={{ marginBottom: 20 }}>
-              <Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
-                <Tag color="geekblue">{s.hint}</Tag>
-                {s.title}
-              </Title>
-              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>{s.desc}</Paragraph>
-              {s.subTasks.map((t) => (
+        {/* v1.5 Frank 28 09:25 反馈：点 Segmented 哪个阶段 → 显示哪个阶段子任务
+            - 联动 selectedStage（点 tab 切到哪显示哪）
+            - 用 STAGE_TEMPLATES_FRANK 数据（不依赖登录 + 后端数据）
+            - 显示该 stage 的 desc + 子任务列表（ownerType + 标题 + proofHint）
+            - 不显示操作按钮（上传凭证 / 审核 — 那是 stakeholder 权限） */}
+        {(() => {
+          const currentStageData = STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage);
+          if (!currentStageData) return null;
+          return (
+            <Card
+              size="small"
+              style={{ marginBottom: 16, background: '#FAFCFF' }}
+              title={
+                <Space>
+                  <UnorderedListOutlined />
+                  <span>阶段任务 · {currentStageData.title}</span>
+                  <Tag color="blue">{currentStageData.hint}</Tag>
+                  <Tag color="geekblue">{currentStageData.subTasks.length} 子任务</Tag>
+                </Space>
+              }
+            >
+              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                {currentStageData.desc}
+              </Paragraph>
+              {currentStageData.subTasks.map((t) => (
                 <div
                   key={t.order}
                   style={{
                     marginBottom: 6,
-                    padding: '6px 10px',
+                    padding: '8px 12px',
                     background: '#F5F7FA',
                     borderRadius: 6,
                     display: 'flex',
@@ -412,7 +412,10 @@ export default function ActivityDetail() {
                     gap: 8,
                   }}
                 >
-                  <Tag color={t.ownerType === 'VOLUNTEER' ? 'blue' : t.ownerType === 'OPERATOR' ? 'orange' : 'green'} style={{ marginTop: 2 }}>
+                  <Tag
+                    color={t.ownerType === 'VOLUNTEER' ? 'blue' : t.ownerType === 'OPERATOR' ? 'orange' : 'green'}
+                    style={{ marginTop: 2, minWidth: 88, textAlign: 'center' }}
+                  >
                     {t.order}.{t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
                   </Tag>
                   <div style={{ flex: 1 }}>
@@ -423,9 +426,9 @@ export default function ActivityDetail() {
                   </div>
                 </div>
               ))}
-            </div>
-          ))}
-        </Card>
+            </Card>
+          );
+        })()}
 
         {/* Frank 27 20:18 反馈 Comment 1/2：删"阶段子任务模板预览" Card（重复，跟下面"阶段任务" Card 内容一样）
             子任务凭证规范 whatToDo/passCriteria 已在每个 SubTaskCard 内显示（line 1172-1194）*/}

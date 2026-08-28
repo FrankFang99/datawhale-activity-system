@@ -41,8 +41,9 @@ export const STAGE_TEMPLATES_FRANK: Stage[] = [
       { order: 2, name: '阅读并确认行动指南', ownerType: 'ORGANIZER', proofHint: '飞书文档 https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1（已读 + 确认）' },
       // Comment 4：改"双方最终确认活动方案"为组织者填空（时间+地点+规模 → 同步飞书 base）
       { order: 3, name: '双方最终确认活动方案/时间/地点/规模', ownerType: 'ORGANIZER', proofHint: '组织者填写具体时间（必填到日，几点到几点可选）、具体地点、预计规模 → 同步飞书 base' },
-      // Comment 5：志愿者添加日历后组织者确认打勾（ownerType 改 ORGANIZER）
-      { order: 4, name: '飞书日历登记活动', ownerType: 'ORGANIZER', proofHint: '志愿者添加日历后，组织者确认打勾' },
+      // Comment 5：v16.7 Frank 16:44 volunteer-first 流程：志愿者在飞书日历创建事件（step1），组织者后确认（step2）
+      // v1.5 Frank 28 09:25 修正：之前错写为 ORGANIZER（"志愿者在飞书操作"必是 VOLUNTEER，不是 ORGANIZER）
+      { order: 4, name: '飞书日历登记活动', ownerType: 'VOLUNTEER', proofHint: '志愿者在飞书日历创建事件（标题/时间/地点/共同参与者），组织者后确认' },
     ],
   },
   {
