@@ -139,48 +139,54 @@ npx tsx watch src/index.ts
 cd frontend
 npm install
 npm run dev
-# 期望：➜  Local:   http://localhost:5173/activity/
+# 期望：➜  Local:   http://localhost:5173/
 ```
+
+> **dev 模式 base = `/`**：直接 `localhost:5173` 访问，不记 `/activity/`（`vite.config.ts` `isDev` 条件，v1.9.16 Frank 反馈"卡这里了"后改）。生产 build 走 `/activity/`（部署到 datawhale.cn/activity/）
 
 ### 访问入口
 
-- 活动大厅：http://localhost:5173/activity/
-- 登录页：http://localhost:5173/activity/login
-- 注册页：http://localhost:5173/activity/register
-- 我的申请：http://localhost:5173/activity/my-applications（需登录）
-- 审批工作台：http://localhost:5173/activity/admin/approvals（需 OPERATOR/ADMIN）
-- 5 阶段看板：http://localhost:5173/activity/applications/:id/tasks
-- 报销中心：http://localhost:5173/activity/reimbursements
+- 活动大厅：http://localhost:5173/
+- 登录页：http://localhost:5173/login
+- 注册页：http://localhost:5173/register
+- 我的申请：http://localhost:5173/my-applications（需登录）
+- 审批工作台：http://localhost:5173/admin/approvals（需 OPERATOR/ADMIN）
+- 活动详情：http://localhost:5173/activities/:id（如 NO.049）
+- 5 阶段看板：在活动详情页内（"阶段任务" Card）
+- 报销中心：http://localhost:5173/reimbursements
 
 ## v1 完整功能演示流程
 
-> 用 Frank 邮箱注册一个账号或直接登录（已有测试数据：清华/上交/深大 3 场活动，5 条已 CONFIRMED 申请）
+> 用 Frank 邮箱注册一个账号或直接登录（已有测试数据：NO.049 "AI+X 创造节-清华大学站" 1 场活动，0 申请 — A 选项重置后状态，演示时重新提交即可）
 
 ### 切片 1-2：注册 + 活动大厅 + 申请 + 5 维评分
 
-1. 打开 http://localhost:5173/activity/
+1. 打开 http://localhost:5173/
 2. 点"注册" → 填邮箱（任意 `xxx@x.cn`）/ 密码（≥6 位）/ 姓名 → 注册成功跳登录
-3. 登录后看到 3 张活动卡片（清华/上交/深大）
-4. 点卡片 → 详情页 → "立即申请" → 填 14 字段表单 → 提交
-5. "我的申请" → 看到刚提交记录（状态 SCREENING + 评分 71 + 等级 B）
+3. 登录后看到 1 张活动卡片（NO.049 清华站）
+4. 点卡片 → 详情页 → "立即申请" → 填 **12 字段表单**（v1.9：基础 7 + 评估 5）→ 提交
+5. "我的申请" → 看到刚提交记录（状态 SCREENING + 自动评分 + 等级 S/A/B/C/D）
 
 ### 切片 3：审批工作台
 
 1. 用 OPERATOR/ADMIN 角色登录（Frank 4 角色切换）
 2. 顶部导航点"审批工作台"
-3. 看到 3 条待审申请（NO.002/003/004）
+3. 看到待审申请（v1.9.14 重构：3 步"自核/审核/复核"+ Drawer 内 3 决策按钮）
 4. 点任意一条 → 详情 Drawer → 5 维评分 Tabs + 审计日志
-5. 点"通过" → 状态变 CONFIRMED
+5. 点"通过" → 状态变 CONFIRMED + **后端自动 init 19 子任务**（v1.9 修订：22→19）
 6. 也支持"打回" + 必填原因
 
-### 切片 4：5 阶段任务看板
+### 切片 4：5 阶段任务看板（v1.9 修订）
 
-1. 用 OPERATOR 进入刚审批通过的应用（NO.001 / NO.005）
-2. 进度看板 → 看到 5 阶段 Steps 横向进度条
-3. 步骤 1（INTENT）已完成，步骤 2（RECRUIT）已打回待重提，步骤 3-4 待开始，步骤 5（REVIEW）已完成
-4. ORGANIZER 可点"提交凭证"（飞书日历登记 + 飞书好友）
-5. VOLUNTEER 可点"审核通过"或"打回"（REJECT 必填原因）
-6. REVIEW 阶段审核通过时可"推荐优秀"（v4 修订）
+1. 用 ORGANIZER 进 NO.049 活动详情页
+2. 进度看板 → 看到 5 阶段 Segmented Tab（"确认意向/对外招募/现场筹备/活动执行/活动复盘"）+ **"📋 全部 5 阶段"**（v1.9.27 新增，按阶段分组渲染 19 子任务）
+3. 阶段解锁：上一阶段**所有子任务** COMPLETED → 下一阶段按钮可点（v1.9.18 lock 逻辑：未完成时按钮 disabled + 顶部 lock banner）
+4. 19 子任务：INTENT 4（含 INT-1 互加好友 / INT-2 阅读行动指南 / INT-3 双方最终确认 / INT-4 飞书日历）+ RECRUIT 4 + PREPARE 5 + EXECUTE 3 + REVIEW 3
+5. **凭证字段类型**（v1.9.19）：`text`（填空）/ `timeRange`（时段下拉）/ `multiImage`（多图 ≥N 张）/ `singleUrl`（单 URL）/ `url`（多行 URL，默认）
+6. **志愿者 first 流程**（INT-1/INT-4/REVIEW-3）：志愿者先做 → 组织者后确认，ownerType=VOLUNTEER
+7. ORGANIZER 可点"提交凭证"（飞书日历登记 + 飞书好友）
+8. VOLUNTEER 可点"审核通过"或"打回"（REJECT 必填原因）
+9. REVIEW 阶段审核通过时可"推荐优秀"（v4 修订，运营**默认不介入**，仅作兜底）
 
 ### 切片 5：报销中心
 
@@ -208,18 +214,27 @@ node test_stages.js              # 切片 4（用 NO.001 测试前先跑这个�
 node test_ai_assistant.js        # 切片 6
 ```
 
-## 部署到 datawhale.cn 子路径
+## 部署到 datawhale.cn 子路径（暂缓）
+
+> **v1.9.28 评估结论**：纯 GitHub Pages 不可行（backend 是 Express + JWT + 飞书 base 代理，不能跑静态）。候选方案：
+> - **方案 A**：Vercel Serverless Function (backend) + GitHub Pages (frontend) + 飞书 base
+> - **方案 B**：Vercel 一体化（前后端都 Vercel Serverless Functions）
+> - **关键约束**：Vercel Function body 4.5MB 限制 + 无持久 fs + CORS + 飞书字段 5 万字符
+> - **文件上传方案**待选：A base64 飞书 / B 飞书 Drive / C Vercel KV
+> - **评估时间 + 代码改造约 1.5-2h**
+> - **Frank 决策**："看样子挺复杂的"——先做项目总结 + 更新文档，部署待后续
+
+生产 build 流程（如未来走 Vercel 方案）：
 
 ```bash
 cd frontend
 npm run build
-# 输出 dist/ 目录
-# 部署到 datawhale.cn/activity/ 子路径（nginx/vercel 配 try_files）
+# 输出 dist/ 目录，base = '/activity/'（部署到 datawhale.cn/activity/ 子路径）
 ```
 
-后端需要单独部署到 `datawhale.cn/activity-api/` 或同域子路径：
+后端需要单独部署：
 - Vite dev proxy: `/api/*` → `localhost:4000`
-- 生产环境：nginx 反代 `/activity/api/*` → 后端服务
+- 生产环境：nginx 反代 `/activity/api/*` → 后端服务，**或** Vercel Serverless Function
 
 ## 已知限制 + 后续优化
 

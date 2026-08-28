@@ -2463,12 +2463,14 @@ stateDiagram-v2
 > **5 阶段任务图依据**：本节基于飞书 wiki「高校组织者筹备任务清单」（5 阶段：T-10 启动 → T+3 收尾），是组织者侧从「确定意向」到「活动复盘」的端到端任务闭环。**节点 1-3 / 9（运营侧）不在 5 阶段范围内**，详见 §6 业务流程。
 
 #### 5.4.1 阶段任务总览
-- **触发时机**：申请状态 DRAFT → SUBMITTED 且评分通过（≥40 人工或 ≥75 自动）后，系统批量创建 5 阶段任务记录
-- **执行频率**：每个通过的申请创建一次，共 5 条主任务
+- **触发时机**：申请状态 SCREENING → CONFIRMED（运营 APPROVE 通过或 S/A 级自动通过）时，**后端自动**按本节模板初始化 5 阶段 19 条子任务（不再需要运营手动点"初始化"按钮），同步触发用户角色升级（USER/PARTICIPANT → ORGANIZER，详见 §2.1）
+- **执行频率**：每个通过的申请创建一次，共 **5 阶段 19 条子任务**（INTENT 4 + RECRUIT 4 + PREPARE 5 + EXECUTE 3 + REVIEW 3）
 - **时间基准 T**：T = 申请 expectedDate（审核通过后与活动 startDate 对齐）
 - **数据来源**：dw_applications.expectedDate、dw_activities
-- **输出结果**：dw_stage_tasks 5 条记录，初始 status=PENDING
-- **解锁规则**：前一阶段所有任务 COMPLETED → 解锁下一阶段（INTENT→RECRUIT→PREPARE→EXECUTE→REVIEW）
+- **输出结果**：dw_stage_tasks 19 条记录，初始 status=PENDING（INTENT 阶段为 IN_PROGRESS，其余 PENDING）
+- **解锁规则**：前一阶段**所有子任务** COMPLETED → 解锁下一阶段（INTENT→RECRUIT→PREPARE→EXECUTE→REVIEW）
+- **v1.9.18 lock 逻辑**（前端实现）：上一阶段子任务没全完成 → 下一阶段子任务按钮 disabled + 顶部 lock banner（"上一阶段「XX」未全部完成"）
+- **v1.9.27 全部 Tab**：`selectedStage='all'` 模式按阶段分组渲染所有 19 子任务（PARTICIPANT 等不可操作角色可看完整工作流）
 
 **工作流设计原则**（核心目标 = 减少运营劳动 · **v4 修订**：运营**尽量不参与陪跑**，仅作兜底）：
 
@@ -2506,41 +2508,46 @@ stateDiagram-v2
 
 #### 5.4.3 子任务拆分
 
-> **v4 修订（与 US-V4 v4 同步 · 用户原话 2026-08-20）**：5 阶段每阶段都拆为"**组织者提交子任务** + **志愿者审核子任务**"两环节。REVIEW 阶段**运营不再每件都看**，仅在志愿者求助时介入。
+> **v1.9 修订（v1.9.13 ~ v1.9.27 Frank 多次反馈）**：5 阶段共 **19 条子任务**（INTENT 4 + RECRUIT 4 + PREPARE 5 + EXECUTE 3 + REVIEW 3）
+>
+> - 删 4 个"**志愿者审核**"独立子任务（v1.6 时代）——志愿者审核是 SUBTASK 流程的内嵌环节，不是独立子任务
+> - 删 1 个"**运营兜底确认**"独立子任务（v1.9 合并到 REVIEW-3 志愿者审核）
+> - 删 1 个"组织者+助教完成实操教程培训"在 RECRUIT 阶段（移到 PREPARE-2）
+> - 加 "**阅读并确认行动指南**"（INTENT-2，ORGANIZER 填）
+> - 凭证按 v1.9.19 字段类型（`text` / `timeRange` / `multiImage` / `singleUrl` / `url`）分类渲染（详见 §5.4.5）
+> - **ownerType 语义**：表示"第一个操作者"（step1），不是 step2 的人。志愿者先 → `VOLUNTEER`；组织者先 → `ORGANIZER`
 
-| 阶段 | 子任务 | 负责人 | 凭证 |
-|------|--------|--------|------|
-| INTENT | 志愿者加组织者飞书 IM 好友 | 志愿者 | 好友关系建立 |
-| INTENT | 双方最终确认活动方案/时间/地点/规模 | 志愿者+组织者 | 飞书 IM 沟通记录 |
-| INTENT | 飞书日历登记活动 | 志愿者 | 日历记录截图 |
-| INTENT | **志愿者审核**（好友关系 + 飞书日历 + 沟通记录） | 志愿者 | `reviewStatus=APPROVED/REJECTED` + `reviewRemark` |
-| RECRUIT | 建活动群聊 | 组织者 | 群二维码 |
-| RECRUIT | 定制视觉物料（海报/横幅/手举牌） | 组织者 | 海报链接 |
-| RECRUIT | 复制专题并发布报名表单 | 组织者 | 报名链接 |
-| RECRUIT | 启动本地招募宣传（公众号/朋友圈/群转发） | 组织者 | 推文截图 |
-| RECRUIT | **志愿者审核**（群+物料+报名+推文） | 志愿者 | `reviewStatus` + `reviewRemark` |
-| PREPARE | 确认场地并上传场地信息 | 组织者 | 场地照片 |
-| PREPARE | 组织者+助教完成实操教程培训 | 组织者+志愿者 | 培训完成截图 |
-| PREPARE | 准备现场物料（3 类：接收 / 打印 / 任务卡 PPT） | 组织者 | 物料清单 |
-| PREPARE | 提交宣传推文 | 组织者 | 推文截图 |
-| PREPARE | 参与者上传作品 / 申请的认证（视活动需要配置） | 参与者+组织者 | 作品链接 + 认证截图 |
-| PREPARE | **志愿者审核**（场地+培训+物料+推文+作品/认证） | 志愿者 | `reviewStatus` + `reviewRemark` |
-| EXECUTE | 现场签到与引导 | 组织者 | 签到截图 |
-| EXECUTE | 主题分享（20min，可选）+ 带教演示（30min）+ 参与者实操（40+min）+ 闪电分享（20-30min） | 组织者+主讲 | 现场照片 |
-| EXECUTE | 采集现场素材（横版高清） | 组织者+摄影 | 现场照片≥3张 |
-| EXECUTE | **志愿者审核**（签到+现场照片+素材） | 志愿者 | `reviewStatus` + `reviewRemark` |
-| REVIEW | 提交活动复盘（含现场素材到飞书文档） | 组织者 | 复盘文档 |
-| REVIEW | 推动作品上墙（参与 OPC 能力认证） | 组织者 | 作品链接 |
-| REVIEW | **志愿者审核**作品是否符合要求 + 反馈意见（好的+不好的都要说）+ 可推荐优秀 | 志愿者 | 审核意见 + `excellentOrganizer=Y/N` + 推荐理由 |
-| REVIEW | **运营兜底确认**（v4 修订 · 运营**默认不介入**，仅在志愿者求助/争议/超时介入） | 运营（兜底） | 运营确认意见 |
+| 阶段 | 子任务 | ownerType | 凭证 |
+|------|--------|-----------|------|
+| INTENT | 志愿者和组织者互加飞书好友 | VOLUNTEER | 好友关系建立（双向） |
+| INTENT | 阅读并确认行动指南 | ORGANIZER | 飞书文档 https://datawhaler.feishu.cn/docx/K5G8dnWOEoxTC8xgxHHcSUMbni1（已读 + 确认） |
+| INTENT | 双方最终确认活动方案/时间/地点/规模 | ORGANIZER | 组织者填写具体时间（必填到日，几点到几点可选）、具体地点、预计规模 + 活动方案飞书链接 → 同步飞书 base |
+| INTENT | 飞书日历登记活动 | VOLUNTEER | 志愿者在飞书日历创建事件（标题/时间/地点/共同参与者），组织者后确认 |
+| RECRUIT | 建活动群聊 | ORGANIZER | 微信群二维码（必填）+ 飞书群 URL（可选）+ QQ 群 URL（可选） |
+| RECRUIT | 定制视觉物料（海报/横幅/手举牌） | ORGANIZER | 海报链接 |
+| RECRUIT | 复制专题并发布报名表单 | ORGANIZER | 报名链接 |
+| RECRUIT | 启动本地招募宣传（公众号/朋友圈/群转发） | ORGANIZER | 推文截图 |
+| PREPARE | 确认场地并上传场地信息 | ORGANIZER | **3 类凭证**（v1.9.19）：精确地址（text 填空）+ 使用时段（timeRange 下拉）+ 现场图片（multiImage ≥3 张 + 5 项设备 Checkbox：投影/网络/话筒/电源/桌椅） |
+| PREPARE | 组织者+助教完成实操教程培训 | ORGANIZER | 培训完成截图 |
+| PREPARE | 准备现场物料（接收/打印/任务卡PPT） | ORGANIZER | 物料清单（v1.9.20 PPT 分类改 singleUrl 单 URL Input） |
+| PREPARE | 提交宣传推文 | ORGANIZER | 推文截图 |
+| PREPARE | 参与者上传作品/申请的认证 | ORGANIZER | 作品链接 + 认证截图 |
+| EXECUTE | 现场签到与引导 | ORGANIZER | 签到截图 |
+| EXECUTE | 主题分享+带教演示+实操+闪电分享 | ORGANIZER | 现场照片 |
+| EXECUTE | 采集现场素材（横版高清） | ORGANIZER | 现场照片 **≥1 张**（v1.9.22 改"一张即可"；v1.9.27 删 EXECUTE-3 视频分类） |
+| REVIEW | 提交活动复盘（含现场素材到飞书文档） | ORGANIZER | 复盘文档 |
+| REVIEW | 推动作品上墙（参与 OPC 能力认证） | ORGANIZER | 作品链接 |
+| REVIEW | 志愿者审核作品+反馈+可推荐优秀（含运营兜底） | VOLUNTEER | 审核意见 + `excellentOrganizer=Y/N` + 推荐理由；运营默认不介入（v4），仅在志愿者求助/争议/超时介入 |
 
 #### 5.4.4 任务流转规则
 
 > **v4 修订（与 US-V4 v4 同步 · 用户原话 2026-08-20）**：5 阶段**统一志愿者审核**（不区分志愿者/运营）。REVIEW 阶段**运营不再每件都看**，仅在**志愿者有事情无法确认/有争议/超时**时介入兜底。
 >
-> **v2 修订（2026-08-22 · Frank 反馈 #11）**：申请状态从 `SCREENING` 变 `CONFIRMED` 时（运营 APPROVE 通过），**后端自动按本节模板初始化 22 个子任务**（不再需要运营手动点"初始化"按钮）。同步触发用户角色升级：如果当前用户是 `USER` 或 `PARTICIPANT`，自动升级为 `ORGANIZER`（详见 §2.1 角色升级路径）。
+> **v2 修订（2026-08-22 · Frank 反馈 #11）**：申请状态从 `SCREENING` 变 `CONFIRMED` 时（运营 APPROVE 通过），**后端自动按本节模板初始化 19 个子任务**（不再需要运营手动点"初始化"按钮）。同步触发用户角色升级：如果当前用户是 `USER` 或 `PARTICIPANT`，自动升级为 `ORGANIZER`（详见 §2.1 角色升级路径）。
+>
+> **v1.9 修订**：5 阶段从 22 子任务精简为 **19 子任务**（详见 §5.4.3 表注）
 
-**CONFIRMED 自动初始化子任务流程（v2 修订）**：
+**CONFIRMED 自动初始化子任务流程（v1.9 修订）**：
 
 ```
 POST /api/admin/applications/:id/approve (action=APPROVE)
@@ -2551,12 +2558,12 @@ POST /api/admin/applications/:id/approve (action=APPROVE)
   ├─ USER / PARTICIPANT / '' → 更新 dw_users.role = ORGANIZER
   └─ ADMIN/OPERATOR/VOLUNTEER/ASSISTANT → 跳过（已是组织者或不需要升级）
   ↓
-按 §5.4.3 模板创建 22 条 dw_stage_tasks 记录
-  ├─ INTENT 阶段 4 个子任务（status: 3 IN_PROGRESS + 1 PENDING）
+按 §5.4.3 模板创建 19 条 dw_stage_tasks 记录
+  ├─ INTENT 阶段 4 个子任务（status: IN_PROGRESS）
   ├─ RECRUIT/PREPARE/EXECUTE/REVIEW 阶段（status: PENDING）
   └─ dueDate = application.expectedDate + 阶段 daysBeforeStart
   ↓
-返回 { applicationId, status: CONFIRMED, taskCount: 22, roleUpgraded: true|false }
+返回 { applicationId, status: CONFIRMED, taskCount: 19, roleUpgraded: true|false }
 ```
 
 **实现位置**：`backend/src/modules/admin/controller.ts` 的 `POST /:id/approve` 路由，调 `import('../stages/controller').initializeStageTasks(applicationId, userId, expectedDate)`；`initializeStageTasks` 是 v6 已有的导出函数。
@@ -2592,10 +2599,15 @@ POST /api/admin/applications/:id/approve (action=APPROVE)
 
 **阶段解锁逻辑**：
 ```
-当前阶段所有子任务（含组织者提交 + 志愿者审核子任务）COMPLETED → 下一阶段主任务 PENDING → IN_PROGRESS
+当前阶段所有子任务 COMPLETED → 下一阶段子任务 PENDING → IN_PROGRESS
 若当前阶段为 PREPARE → 同时触发申请状态 PREPARING → READY（见 5.2.1）
 REVIEW 阶段志愿者审核通过 → 申请直接进入 COMPLETED（v4 修订 · 运营默认不介入）
 ```
+
+> **v1.9.18 lock 逻辑**（前端实现，详见 `frontend/src/pages/ActivityDetail.tsx`）：
+> - 上一阶段子任务**没全完成**（存在 `status ≠ COMPLETED`）→ 下一阶段子任务按钮 `disabled`
+> - 顶部加 **lock banner**："上一阶段「{prevStageName}」未全部完成"
+> - 业务目的：防止组织者/志愿者越阶段提交/审核
 
 **超期处理**（定时任务，每日 00:30）：
 - 扫描 status ∈ {PENDING, IN_PROGRESS} 且 today > dueDate + 3 天 → 置 OVERDUE
@@ -2605,7 +2617,7 @@ REVIEW 阶段志愿者审核通过 → 申请直接进入 COMPLETED（v4 修订 
 **异常处理**：
 - 凭证文件上传失败 → 任务保持原状态，提示重试
 - 阶段时间点倒推为负（expectedDate 距今 < 10 天）→ 各阶段截止日期压缩，但不早于 today；记录 `compressed=true`
-- EXECUTE 阶段照片 < 3 张 → 志愿者审核拒绝，要求补传
+- EXECUTE 阶段照片 < 1 张 → 志愿者审核拒绝，要求补传（v1.9.22 改"一张即可"；v1.9.27 删 EXECUTE-3 视频分类）
 - INTENT 阶段志愿者 24h 内**未加组织者飞书好友** → 申请状态 SCREENING → CANCELLED（组织者失联处理）
 - REVIEW 阶段志愿者审核未通过 → 同其他阶段打回流程
 - REVIEW 阶段运营打回 → 志愿者重审，状态 → IN_PROGRESS
@@ -2614,6 +2626,33 @@ REVIEW 阶段志愿者审核通过 → 申请直接进入 COMPLETED（v4 修订 
 - 读：dw_applications.expectedDate、dw_stage_tasks
 - 写：dw_stage_tasks.status / completedAt / proofFile / remark / **reviewerId / submittedAt / reviewStatus / reviewRemark**（v3 新增）
 - REVIEW 阶段额外写：dw_applications.excellentOrganizer（志愿者初评 + 运营最终确认）
+
+#### 5.4.5 凭证字段类型（v1.9.19 新增）
+
+> **设计意图**：`proofCategories` 按类别渲染不同 Form 控件，**按类别名字查 PROOF_CATEGORY_TYPE_MAP 决定**（不是按子任务决定）。同一子任务下不同 category 可用不同控件。
+
+| 字段类型 | Form 控件 | 触发关键词 | 例 |
+|---------|-----------|-----------|-----|
+| **text** | Input（填空题） | 精确地址（必填，填空 · 精确到门牌号） | PREPARE-1 精确地址 |
+| **timeRange** | TimePicker.RangePicker | 使用时段（必填 · 几点到几点的下拉选择） | PREPARE-1 使用时段 |
+| **multiImage** | Upload + ≥N 张验证 | 现场图片（必填，≥3 张） | PREPARE-1 现场图片 |
+| **singleUrl** | Input（单 URL） | — | PREPARE-3 任务卡 PPT（v1.9.20 改） |
+| **url** | TextArea（多行 URL，**默认**） | 任何不在 PROOF_CATEGORY_TYPE_MAP 里的 | 其他链接类凭证 |
+
+**PROOF_CATEGORY_TYPE_MAP**（`frontend/src/data/stageCredentialSpec.ts` 4 个固定映射，**字符串精确匹配**）：
+
+```ts
+'精确地址（必填，填空 · 精确到门牌号）' → 'text'
+'使用时段（必填 · 几点到几点的下拉选择）' → 'timeRange'
+'现场图片（必填，≥3 张）' → 'multiImage'
+// 其他 → 'url'（默认）
+```
+
+**可选 vs 必填**：`label` 含"（可选）" → 不加红星（`isProofCategoryOptional` 判断）；其余必填加红星（`required: true` + 视觉标记）
+
+**5 项场地设备 Checkbox**（PREPARE-1 内嵌，Frank "保证有"）：投影设备 / 稳定网络 / 话筒 / 电源 / 桌椅。提交时拼成 JSON 存 `proofFile` 同 key 下
+
+**v1.9.27 删 EXECUTE-3 视频分类**：原 "现场视频（可选 · 讲座/实操关键片段）" 字段删除（antd 5.22 红星机制 bug 4 版本未解，Frank 决定接受必填红星 + 删视频分类）
 
 ### 5.5 通知触发规则
 
