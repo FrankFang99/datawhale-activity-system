@@ -31,6 +31,10 @@ import uploadRouter from './modules/upload/controller';  // v16.8 Frank 9:04：�
 import { ok, fail, ErrorCode } from './utils/response';
 
 const app = express();
+// Vercel 一体化部署：导出 app 让 api/index.ts 包成 Serverless Function
+// dev 模式（`tsx watch`）依然走下面的 app.listen
+export { app };
+export default app;
 
 // 全局兜底：捕获异步异常
 // v1.2 Frank 20:40：用 String() 避免 Node inspect 内部对 undefined Error 报 TypeError
@@ -91,12 +95,11 @@ app.use((_req, res) => {
 // 错误处理
 app.use(errorHandler);
 
+// Vercel 部署时不 listen（Serverless Function 接管），dev 模式才 listen
 const port = config.port;
-app.listen(port, () => {
-  console.log(`\n🚀 Datawhale backend running at http://localhost:${port}`);
-  console.log(`   env = ${config.env}`);
-  console.log(`   feishu base = ${config.feishu.baseToken.slice(0, 10)}...`);
-  console.log(`\n   API endpoints:`);
+if (process.env.VERCEL !== '1') {
+  app.listen(port, () => {
+    console.log(`\n🚀 Datawhale backend running at http://localhost:${port}`);
   console.log(`   GET  /api/health`);
   console.log(`   POST /api/auth/register`);
   console.log(`   POST /api/auth/login`);
@@ -161,4 +164,5 @@ app.listen(port, () => {
   console.log(`   GET  /api/messages/unread/count              [any logged-in]`);
   console.log(`   POST /api/messages/:id/read                  [any logged-in]`);
   console.log(`   POST /api/messages/read-all                  [any logged-in]\n`);
-});
+  });
+}
