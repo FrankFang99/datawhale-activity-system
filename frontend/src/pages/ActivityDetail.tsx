@@ -12,7 +12,7 @@ import {
 import { activityApi, participantApi, interestApi, materialApi, applicationApi, stageApi, uploadApi, Material, Activity, StageTask } from '../services/api';
 import { authStore } from '../store/auth';
 import { STAGE_TEMPLATES_FRANK, canViewSubTasks, Stage, SubTask } from '../data/stageSubtasks';
-import { findCredentialSpec, getButtonType, inferProofCategoryType, VENUE_EQUIPMENT_ITEMS } from '../data/stageCredentialSpec';
+import { findCredentialSpec, getButtonType, inferProofCategoryType, isProofCategoryOptional, VENUE_EQUIPMENT_ITEMS } from '../data/stageCredentialSpec';
 import ProofFileList from '../components/ProofFileList';
 
 // v1.5 Frank 28 09:31 反馈：把 proofHint 文字里的 markdown 超链接 [文字](URL) 解析为可点击 <a>
@@ -1338,6 +1338,8 @@ function SubTaskCard({
           {credSpec?.proofCategories && credSpec.proofCategories.length > 0 ? (
             credSpec.proofCategories.map((cat) => {
               const catType = inferProofCategoryType(cat);
+              // v1.9.21 Frank 28 22:18 反馈：label 含"（可选）"的 category 不加红星
+              const isOptional = isProofCategoryOptional(cat);
               if (catType === 'text') {
                 // Frank 28 21:27 Comment 1：精确地址 = 填空题（Input）
                 return (
@@ -1346,7 +1348,8 @@ function SubTaskCard({
                       name={`proofFile_${cat}`}
                       label={cat}
                       tooltip="精确到门牌号（填空题）"
-                      rules={[{ required: true, message: '请填写精确地址' }]}
+                      required={!isOptional}
+                      rules={isOptional ? [] : [{ required: true, message: '请填写精确地址' }]}
                     >
                       <Input placeholder="如：清华大学教学楼 A501" maxLength={200} showCount />
                     </Form.Item>
@@ -1361,7 +1364,8 @@ function SubTaskCard({
                       name={`proofFile_${cat}`}
                       label={cat}
                       tooltip="下拉选择开始和结束时间"
-                      rules={[{
+                      required={!isOptional}
+                      rules={isOptional ? [] : [{
                         validator: async (_, v) => {
                           if (!Array.isArray(v) || v.length !== 2 || !v[0] || !v[1]) {
                             return Promise.reject(new Error('请选择使用时段'));
@@ -1387,7 +1391,16 @@ function SubTaskCard({
                       name={`proofFile_${cat}`}
                       label={cat}
                       tooltip="飞书文档链接（单个 URL）"
-                      rules={[
+                      required={!isOptional}
+                      rules={isOptional ? [{
+                        validator: async (_, v) => {
+                          if (!v) return Promise.resolve();
+                          if (!/^(https?:\/\/|\/uploads\/)/.test(String(v).trim())) {
+                            return Promise.reject(new Error('URL 格式错误（需 http/https 或 /uploads/ 开头）'));
+                          }
+                          return Promise.resolve();
+                        },
+                      }] : [
                         { required: true, message: `请填写 ${cat} 链接` },
                         {
                           validator: async (_, v) => {
@@ -1418,7 +1431,8 @@ function SubTaskCard({
                       name={`proofFile_${cat}`}
                       label={cat}
                       tooltip="每行 1 个图片 URL（点击下方「上传图片」可粘贴/拖拽多张）"
-                      rules={[{
+                      required={!isOptional}
+                      rules={isOptional ? [] : [{
                         validator: async (_, v) => {
                           const lines = String(v ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
                           if (lines.length < 3) {
@@ -1446,27 +1460,29 @@ function SubTaskCard({
                     >
                       <Button size="small" icon={<CloudUploadOutlined />}>📎 上传图片（粘贴/拖拽，可多选）</Button>
                     </Upload>
-                    {/* Frank 28 21:27 Comment 3：5 项设备 checklist 必填 */}
-                    <Form.Item
-                      name={`proofFile_equipment`}
-                      label="现场设备 checklist（必填 · 5 项都要有）"
-                      tooltip="Frank：需要保证有投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅"
-                      rules={[{
-                        validator: async (_, v) => {
-                          if (!Array.isArray(v) || v.length < VENUE_EQUIPMENT_ITEMS.length) {
-                            return Promise.reject(new Error(`5 项设备都要勾选（当前 ${Array.isArray(v) ? v.length : 0} / ${VENUE_EQUIPMENT_ITEMS.length}）`));
-                          }
-                          return Promise.resolve();
-                        },
-                      }]}
-                      style={{ marginTop: 8 }}
-                    >
-                      <Checkbox.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        {VENUE_EQUIPMENT_ITEMS.map((item) => (
-                          <Checkbox key={item.key} value={item.key}>{item.label}</Checkbox>
-                        ))}
-                      </Checkbox.Group>
-                    </Form.Item>
+                    {/* Frank 28 21:27 Comment 3：5 项设备 checklist 必填（即使多图可选，设备清单仍必填） */}
+                    {!isOptional && (
+                      <Form.Item
+                        name={`proofFile_equipment`}
+                        label="现场设备 checklist（必填 · 5 项都要有）"
+                        tooltip="Frank：需要保证有投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅"
+                        rules={[{
+                          validator: async (_, v) => {
+                            if (!Array.isArray(v) || v.length < VENUE_EQUIPMENT_ITEMS.length) {
+                              return Promise.reject(new Error(`5 项设备都要勾选（当前 ${Array.isArray(v) ? v.length : 0} / ${VENUE_EQUIPMENT_ITEMS.length}）`));
+                            }
+                            return Promise.resolve();
+                          },
+                        }]}
+                        style={{ marginTop: 8 }}
+                      >
+                        <Checkbox.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {VENUE_EQUIPMENT_ITEMS.map((item) => (
+                            <Checkbox key={item.key} value={item.key}>{item.label}</Checkbox>
+                          ))}
+                        </Checkbox.Group>
+                      </Form.Item>
+                    )}
                   </div>
                 );
               }
@@ -1478,7 +1494,21 @@ function SubTaskCard({
                     label={cat}
                     tooltip="每行 1 个 URL（飞书文档/网盘/截图）。点击下方「上传图片」按钮可粘贴/拖拽图片"
                     // v1.9.17 Frank 28 21:10 反馈：必填字段加红星（原 validator 只校验 URL 格式，不显示红星 + 不阻止空提交）
-                    rules={[
+                    // v1.9.21 Frank 28 22:18：可选的 category 不加红星
+                    required={!isOptional}
+                    rules={isOptional ? [{
+                      validator: async (_, v) => {
+                        if (!v) return Promise.resolve();
+                        const lines = String(v).split('\n').map((s: string) => s.trim()).filter(Boolean);
+                        for (const line of lines) {
+                          // v16.9 Frank 13:10：URL 验证接受完整 URL（http/https）或本地相对路径（/uploads/）
+                          if (!/^(https?:\/\/|\/uploads\/)/.test(line)) {
+                            return Promise.reject(new Error(`URL 格式错误：${line.slice(0, 50)}`));
+                          }
+                        }
+                        return Promise.resolve();
+                      },
+                    }] : [
                       { required: true, message: `请填写 ${cat} 凭证 URL` },
                       {
                         validator: async (_, v) => {

@@ -477,6 +477,14 @@ export function inferProofCategoryType(cat: string): ProofCategoryType {
 }
 
 /**
+ * v1.9.21 Frank 28 22:18 反馈：label 含"（可选）"的 category 不显示红星（不强制必填）
+ *  - 例：'飞书群 URL（可选）' / 'QQ 群 URL（可选）' / '视频（可选 · 讲座/实操关键片段）'
+ */
+export function isProofCategoryOptional(cat: string): boolean {
+  return cat.includes('（可选）');
+}
+
+/**
  * v1.9.19 Frank 28 21:27 反馈：现场图片 5 项设备 checklist
  *  - "需要保证有投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅"
  *  - 这 5 项做成 Checkbox 必填（Frank "保证有"），提交时拼成 JSON 存 proofFile 同 key 下
