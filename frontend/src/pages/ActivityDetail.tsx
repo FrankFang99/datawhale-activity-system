@@ -1340,11 +1340,15 @@ function SubTaskCard({
               const catType = inferProofCategoryType(cat);
               // v1.9.21 Frank 28 22:18 反馈：label 含"（可选）"的 category 不加红星
               // v1.9.23 Frank 28 22:43 反馈：antd required={false} 不可靠，强制刷新后红星还在
-              // → 改用 JSX label 自定义渲染（不依赖 antd 红星机制）
+              // v1.9.24 Frank 28 22:48 反馈：JSX label 也不生效（antd 内部仍加红星元素）
+              // → 终极方案：在 label JSX 里手动加红星 span（不依赖 antd 红星行为）
               const isOptional = isProofCategoryOptional(cat);
-              const labelNode = isOptional
-                ? <span style={{ color: '#999' }}>{cat}</span>
-                : cat;
+              const labelNode = (
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  {!isOptional && <span style={{ color: '#ff4d4f', marginRight: 4, lineHeight: 1 }}>*</span>}
+                  <span style={{ color: isOptional ? '#999' : 'inherit' }}>{cat}</span>
+                </span>
+              );
               if (catType === 'text') {
                 // Frank 28 21:27 Comment 1：精确地址 = 填空题（Input）
                 return (
