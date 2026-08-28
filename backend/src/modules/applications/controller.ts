@@ -339,6 +339,11 @@ router.get('/by-activity/:activityId', authRequired, async (req: Request, res: R
   // - 演示场景 SCREENING 申请（如 NO.047 已 init 19 个 stage_tasks）也要能看 5 阶段任务
   // - 前端 ActivityDetail L142 拿 list[0]，如果只有 SCREENING 申请会拿不到 → 整个"阶段任务" Card 不渲染
   // - REJECTED 仍过滤（已拒绝的不需要展示子任务）
+  // Frank 28 18:11 反馈：必须返回 userId + volunteerId 字段
+  // - 前端 ActivityDetail L145-146 `setAppUserId(confirmed.userId ?? null)` / `setAppVolunteerId(confirmed.volunteerId ?? null)`
+  // - 之前 map 只返回 organizerId（重命名后的 userId），前端拿不到这两个字段 → canOrganizerSubmit/canVolunteerReview 永远 false
+  // - SubTaskCard 上「📎 上传凭证 + 自核」「志愿者审核」「✓ 我已确认」等按钮全部不显示
+  // - 补全后：ORGANIZER role + userId 匹配 = 自核按钮；VOLUNTEER role + volunteerId 匹配 = 审核按钮；ADMIN/OPERATOR 全管
   const list = (items as ApplicationRecord[])
     .filter((a) => {
       const st = normStatus(a.fields.status);
@@ -349,6 +354,8 @@ router.get('/by-activity/:activityId', authRequired, async (req: Request, res: R
       applicationNo: a.fields.applicationNo,
       organizerName: a.fields.organizerName,
       organizerId: a.fields.userId,
+      userId: a.fields.userId,
+      volunteerId: a.fields.volunteerId,
     }));
   return ok(res, { list, total: list.length });
 });

@@ -187,8 +187,11 @@ export default function ApplicationForm() {
         recruitChannel: values.recruitChannel,
       });
       setResult(data);
-      // Frank 27 15:25：提交后自动跳「我的申请」看进度（避免用户不知道去哪看）
-      setTimeout(() => navigate('/my-applications'), 100);
+      // Frank 28 18:11：删 setTimeout 强跳
+      // - 之前 `setTimeout(navigate('/my-applications'), 100)` 100ms 后强制跳转抢走飞书群二维码 Modal
+      // - React 在 100ms 内根本来不及渲染 Modal（PRD §1.2 痛点 9「申请者入群断链」核心 UI 被破坏）
+      // - 现在让用户先看「申请已提交」+ 飞书群二维码 Modal，自主点「查看我的申请」/「返回活动大厅」按钮才跳转
+      // - Modal 上有「我已扫码」按钮，关闭后还会询问是否加入飞书群（v4 PRD §4.1.4 步骤 3）
     } catch {
       /* 拦截器已处理 */
     } finally {
