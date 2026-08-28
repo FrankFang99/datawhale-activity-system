@@ -292,8 +292,8 @@ router.delete('/:id', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req
   if (appIds.length > 0) {
     const set = new Set(appIds);
     const [stk, msg, rmb] = await Promise.all([
-      feishuClient.listRecords(config.feishu.tables.stageTasks, { pageSize: 500 }),
-      feishuClient.listRecords(config.feishu.tables.messages, { pageSize: 500 }),
+      feishuClient.listRecords(config.feishu.tables.stageTasks, { pageSize: 200 }),
+      feishuClient.listRecords(config.feishu.tables.messages, { pageSize: 200 }),
       feishuClient.listRecords(config.feishu.tables.reimbursements, { pageSize: 200 }),
     ]);
     for (const r of (stk.items as any[])) {
@@ -317,7 +317,7 @@ router.delete('/:id', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req
   }
 
   // 4) 按 activityId 级联删参与者（dw_participants 字段是 activityId，不是 applicationId）
-  const parts = await feishuClient.listRecords(config.feishu.tables.participants, { pageSize: 500 });
+  const parts = await feishuClient.listRecords(config.feishu.tables.participants, { pageSize: 200 });
   for (const r of (parts.items as any[])) {
     if (r.fields?.activityId === id) {
       const ok = await feishuClient.deleteRecord(config.feishu.tables.participants, r.record_id);
