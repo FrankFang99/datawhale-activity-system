@@ -105,8 +105,14 @@ export const STAGE_TEMPLATES_FRANK: Stage[] = [
   },
 ];
 
-/** 角色权限：能看完整子任务细节 */
+/** 角色权限：能看完整子任务细节
+ *  Frank 28 14:13 反馈：让 PARTICIPANT 也能看完整 5 阶段 + 19 子任务
+ *  - 参与者要"决定是否要成为组织者"，需要看完整工作流
+ *  - 按钮在 SubTaskCard 内有 canOrganizerSubmit / canVolunteerReview / canOperatorReview 过滤
+ *    → 参与者会看到 19 个子任务卡 + 凭证规范 + 超链接，但所有操作按钮都不显示
+ *      （不是 disabled，是完全不渲染，按钮条件都不满足）
+ */
 export function canViewSubTasks(role?: string): boolean {
   if (!role) return false;
-  return ['ORGANIZER', 'ASSISTANT', 'VOLUNTEER', 'OPERATOR', 'ADMIN'].includes(role);
+  return ['ORGANIZER', 'ASSISTANT', 'VOLUNTEER', 'OPERATOR', 'ADMIN', 'PARTICIPANT'].includes(role);
 }

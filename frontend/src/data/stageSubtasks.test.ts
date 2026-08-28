@@ -81,8 +81,8 @@ describe('canViewSubTasks 角色权限（Frank 23:35 #2：参与者保持现有 
   it('ADMIN 可看', () => {
     expect(canViewSubTasks('ADMIN')).toBe(true);
   });
-  it('PARTICIPANT 不可看（保持现有时间轴）', () => {
-    expect(canViewSubTasks('PARTICIPANT')).toBe(false);
+  it('PARTICIPANT 可看（Frank 28 14:13 反馈：让参与者看完整 5 阶段，决定是否要成为组织者）', () => {
+    expect(canViewSubTasks('PARTICIPANT')).toBe(true);
   });
   it('USER 不可看', () => {
     expect(canViewSubTasks('USER')).toBe(false);

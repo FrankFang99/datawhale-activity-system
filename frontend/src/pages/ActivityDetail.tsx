@@ -427,8 +427,15 @@ export default function ActivityDetail() {
             - 每个子任务卡片按角色展示 3 步进度：组织者自核 → 志愿者审核 → 运营复核
             - 操作按钮按角色显示
             - ORGANIZER/ASSISTANT/VOLUNTEER/OPERATOR/ADMIN：可看子任务
-            - PARTICIPANT/USER：保持现有 5 阶段时间轴即可，不展开子任务 */}
-        {!isPending && canViewSubTasks(user?.role) && appId && (
+            - PARTICIPANT：Frank 28 14:13 反馈也能看（决定是否要成为组织者）
+            - USER：保持现有 5 阶段时间轴，不展开子任务 */}
+        {canViewSubTasks(user?.role) && appId && (
+          // Frank 28 14:13 反馈：去掉 !isPending 限制
+          // - 即使活动没组织者（isPending=true），参与者也要能看完整 5 阶段 + 19 子任务
+          // - 决定是否要申请成为组织者
+          // - 没申请过的活动（appId=null）自然拿不到任务 → 不渲染
+          // - SubTaskCard 内部按钮由 canOrganizerSubmit / canVolunteerReview / canOperatorReview
+          //   过滤，参与者不会看到任何操作按钮（不是 disabled，是完全不渲染）
           <Card
             size="small"
             style={{ marginBottom: 16, background: '#FAFCFF' }}
