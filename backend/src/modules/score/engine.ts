@@ -94,7 +94,8 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
   const add = (cls: string, words: string[], inc: number) => {
     for (const w of words) {
       if (text.toLowerCase().includes(w.toLowerCase())) {
-        hits.push(cls);
+        // Frank 28 12:18：记录真实命中的关键词（之前 push className 太抽象）
+        hits.push(`${w}(${cls})`);
         return inc;
       }
     }
@@ -106,11 +107,12 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
   score += add('多场经验', ['多场', '多次', '数场', '系列活动', '连续'], 5);
   score += add('Datawhale 经验', ['Datawhale', 'DW', '数据鲸'], 4);
   if (/\d+\s*(人|名|参与者|\+|余)|百人|千人/.test(text)) {
-    hits.push('规模数据');
+    const m = text.match(/\d+\s*(人|名|参与者|\+|余)|百人|千人/);
+    hits.push(m ? `${m[0]}(规模数据)` : '规模数据');
     score += 3;
   }
   score += add('负责人角色', ['负责人', '会长', '社长', '队长', '组织者', '主理人'], 3);
-  if (/\d+/.test(text) && !hits.includes('规模数据')) {
+  if (/\d+/.test(text) && !hits.some((h) => h.includes('规模数据'))) {
     hits.push('数字出现');
     score += 2;
   }
@@ -153,12 +155,13 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
 // 兼容：expectedDate（历史精确日期）= 1 分（按 1 个日期计）
 function scoreDate(input: ScoreInput): ScoreBreakdown['RC004'] {
   // 兼容历史：精确日期按 1 个日期计
+  // Frank 28 12:18 修复：只有当宽泛时间（expectedTimeRangeDateCount）也为空时才走精确日期分支，
+  // 否则 10 个宽泛日期会被精确日期 fallback 误判成 1 分
   const d = input.expectedDate;
-  if (d) {
+  const dc = input.expectedTimeRangeDateCount ?? 0;
+  if (d && dc === 0) {
     return { score: 1, max: 15, reason: '已选 1 个候选日期（历史精确日期）', input: '1 个日期', dateCount: 1 };
   }
-  // 宽泛时间（Frank 27 12:50）：按日期数量
-  const dc = input.expectedTimeRangeDateCount ?? 0;
   if (dc === 0) {
     return { score: 0, max: 15, reason: '未提供候选日期', input: '', dateCount: 0 };
   }
@@ -178,7 +181,8 @@ function scoreMotivation(input: ScoreInput): ScoreBreakdown['RC005'] {
   const add = (cls: string, words: string[], inc: number) => {
     for (const w of words) {
       if (text.includes(w)) {
-        hits.push(cls);
+        // Frank 28 12:18：记录真实命中的关键词
+        hits.push(`${w}(${cls})`);
         return inc;
       }
     }
@@ -226,7 +230,8 @@ function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC006'] {
   const add = (cls: string, words: string[], inc: number) => {
     for (const w of words) {
       if (text.includes(w)) {
-        hits.push(cls);
+        // Frank 28 12:18：记录真实命中的关键词
+        hits.push(`${w}(${cls})`);
         return inc;
       }
     }

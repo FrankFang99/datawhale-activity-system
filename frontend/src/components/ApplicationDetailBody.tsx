@@ -16,10 +16,13 @@
  * - 顶部状态 Tags
  * - 审批工作台 AI 草拟 / 分配志愿者
  */
-import { Card, Tag, Descriptions, Tabs, Empty, Typography, Space, Row, Col } from 'antd';
-import { InfoCircleOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { Card, Tag, Descriptions, Tabs, Empty, Typography, Space, Row, Col, Button, Modal, Input, message } from 'antd';
+import { InfoCircleOutlined, DislikeOutlined, LikeOutlined } from '@ant-design/icons';
+import { adminApi } from '../services/api';
 
 const { Text, Paragraph } = Typography;
+const { TextArea } = Input;
 
 export interface ApplicationDetailBodyProps {
   data: {
@@ -42,6 +45,9 @@ export interface ApplicationDetailBodyProps {
     resources?: string;
     participantValue?: string;
     scoreBreakdown?: any;
+  };
+  // Frank 28 12:18 反馈 Comment 4：传 applicationId 给 AI 评分 👎 按钮用
+  applicationId?: string;
     auditLog?: any[];
     volunteerId?: string;
   };
@@ -55,7 +61,79 @@ const GRADE_DISPLAY: Record<string, { label: string; color: string }> = {
   D: { label: 'D · 不足', color: 'red' },
 };
 
-export default function ApplicationDetailBody({ data }: ApplicationDetailBodyProps) {
+// Frank 28 12:18 反馈 Comment 4：AI 评分 👎 按钮 → 写入 dw_chat_logs 作为 badcase，方便后续优化 score engine
+function AiFeedbackButton({ applicationId, scoreBreakdown }: { applicationId: string; scoreBreakdown: any }) {
+  const [open, setOpen] = useState(false);
+  const [action, setAction] = useState<'UP' | 'DOWN'>('DOWN');
+  const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
+  const submit = async () => {
+    if (!comment.trim()) {
+      message.warning('请说明理由');
+      return;
+    }
+    setLoading(true);
+    try {
+      await adminApi.aiFeedback(applicationId, {
+        action,
+        comment: comment.trim(),
+        scoreBreakdown,
+      });
+      message.success(action === 'DOWN' ? '已记录为 badcase，谢谢反馈' : '已记录点赞');
+      setOpen(false);
+      setComment('');
+    } catch {
+      /* 拦截器已处理 */
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <span>
+      <Button
+        size="small"
+        icon={<DislikeOutlined />}
+        onClick={() => { setAction('DOWN'); setOpen(true); }}
+        style={{ marginRight: 8 }}
+      >
+        AI 评分不准
+      </Button>
+      <Button
+        size="small"
+        type="text"
+        icon={<LikeOutlined />}
+        onClick={() => { setAction('UP'); setOpen(true); }}
+      >
+        准确
+      </Button>
+      <Modal
+        title={action === 'DOWN' ? 'AI 评分 badcase 反馈' : 'AI 评分点赞反馈'}
+        open={open}
+        onOk={submit}
+        onCancel={() => setOpen(false)}
+        confirmLoading={loading}
+        okText="提交"
+        cancelText="取消"
+      >
+        <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+          {action === 'DOWN'
+            ? '请说明哪里评分不准（如 RC003 经验分太高、RC005 动机没命中关键词等）'
+            : '说说哪里评得对，方便记录优秀样例'}
+        </Text>
+        <TextArea
+          rows={4}
+          maxLength={500}
+          showCount
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="例如：组织经验里写了 3 场但 RC003 才给 8 分，应该更高"
+        />
+      </Modal>
+    </span>
+  );
+}
+
+export default function ApplicationDetailBody({ data, applicationId }: ApplicationDetailBodyProps) {
   const gradeInfo = data.grade ? GRADE_DISPLAY[data.grade] : undefined;
 
   return (
@@ -149,6 +227,12 @@ export default function ApplicationDetailBody({ data }: ApplicationDetailBodyPro
               label: 'AI 评分',
               children: data.scoreBreakdown ? (
                 <div>
+                  <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      引擎版本：{data.scoreBreakdown.engineVersion ?? 'v1'}（v3 6 维：场地/招募/经验/时间/动机/价值）
+                    </Text>
+                    {applicationId && <AiFeedbackButton applicationId={applicationId} scoreBreakdown={data.scoreBreakdown} />}
+                  </div>
                   <Row gutter={[12, 12]}>
                     <Col xs={12} sm={8} md={8}><ScoreCard label="场地"   code="RC001" data={data.scoreBreakdown.RC001} max={20} /></Col>
                     <Col xs={12} sm={8} md={8}><ScoreCard label="招募"   code="RC002" data={data.scoreBreakdown.RC002} max={10} /></Col>
@@ -157,10 +241,6 @@ export default function ApplicationDetailBody({ data }: ApplicationDetailBodyPro
                     <Col xs={12} sm={8} md={8}><ScoreCard label="申请动机" code="RC005" data={data.scoreBreakdown.RC005} max={15} /></Col>
                     <Col xs={12} sm={8} md={8}><ScoreCard label="参与者价值" code="RC006" data={data.scoreBreakdown.RC006} max={15} /></Col>
                   </Row>
-                  <div style={{ marginTop: 12, fontSize: 12, color: '#999' }}>
-                    引擎版本：{data.scoreBreakdown.engineVersion ?? 'v1'}
-                    （v3 6 维：场地/招募/经验/时间/动机/价值）
-                  </div>
                 </div>
               ) : (
                 <Empty description="暂无 AI 评分（申请尚未通过初筛或分数未生成）" />
@@ -240,6 +320,17 @@ function ScoreCard({ label, code, data, max }: { label: string; code: string; da
         />
       </div>
       <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.4 }}>{reason}</Text>
+      {/* Frank 28 12:18：把命中的关键词列出来（hitKeywords 是 score engine 输出的真实命中词数组） */}
+      {Array.isArray(data.hitKeywords) && data.hitKeywords.length > 0 && (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed #E5E7EB' }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>命中关键词：</Text>
+          <div style={{ marginTop: 4 }}>
+            {data.hitKeywords.map((kw: string, i: number) => (
+              <Tag key={i} color="blue" style={{ marginBottom: 2, fontSize: 11 }}>{kw}</Tag>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

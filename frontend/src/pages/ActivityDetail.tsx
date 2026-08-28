@@ -415,10 +415,9 @@ export default function ActivityDetail() {
         />
 
         {/* v1.5 Frank 28 09:25 反馈：点 Segmented 哪个阶段 → 显示哪个阶段子任务
-            - 联动 selectedStage（点 tab 切到哪显示哪）
-            - 用 STAGE_TEMPLATES_FRANK 数据（不依赖登录 + 后端数据）
-            - 显示该 stage 的 desc + 子任务列表（ownerType + 标题 + proofHint）
-            - 不显示操作按钮（上传凭证 / 审核 — 那是 stakeholder 权限） */}
+            Frank 28 12:18 修复：去掉了 STAGE_TEMPLATES_FRANK 模板子任务渲染（与下面真实 stage_tasks Card 重复）
+            - 保留：阶段标题 + desc 描述（让没申请的人也知道这阶段做什么）
+            - 子任务只由下面 !isPending && canViewSubTasks(...) 条件块渲染（来自后端 stage_tasks 数据） */}
         {(() => {
           const currentStageData = STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage);
           if (!currentStageData) return null;
@@ -429,68 +428,15 @@ export default function ActivityDetail() {
               title={
                 <Space>
                   <UnorderedListOutlined />
-                  <span>阶段任务 · {currentStageData.title}</span>
+                  <span>阶段概览 · {currentStageData.title}</span>
                   <Tag color="blue">{currentStageData.hint}</Tag>
                   <Tag color="geekblue">{currentStageData.subTasks.length} 子任务</Tag>
                 </Space>
               }
             >
-              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
                 {currentStageData.desc}
               </Paragraph>
-              {currentStageData.subTasks.map((t) => {
-                // v1.5 Frank 28 09:31：拼 stageCredentialSpec.ts whatToDo/passCriteria（含 markdown 超链接）
-                const credSpec = findCredentialSpec(t.name);
-                return (
-                  <div
-                    key={t.order}
-                    style={{
-                      marginBottom: 8,
-                      padding: '10px 12px',
-                      background: '#F5F7FA',
-                      borderRadius: 6,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: credSpec ? 8 : 0 }}>
-                      <Tag
-                        color={t.ownerType === 'VOLUNTEER' ? 'blue' : t.ownerType === 'OPERATOR' ? 'orange' : 'green'}
-                        style={{ marginTop: 2, minWidth: 88, textAlign: 'center' }}
-                      >
-                        {t.order}.{t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
-                      </Tag>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 500, fontSize: 13 }}>{t.name}</div>
-                        {t.proofHint && (
-                          <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-                            {renderTextWithLinks(t.proofHint)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {/* v1.5 Frank 28 09:31：显示凭证规范（v1.3 恢复的 19 子任务 whatToDo/passCriteria）含 markdown 超链接可点击 */}
-                    {credSpec && (
-                      <div style={{ marginLeft: 96, fontSize: 12, color: '#444', borderTop: '1px dashed #E5E7EB', paddingTop: 6 }}>
-                        {credSpec.whatToDo.length > 0 && (
-                          <div style={{ marginBottom: 4 }}>
-                            <Text strong style={{ fontSize: 12, color: '#666' }}>📋 怎么做：</Text>
-                            {credSpec.whatToDo.map((step, i) => (
-                              <div key={i} style={{ marginLeft: 8 }}>· {renderTextWithLinks(step)}</div>
-                            ))}
-                          </div>
-                        )}
-                        {credSpec.passCriteria.length > 0 && (
-                          <div>
-                            <Text strong style={{ fontSize: 12, color: '#666' }}>✅ 通过标准：</Text>
-                            {credSpec.passCriteria.map((c, i) => (
-                              <div key={i} style={{ marginLeft: 8 }}>· {renderTextWithLinks(c)}</div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
             </Card>
           );
         })()}

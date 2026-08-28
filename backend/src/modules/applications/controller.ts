@@ -113,7 +113,9 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
       // Frank 27 12:50：宽泛时间
       expectedTimeRange: data.expectedTimeRange,
       expectedTimeRangeDateCount,
-      expectedDate: data.expectedDate ?? Date.now() + 60 * 24 * 3600 * 1000,
+      // Frank 28 12:18 修复：null 不再用 60d 后 fallback，否则 score engine 走精确日期分支（给 1 分），
+      // 忽略 expectedTimeRangeDateCount（10 个宽泛日期应该是 10/15）
+      expectedDate: data.expectedDate ?? null,
       activityStartDate: activity.fields.startDate ?? Date.now(),
       activityEndDate: activity.fields.endDate ?? Date.now() + 30 * 24 * 3600 * 1000,
       motivation: data.motivation,

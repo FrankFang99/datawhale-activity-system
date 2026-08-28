@@ -295,38 +295,46 @@ export default function ApprovalWorkbench() {
             <div>
               {/* Frank 27 16:42 反馈 Comment 1：审批工作台 Drawer 跟 /applications/:id 详情页对齐
                   用共享组件 ApplicationDetailBody */}
-              <ApplicationDetailBody data={detailDrawer.data} />
+              <ApplicationDetailBody data={detailDrawer.data} applicationId={detailDrawer.appId} />
 
-              {/* AI 草拟意见按钮（v6） */}
-              <Card
-                size="small"
-                style={{ marginTop: 16, background: '#FAFCFF' }}
-                title={<Space><RobotOutlined /> AI 草拟审核意见</Space>}
-                extra={
-                  <Button
-                    type="primary"
-                    size="small"
-                    icon={<ThunderboltOutlined />}
-                    onClick={async () => {
+              {/* Frank 28 12:18 修复：AI 草拟按钮从独立 Card 改为直接放 #comment 附近（action modal 里）
+                  - 让草拟结果直接填到审批意见 textarea，可人工修改
+                  - 草拟时检测 form.comment 已有内容 → confirm 覆盖 */}
+              <div style={{ marginTop: 16, marginBottom: 8 }}>
+                <Button
+                  type="default"
+                  size="small"
+                  icon={<ThunderboltOutlined />}
+                  onClick={async () => {
+                    const existing = form.getFieldValue('comment') ?? '';
+                    const doDraft = async () => {
                       try {
                         const d = await adminApi.draftReview(detailDrawer.appId!);
-                        setDraftReview(d.draft);
-                        message.success('已草拟');
+                        form.setFieldsValue({ comment: d.draft });
+                        message.success('已草拟到审批意见（可直接修改）');
                       } catch {
                         /* 拦截器已处理 */
                       }
-                    }}
-                  >
-                    一键草拟
-                  </Button>
-                }
-              >
-                {draftReview ? (
-                  <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{draftReview}</Paragraph>
-                ) : (
-                  <Text type="secondary">点击"一键草拟"按等级（S/A/B/C/D）生成建议意见，运营/志愿者可在此基础上修改后提交</Text>
-                )}
-              </Card>
+                    };
+                    if (existing && String(existing).trim()) {
+                      Modal.confirm({
+                        title: '已有人工编辑的审批意见',
+                        content: '是否用 AI 草拟的意见覆盖？',
+                        okText: '覆盖',
+                        cancelText: '取消',
+                        onOk: doDraft,
+                      });
+                    } else {
+                      await doDraft();
+                    }
+                  }}
+                >
+                  AI 草拟审核意见
+                </Button>
+                <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                  点击后填到下方"通过/拒绝"弹窗的"审批意见"字段，可继续修改
+                </Text>
+              </div>
 
               {/* 分配志愿者（v6 · 仅 admin/operator） */}
               {(user?.role === 'ADMIN' || user?.role === 'OPERATOR') && (

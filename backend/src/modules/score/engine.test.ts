@@ -81,9 +81,10 @@ describe('RC003 组织经验（25 分 · 不变）', () => {
     }));
     // 组织行为(+8) + 多场(+5) + Datawhale(+4) + 规模数据(+3) + 长度≥60(+3) = 23
     expect(r.RC003.score).toBeGreaterThanOrEqual(20);
-    expect(r.RC003.hitKeywords).toContain('组织行为');
-    expect(r.RC003.hitKeywords).toContain('多场经验');
-    expect(r.RC003.hitKeywords).toContain('Datawhale 经验');
+    // Frank 28 12:18：hitKeywords 改为 "命中词(分类)" 格式
+    expect(r.RC003.hitKeywords).toContain('组织过(组织行为)');
+    expect(r.RC003.hitKeywords).toContain('多场(多场经验)');
+    expect(r.RC003.hitKeywords).toContain('Datawhale(Datawhale 经验)');
   });
   it('中等经验：组织过+规模 → 中等分', () => {
     const r = scoreApplication(baseInput({
@@ -108,8 +109,9 @@ describe('RC003 组织经验（25 分 · 不变）', () => {
     const r = scoreApplication(baseInput({
       experience: '作为社长，组织过 5 场 AI 社团活动',
     }));
-    expect(r.RC003.hitKeywords).toContain('组织行为');
-    expect(r.RC003.hitKeywords).toContain('负责人角色');
+    // Frank 28 12:18：hitKeywords 改为 "命中词(分类)" 格式
+    expect(r.RC003.hitKeywords).toContain('组织过(组织行为)');
+    expect(r.RC003.hitKeywords).toContain('社长(负责人角色)');
   });
   it('截断到 25', () => {
     const r = scoreApplication(baseInput({
@@ -205,9 +207,10 @@ describe('RC005 申请动机（15 分 · 关键词参考 v1 6 类拆 3 类）', 
     }));
     // 目标(5) + 实操(4) + 学习(3) + 长度≥60(3) = 15
     expect(r.RC005.score).toBeGreaterThanOrEqual(10);
-    expect(r.RC005.hitKeywords).toContain('目标清晰');
-    expect(r.RC005.hitKeywords).toContain('实操价值');
-    expect(r.RC005.hitKeywords).toContain('学习习惯');
+    // Frank 28 12:18：hitKeywords 改为 "命中词(分类)" 格式
+    expect(r.RC005.hitKeywords).toContain('目标(目标清晰)');
+    expect(r.RC005.hitKeywords).toContain('实操(实操价值)');
+    expect(r.RC005.hitKeywords).toContain('习惯(学习习惯)');
   });
   it('中等：2 关键词 → 中等分', () => {
     const r = scoreApplication(baseInput({
@@ -235,9 +238,10 @@ describe('RC006 参与者价值（15 分 · 关键词参考 v1 6 类拆 3 类）
     }));
     // 社群(5) + 就业(4) + 工具(3) + 长度≥60(3) = 15
     expect(r.RC006.score).toBeGreaterThanOrEqual(10);
-    expect(r.RC006.hitKeywords).toContain('社群建设');
-    expect(r.RC006.hitKeywords).toContain('就业指导');
-    expect(r.RC006.hitKeywords).toContain('工具使用');
+    // Frank 28 12:18：hitKeywords 改为 "命中词(分类)" 格式
+    expect(r.RC006.hitKeywords).toContain('社群(社群建设)');
+    expect(r.RC006.hitKeywords).toContain('求职(就业指导)');
+    expect(r.RC006.hitKeywords).toContain('工具(工具使用)');
   });
   it('中等：2 关键词 → 中等分', () => {
     const r = scoreApplication(baseInput({

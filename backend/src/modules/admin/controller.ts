@@ -347,6 +347,39 @@ router.post('/:id/draft-review', authRequired, requireRole('OPERATOR', 'ADMIN', 
   });
 });
 
+// Frank 28 12:18 反馈 Comment 4：AI 评分不准确时，志愿者/运营/管理员可点踩 → 写入 dw_chat_logs 作为 badcase，
+// 方便后续 LLM 分析 / 优化 score engine
+const aiFeedbackSchema = z.object({
+  action: z.enum(['UP', 'DOWN']),
+  comment: z.string().min(1, '请说明哪里不准').max(500),
+  scoreBreakdown: z.any().optional(),  // 顺手把当前 AI 评分快照下来方便分析
+});
+
+// POST /api/admin/applications/:id/ai-feedback
+router.post('/:id/ai-feedback', authRequired, requireRole('VOLUNTEER', 'OPERATOR', 'ADMIN'), async (req, res) => {
+  const { id } = req.params;
+  const data = aiFeedbackSchema.parse(req.body);
+  const logId = `AI-FEEDBACK-${id}-${Date.now()}`;
+  const messageText = data.action === 'DOWN'
+    ? `AI 评分点踩（${req.user!.role} ${req.user!.userId}）：${data.comment}`
+    : `AI 评分点赞（${req.user!.role} ${req.user!.userId}）：${data.comment}`;
+  try {
+    await feishuClient.createRecord(config.feishu.tables.chatLogs, {
+      logId,
+      userId: req.user!.userId,
+      userName: req.user!.name ?? '',
+      message: messageText,
+      type: 'AI_FEEDBACK',
+      at: Date.now(),
+      feedback: data.action,
+      feedbackComment: data.comment,
+    });
+    return ok(res, { logId, applicationId: id, action: data.action, message: 'AI 反馈已记录' });
+  } catch (e: any) {
+    return fail(res, 500, 'AI_FEEDBACK_FAILED', e.message ?? '反馈失败');
+  }
+});
+
 const approveSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT', 'RETURN', 'TRANSFER']),
   comment: z.string().max(200).optional(),

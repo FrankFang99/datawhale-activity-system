@@ -407,6 +407,9 @@ export const adminApi = {
   auditLog: (id: string) => api.get<{ code: 0; data: { auditLog: any[] } }>(`/admin/applications/${id}/audit-log`).then((r) => r.data.data),
   draftReview: (id: string) =>
     api.post<{ code: 0; data: { applicationId: string; grade: string; score: number; draft: string; basis: string; editable: boolean } }>(`/admin/applications/${id}/draft-review`, {}).then((r) => r.data.data),
+  // Frank 28 12:18 反馈 Comment 4：AI 评分 👎/👍 反馈（badcase 收集）
+  aiFeedback: (id: string, data: { action: 'UP' | 'DOWN'; comment: string; scoreBreakdown?: any }) =>
+    api.post<{ code: 0; data: { logId: string; applicationId: string; action: string; message: string } }>(`/admin/applications/${id}/ai-feedback`, data).then((r) => r.data.data),
   assignVolunteer: (id: string, data: { volunteerId: string; remark?: string }) =>
     api.post<{ code: 0; data: any }>(`/admin/applications/${id}/assign`, data).then((r) => r.data.data),
   listVolunteers: () =>
