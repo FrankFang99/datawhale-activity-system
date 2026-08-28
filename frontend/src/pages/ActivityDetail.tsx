@@ -105,7 +105,8 @@ export default function ActivityDetail() {
   const [participantCount, setParticipantCount] = useState(0);
   const [materials, setMaterials] = useState<Material[]>([]);
   // v10 5 阶段可点击 tab + 3 步进度
-  const [selectedStage, setSelectedStage] = useState<'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW'>('INTENT');
+  // v1.9.27 Frank 28 23:28 反馈：加 'all' 选项，一次性看到所有 5 阶段
+  const [selectedStage, setSelectedStage] = useState<'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW' | 'all'>('INTENT');
   const [appId, setAppId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<StageTask[]>([]);
   const [tasksLoading, setTasksLoading] = useState(false);
@@ -408,11 +409,15 @@ export default function ActivityDetail() {
           block
           value={selectedStage}
           onChange={(v) => {
-            const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW';
+            const s = v as 'INTENT' | 'RECRUIT' | 'PREPARE' | 'EXECUTE' | 'REVIEW' | 'all';
             setSelectedStage(s);
-            if (!isPending) loadTasksForStage(s);
+            if (s !== 'all' && !isPending) loadTasksForStage(s);
           }}
-          options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
+          // v1.9.27 Frank 28 23:28 反馈：加 "全部" 选项，一次性看到所有 5 阶段
+          options={[
+            { label: '📋 全部 5 阶段', value: 'all' },
+            ...STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage })),
+          ]}
           style={{ marginBottom: 16 }}
         />
 
@@ -444,78 +449,134 @@ export default function ActivityDetail() {
             title={
               <Space>
                 <FileTextOutlined />
-                <span>阶段任务 · {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.title ?? ''}</span>
-                <Tag color="blue">{STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.hint ?? ''}</Tag>
-                {getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
+                {selectedStage === 'all' ? (
+                  <span>阶段任务 · 全部 5 阶段（共 19 个子任务）</span>
+                ) : (
+                  <span>阶段任务 · {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.title ?? ''}</span>
+                )}
+                {selectedStage !== 'all' && (
+                  <Tag color="blue">{STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.hint ?? ''}</Tag>
+                )}
+                {selectedStage !== 'all' && getCurrentStage(activity) === STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage) && (
                   <Tag color="green">当前阶段</Tag>
                 )}
                 {!appId && <Tag color="orange">模板预览（活动未申请）</Tag>}
               </Space>
             }
           >
-            <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-              <ClockCircleOutlined /> {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.desc}
-            </Paragraph>
+            {selectedStage !== 'all' && (
+              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
+                <ClockCircleOutlined /> {STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.desc}
+              </Paragraph>
+            )}
             {appId ? (
               <>
                 {tasksLoading && <Spin />}
-                {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
-                  <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                )}
-                {/* v1.9.18 Frank 28 21:19 反馈：上一阶段子任务没全完成时，下一阶段子任务按钮应 disabled */}
+                {/* v1.9.27 Frank 28 23:28 反馈：'all' 模式渲染所有 5 阶段子任务，按阶段分组 */}
                 {(() => {
-                  const stageIdx = STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage);
-                  const prevStage = stageIdx > 0 ? STAGE_TEMPLATES_FRANK[stageIdx - 1] : null;
-                  const prevStageTasks = prevStage ? tasks.filter((t) => t.stage === prevStage.stage) : [];
-                  // 第一个阶段（INTENT）永远没 prevStage → true
-                  const prevStageCompleted =
-                    !prevStage || (prevStageTasks.length > 0 && prevStageTasks.every((t) => t.status === 'COMPLETED'));
+                  if (selectedStage === 'all') {
+                    const allTasks = tasks.slice().sort((a, b) => {
+                      if (a.stage !== b.stage) return STAGES.findIndex((s) => s.stage === a.stage) - STAGES.findIndex((s) => s.stage === b.stage);
+                      return (a.order ?? 0) - (b.order ?? 0);
+                    });
+                    if (allTasks.length === 0) {
+                      return <Empty description="暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+                    }
+                    return (
+                      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                        {STAGES.map((s) => {
+                          const stageTasks = allTasks.filter((t) => t.stage === s.stage);
+                          if (stageTasks.length === 0) return null;
+                          const stageDoneCount = stageTasks.filter((t) => t.status === 'COMPLETED').length;
+                          return (
+                            <div key={s.stage}>
+                              <Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>
+                                {s.title} <Tag color={stageDoneCount === stageTasks.length ? 'green' : 'blue'}>{stageDoneCount}/{stageTasks.length}</Tag>
+                              </Title>
+                              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                {stageTasks.map((t) => (
+                                  <SubTaskCard
+                                    key={t.taskId}
+                                    task={t}
+                                    user={user}
+                                    appUserId={appUserId}
+                                    appVolunteerId={appVolunteerId}
+                                    onRefresh={load}
+                                    prevStageCompleted={true}
+                                    prevStageName={undefined}
+                                  />
+                                ))}
+                              </Space>
+                            </div>
+                          );
+                        })}
+                      </Space>
+                    );
+                  }
+                  // 单阶段模式
                   return (
-                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                      {tasks
-                        .filter((t) => t.stage === selectedStage)
-                        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-                        .map((t) => (
-                          <SubTaskCard
-                            key={t.taskId}
-                            task={t}
-                            user={user}
-                            // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
-                            appUserId={appUserId}
-                            appVolunteerId={appVolunteerId}
-                            onRefresh={load}
-                            prevStageCompleted={prevStageCompleted}
-                            prevStageName={prevStage?.title}
-                          />
-                        ))}
-                    </Space>
+                    <>
+                      {!tasksLoading && tasks.filter((t) => t.stage === selectedStage).length === 0 && (
+                        <Empty description="该阶段暂无子任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                      )}
+                      {/* v1.9.18 Frank 28 21:19 反馈：上一阶段子任务没全完成时，下一阶段子任务按钮应 disabled */}
+                      {(() => {
+                        const stageIdx = STAGE_TEMPLATES_FRANK.findIndex((s) => s.stage === selectedStage);
+                        const prevStage = stageIdx > 0 ? STAGE_TEMPLATES_FRANK[stageIdx - 1] : null;
+                        const prevStageTasks = prevStage ? tasks.filter((t) => t.stage === prevStage.stage) : [];
+                        // 第一个阶段（INTENT）永远没 prevStage → true
+                        const prevStageCompleted =
+                          !prevStage || (prevStageTasks.length > 0 && prevStageTasks.every((t) => t.status === 'COMPLETED'));
+                        return (
+                          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                            {tasks
+                              .filter((t) => t.stage === selectedStage)
+                              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                              .map((t) => (
+                                <SubTaskCard
+                                  key={t.taskId}
+                                  task={t}
+                                  user={user}
+                                  // v1.2 Frank 27 21:40：传 application 的 userId/volunteerId 给按钮过滤
+                                  appUserId={appUserId}
+                                  appVolunteerId={appVolunteerId}
+                                  onRefresh={load}
+                                  prevStageCompleted={prevStageCompleted}
+                                  prevStageName={prevStage?.title}
+                                />
+                              ))}
+                          </Space>
+                        );
+                      })()}
+                    </>
                   );
                 })()}
               </>
             ) : (
               // Frank 28 14:39 反馈：没申请的活动用 STAGE_TEMPLATES_FRANK 模板渲染
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                {(STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)?.subTasks ?? []).map((t) => (
-                  <TemplateSubTaskCard key={`${selectedStage}-${t.order}`} template={t} />
+              // v1.9.27 'all' 模式：渲染所有阶段的子任务模板
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                {(selectedStage === 'all'
+                  ? STAGE_TEMPLATES_FRANK
+                  : [STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage)].filter(Boolean) as any[]
+                ).map((s) => (
+                  <div key={s.stage}>
+                    <Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>
+                      {s.title} <Tag color="blue">{s.subTasks.length} 项</Tag>
+                    </Title>
+                    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      {s.subTasks.map((t: any) => (
+                        <TemplateSubTaskCard key={`${s.stage}-${t.order}`} template={t} />
+                      ))}
+                    </Space>
+                  </div>
                 ))}
               </Space>
             )}
             {/* v16.2 Frank 10:30 Comment 3：不显示提示块 */}
 
-            {/* Frank 2026-08-23 09:17 反馈 Comment 5：每阶段底部"进入下一阶段"按钮
-                - 阶段所有子任务 COMPLETED → 激活
-                - 未完成 → 灰色锁定 + 提示"完成本阶段 N 项后激活"
-                - 点击 → 切换到下一阶段
-                - 最后阶段 REVIEW → 显示"活动已完结"
-                - v13 Frank 14:12 反馈 Comment 6：组织者完成所有子任务 → 解锁此按钮 → 消息通知志愿者审核
-                - v16.2 Frank 10:30 反馈 Comment 4：按 ownerType 区分
-                  · ownerType=ORGANIZER 子任务：需 3 步都完成（自核 + 志愿者审核通过 + 运营复核通过）
-                  · ownerType=VOLUNTEER 子任务：需自己打勾（自核完成）
-                  · ownerType=OPERATOR 子任务：不计入解锁条件
-                - v16.4 Frank 13:26 反馈：运营复核只在 UNCERTAIN 时介入
-                  · ORGANIZER 子任务：自核 + 志愿者审核通过 = 完成（**不依赖运营复核**）
-                  · 运营复核只在志愿者 UNCERTAIN（无法判断）时介入 */}
-            {(() => {
+            {/* v1.9.27 'all' 模式不显示底部"进入下一阶段"按钮（5 阶段一起看，不需要 stage 锁提示） */}
+            {selectedStage !== 'all' && (() => {
               const stageTasks = tasks.filter((t) => t.stage === selectedStage);
               const stageOrder = STAGES.findIndex((s) => s.stage === selectedStage);
               const nextStage = STAGES[stageOrder + 1];
@@ -1332,27 +1393,24 @@ function SubTaskCard({
         cancelText="取消"
         width={520}
       >
-        <Form form={submitForm} layout="vertical" requiredMark={false}>
+        <Form form={submitForm} layout="vertical">
           {/* v16.8 Frank 22:16 反馈 Comment 1：按 credSpec.proofCategories 动态渲染分类 Form.Item
-              v1.9.19 Frank 28 21:27 反馈：4 个字段类型（text / timeRange / multiImage / url）按 category 名映射 */}
+              v1.9.19 Frank 28 21:27 反馈：4 个字段类型（text / timeRange / multiImage / url）按 category 名映射
+              v1.9.27 Frank 28 23:28 反馈：恢复 v1.9.21 方式（label={cat} + required={!isOptional} + 动态 rules） */}
           {credSpec?.proofCategories && credSpec.proofCategories.length > 0 ? (
             credSpec.proofCategories.map((cat) => {
               const catType = inferProofCategoryType(cat);
               // v1.9.21 Frank 28 22:18 反馈：label 含"（可选）"的 category 不加红星
-              // v1.9.23 Frank 28 22:43 反馈：antd required={false} 不可靠，强制刷新后红星还在
-              // → 改用 JSX label 自定义渲染（不依赖 antd 红星机制）
               const isOptional = isProofCategoryOptional(cat);
-              const labelNode = isOptional
-                ? <span style={{ color: '#999' }}>{cat}</span>
-                : cat;
               if (catType === 'text') {
                 // Frank 28 21:27 Comment 1：精确地址 = 填空题（Input）
                 return (
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={labelNode}
+                      label={cat}
                       tooltip="精确到门牌号（填空题）"
+                      required={!isOptional}
                       rules={isOptional ? [] : [{ required: true, message: '请填写精确地址' }]}
                     >
                       <Input placeholder="如：清华大学教学楼 A501" maxLength={200} showCount />
@@ -1366,8 +1424,9 @@ function SubTaskCard({
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={labelNode}
+                      label={cat}
                       tooltip="下拉选择开始和结束时间"
+                      required={!isOptional}
                       rules={isOptional ? [] : [{
                         validator: async (_, v) => {
                           if (!Array.isArray(v) || v.length !== 2 || !v[0] || !v[1]) {
@@ -1392,8 +1451,9 @@ function SubTaskCard({
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={labelNode}
+                      label={cat}
                       tooltip="飞书文档链接（单个 URL）"
+                      required={!isOptional}
                       rules={isOptional ? [{
                         validator: async (_, v) => {
                           if (!v) return Promise.resolve();
@@ -1431,8 +1491,9 @@ function SubTaskCard({
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={labelNode}
+                      label={cat}
                       tooltip="每行 1 个图片 URL（点击下方「上传图片」可粘贴/拖拽多张）"
+                      required={!isOptional}
                       rules={isOptional ? [] : [{
                         validator: async (_, v) => {
                           const lines = String(v ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -1492,11 +1553,12 @@ function SubTaskCard({
                 <div key={cat}>
                   <Form.Item
                     name={`proofFile_${cat}`}
-                    label={labelNode}
+                    label={cat}
                     tooltip="每行 1 个 URL（飞书文档/网盘/截图）。点击下方「上传图片」按钮可粘贴/拖拽图片"
                     // v1.9.17 Frank 28 21:10 反馈：必填字段加红星（原 validator 只校验 URL 格式，不显示红星 + 不阻止空提交）
                     // v1.9.21 Frank 28 22:18：可选的 category 不加红星
-                    // v1.9.23 Frank 28 22:43：antd required={false} 不可靠，label 用 JSX 自定义
+                    // v1.9.27 Frank 28 23:28：恢复 v1.9.21 方式（label + required + 动态 rules）
+                    required={!isOptional}
                     rules={isOptional ? [{
                       validator: async (_, v) => {
                         if (!v) return Promise.resolve();

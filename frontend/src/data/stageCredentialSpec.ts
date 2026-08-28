@@ -326,20 +326,20 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     proofCategories: [
       // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
       '横版高清照片（≥1 张）',
-      '视频（可选 · 讲座/实操关键片段）',
+      // v1.9.27 Frank 28 23:28 反馈：视频那题删去
       '社媒截图/链接（参与者发布作品 #DatawhaleAI+X创造节）',
     ],
     whatToDo: [
       // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
       '拍摄横版高清照片（≥1 张）',
-      // v1.9.25 Frank 28 22:58 反馈：视频标注"可选，需要和志愿者商量上传方式"
-      '视频（讲座/实操关键片段，可选，需要和志愿者商量上传方式）',
+      // v1.9.27 Frank 28 23:28 反馈：视频那题删去
       '引导参与者在社媒发布作品 + 带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
       '[@Datawhale](https://www.datawhale.cn/) 官方账号',
     ],
     passCriteria: [
       // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
-      '素材链接 ≥1 个（照片 ≥1 + 视频可选）',
+      // v1.9.27 删视频相关描述
+      '素材链接 ≥1 个（照片）',
       '横版高清（≥1920×1080）',
       '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) + [@Datawhale](https://www.datawhale.cn/)',
     ],

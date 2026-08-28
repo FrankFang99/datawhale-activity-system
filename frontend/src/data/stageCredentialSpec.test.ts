@@ -111,12 +111,12 @@ describe('v1.3 凭证分类 proofCategories（Frank 27 23:50 TDD 迭代）', () 
     expect(spec?.proofCategories?.[1]).toContain('徽章');
   });
 
-  it('采集现场素材有 3 类凭证（横版高清/视频/社媒）', () => {
+  it('采集现场素材有 2 类凭证（横版高清/社媒）· v1.9.27 删视频分类', () => {
     const spec = findCredentialSpec('采集现场素材（横版高清）');
-    expect(spec?.proofCategories?.length).toBe(3);
+    expect(spec?.proofCategories?.length).toBe(2);
   });
 
-  it('总共有 8 个子任务有 proofCategories', () => {
+  it('总共有 8 个子任务有 proofCategories（v1.9.27 删视频只影响 EXECUTE-3 proofCategories 数量，不影响 subTask 总数）', () => {
     const withCategories = CREDENTIAL_SPECS.filter((s) => s.proofCategories && s.proofCategories.length > 0);
     expect(withCategories.length).toBe(8);
   });
