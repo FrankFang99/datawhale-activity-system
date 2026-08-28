@@ -425,6 +425,8 @@ export const adminApi = {
   publishActivity: (id: string) => api.post<{ code: 0; data: any }>(`/admin/activities/${id}/publish`, {}).then((r) => r.data.data),
   unpublishActivity: (id: string) => api.post<{ code: 0; data: any }>(`/admin/activities/${id}/unpublish`, {}).then((r) => r.data.data),
   archiveActivity: (id: string) => api.post<{ code: 0; data: any }>(`/admin/activities/${id}/archive`, {}).then((r) => r.data.data),
+  // Frank 28 14:39 反馈：硬删除活动（级联删申请/子任务/消息/报销/参与者）
+  deleteActivity: (id: string) => api.delete<{ code: 0; data: any }>(`/admin/activities/${id}`).then((r) => r.data.data),
 };
 
 // ===== Volunteer Workbench（v5 · VOLUNTEER 默认工作台）=====

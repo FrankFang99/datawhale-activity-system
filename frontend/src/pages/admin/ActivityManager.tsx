@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Space, Modal, Form, Input, DatePicker, TimePicker, InputNumber, Select, Cascader, message, Typography, Popconfirm, Tabs, Alert, Upload,
 } from 'antd';
-import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined, UploadOutlined, LoadingOutlined, UserAddOutlined, SwapOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined, InboxOutlined, EyeOutlined, UploadOutlined, LoadingOutlined, UserAddOutlined, SwapOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import http, { adminApi } from '../../services/api';
 
@@ -222,6 +222,15 @@ export default function ActivityManager() {
     } catch { /* */ }
   };
 
+  // Frank 28 14:39 反馈：硬删除活动（级联删申请/子任务/消息/报销/参与者，不可恢复）
+  const onDelete = async (a: Activity) => {
+    try {
+      const r = await adminApi.deleteActivity(a.activityId);
+      message.success(`已删除：${a.title}（${r.message}）`, 5);
+      load();
+    } catch { /* 拦截器已处理 */ }
+  };
+
   const filteredList = filter === 'ALL' ? list : list.filter((a) => a.status === filter);
 
   return (
@@ -297,6 +306,32 @@ export default function ActivityManager() {
                       <Button size="small" icon={<InboxOutlined />}>归档</Button>
                     </Popconfirm>
                   )}
+                  {/*
+                    Frank 28 14:39 反馈：硬删除按钮（红色 danger + 二次确认）
+                    - 不可恢复：级联删申请/子任务/消息/报销/参与者
+                    - 仅 ADMIN 可见（后端 requireRole('ADMIN')）
+                    - 演示活动 NO.018/NO.045 不要删（演示用）
+                    - 推荐：不需要的活动先归档（可恢复），确认无用再硬删
+                  */}
+                  <Popconfirm
+                    title={
+                      <div>
+                        <div style={{ fontWeight: 600, marginBottom: 4 }}>⚠️ 硬删除活动「{a.title}」？</div>
+                        <div style={{ fontSize: 12, color: '#666' }}>
+                          将一并删除：相关申请 / 5 阶段子任务 / 站内消息 / 报销记录 / 参与者
+                        </div>
+                        <div style={{ fontSize: 12, color: '#cf1322', marginTop: 4 }}>
+                          <b>此操作不可恢复</b>，确认无用后再删除。
+                        </div>
+                      </div>
+                    }
+                    okText="确认删除"
+                    cancelText="取消"
+                    okButtonProps={{ danger: true }}
+                    onConfirm={() => onDelete(a)}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                  </Popconfirm>
                 </Space>
               ),
             },

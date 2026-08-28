@@ -8,6 +8,8 @@
  * - POST   /:id/publish       - 上架（DRAFT/PENDING → PUBLISHED）
  * - POST   /:id/unpublish     - 下架（PUBLISHED → DRAFT）
  * - POST   /:id/archive       - 归档（→ ARCHIVED）
+ * - DELETE /:id               - 硬删除活动 + 级联删申请/子任务/消息/报销/参与者
+ *                                Frank 28 14:39 反馈：需要方法把不需要的活动彻底删除
  *
  * v1 简化：不做并发控制（依赖飞书 Base 乐观锁）
  */
@@ -259,6 +261,79 @@ router.post('/:id/archive', authRequired, requireRole('ADMIN', 'OPERATOR'), asyn
 
   await feishuClient.updateRecord(config.feishu.tables.activities, a.record_id, { status: 'ARCHIVED' });
   return ok(res, { activityId: id, status: 'ARCHIVED', message: '活动已归档' });
+});
+
+// DELETE /api/admin/activities/:id - 硬删除（Frank 28 14:39 反馈）
+// 级联删 5 张表：dw_activities / dw_applications / dw_stage_tasks / dw_messages / dw_reimbursements / dw_participants
+// ⚠️ 不可恢复 — 用归档（archive）保留可恢复性，硬删除只用于确认无用的测试活动
+router.delete('/:id', authRequired, requireRole('ADMIN'), async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const startedAt = Date.now();
+  const summary = { activity: 0, applications: 0, stageTasks: 0, messages: 0, reimbursements: 0, participants: 0 };
+
+  // 1) 找活动 record
+  const actRecords = await feishuClient.searchRecords(config.feishu.tables.activities, 'activityId', id);
+  const act = actRecords[0] as ActivityRecord | undefined;
+  if (!act) return fail(res, 404, ErrorCode.ACT_001_NOT_FOUND, '活动不存在');
+
+  // 2) 找该活动的所有申请
+  const allApps = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
+  const appIds: string[] = [];
+  for (const r of (allApps.items as any[])) {
+    if (r.fields?.activityId === id) {
+      appIds.push(r.fields.applicationId);
+      const ok = await feishuClient.deleteRecord(config.feishu.tables.applications, r.record_id);
+      if (ok) summary.applications++;
+    }
+  }
+
+  // 3) 按 applicationId 级联删子任务 / 消息 / 报销（一次拉完，按 appId 过滤）
+  if (appIds.length > 0) {
+    const set = new Set(appIds);
+    const [stk, msg, rmb] = await Promise.all([
+      feishuClient.listRecords(config.feishu.tables.stageTasks, { pageSize: 500 }),
+      feishuClient.listRecords(config.feishu.tables.messages, { pageSize: 500 }),
+      feishuClient.listRecords(config.feishu.tables.reimbursements, { pageSize: 200 }),
+    ]);
+    for (const r of (stk.items as any[])) {
+      if (set.has(r.fields?.applicationId)) {
+        const ok = await feishuClient.deleteRecord(config.feishu.tables.stageTasks, r.record_id);
+        if (ok) summary.stageTasks++;
+      }
+    }
+    for (const r of (msg.items as any[])) {
+      if (set.has(r.fields?.applicationId)) {
+        const ok = await feishuClient.deleteRecord(config.feishu.tables.messages, r.record_id);
+        if (ok) summary.messages++;
+      }
+    }
+    for (const r of (rmb.items as any[])) {
+      if (set.has(r.fields?.applicationId)) {
+        const ok = await feishuClient.deleteRecord(config.feishu.tables.reimbursements, r.record_id);
+        if (ok) summary.reimbursements++;
+      }
+    }
+  }
+
+  // 4) 按 activityId 级联删参与者（dw_participants 字段是 activityId，不是 applicationId）
+  const parts = await feishuClient.listRecords(config.feishu.tables.participants, { pageSize: 500 });
+  for (const r of (parts.items as any[])) {
+    if (r.fields?.activityId === id) {
+      const ok = await feishuClient.deleteRecord(config.feishu.tables.participants, r.record_id);
+      if (ok) summary.participants++;
+    }
+  }
+
+  // 5) 最后删活动本身
+  const actOk = await feishuClient.deleteRecord(config.feishu.tables.activities, act.record_id);
+  if (actOk) summary.activity++;
+
+  return ok(res, {
+    activityId: id,
+    message: `已删除活动 + ${summary.applications} 申请 + ${summary.stageTasks} 子任务 + ${summary.messages} 消息 + ${summary.reimbursements} 报销 + ${summary.participants} 参与者`,
+    summary,
+    durationMs: Date.now() - startedAt,
+  });
 });
 
 export default router;
