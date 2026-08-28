@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import {
   Table, Tag, Button, Space, Modal, Input, Form, message, Typography, Card, Spin, Alert, Drawer, Tabs, Select,
 } from 'antd';
-import { CheckOutlined, CloseOutlined, RollbackOutlined, SwapOutlined, EyeOutlined, RobotOutlined, ThunderboltOutlined, UserAddOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, RollbackOutlined, EyeOutlined, ThunderboltOutlined, UserAddOutlined } from '@ant-design/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import http, { adminApi } from '../../services/api';
 import { authStore } from '../../store/auth';
@@ -54,24 +54,19 @@ export default function ApprovalWorkbench() {
   const [list, setList] = useState<PendingApp[]>([]);
   const [loading, setLoading] = useState(false);
   const [counts, setCounts] = useState<{ SCREENING: number; REVIEW: number }>({ SCREENING: 0, REVIEW: 0 });
-  const [actionModal, setActionModal] = useState<{
-    open: boolean;
-    app?: PendingApp;
-    action?: 'APPROVE' | 'REJECT' | 'RETURN' | 'TRANSFER';
-  }>({ open: false });
   const [detailDrawer, setDetailDrawer] = useState<{
     open: boolean;
     appId?: string;
     data?: any;
   }>({ open: false });
   const [detailLoading, setDetailLoading] = useState(false);
-  const [draftReview, setDraftReview] = useState<string | null>(null);
   const [volunteers, setVolunteers] = useState<Array<{ userId: string; email: string; name: string; province?: string }>>([]);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignVolunteerId, setAssignVolunteerId] = useState<string | undefined>();
   const [assignRemark, setAssignRemark] = useState('');
   const [assignSubmitting, setAssignSubmitting] = useState(false);
-  const [form] = Form.useForm();
+  const [drawerComment, setDrawerComment] = useState<string>('');
+  const [submittingAction, setSubmittingAction] = useState<'APPROVE' | 'REJECT' | 'RETURN' | null>(null);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const user = authStore((s) => s.user);
@@ -126,23 +121,57 @@ export default function ApprovalWorkbench() {
     load();
   }, [tab]);
 
-  const openAction = (app: PendingApp, action: 'APPROVE' | 'REJECT' | 'RETURN' | 'TRANSFER') => {
-    setActionModal({ open: true, app, action });
-    form.resetFields();
-  };
-
-  const submitAction = async () => {
-    if (!actionModal.app || !actionModal.action) return;
-    const values = await form.validateFields();
+  // v1.3 Frank 17:43 反馈 Comment 3：审批决策（通过/拒绝/打回）直接放在 Drawer 内完成，删 Modal + TRANSFER
+  const handleDecision = async (action: 'APPROVE' | 'REJECT' | 'RETURN') => {
+    if (!detailDrawer.appId) return;
+    const comment = drawerComment.trim();
+    if ((action === 'REJECT' || action === 'RETURN') && !comment) {
+      message.warning('拒绝/打回必须填写审批意见');
+      return;
+    }
+    setSubmittingAction(action);
     try {
-      const res = await http.post(`/admin/applications/${actionModal.app.applicationId}/approve`, {
-        action: actionModal.action,
-        ...values,
+      const res = await http.post(`/admin/applications/${detailDrawer.appId}/approve`, {
+        action,
+        comment: comment || undefined,
       });
       message.success(res.data.data.message);
-      setActionModal({ open: false });
+      setDetailDrawer({ open: false });
+      setDrawerComment('');
       load();
     } catch (e) {
+      /* 拦截器已处理 */
+    } finally {
+      setSubmittingAction(null);
+    }
+  };
+
+  // v1.3 Frank 17:43：AI 草拟填到 Drawer 的 drawerComment（不再走 Modal form）
+  const handleDraftReview = async () => {
+    if (!detailDrawer.appId) return;
+    if (drawerComment.trim()) {
+      Modal.confirm({
+        title: '已有人工编辑的审批意见',
+        content: '是否用 AI 草拟的意见覆盖？',
+        okText: '覆盖',
+        cancelText: '取消',
+        onOk: async () => {
+          try {
+            const d = await adminApi.draftReview(detailDrawer.appId!);
+            setDrawerComment(d.draft);
+            message.success('已草拟到审批意见（可直接修改）');
+          } catch {
+            /* 拦截器已处理 */
+          }
+        },
+      });
+      return;
+    }
+    try {
+      const d = await adminApi.draftReview(detailDrawer.appId);
+      setDrawerComment(d.draft);
+      message.success('已草拟到审批意见（可直接修改）');
+    } catch {
       /* 拦截器已处理 */
     }
   };
@@ -159,13 +188,6 @@ export default function ApprovalWorkbench() {
       setDetailLoading(false);
     }
   };
-
-  const actionText = {
-    APPROVE: '通过',
-    REJECT: '拒绝',
-    RETURN: '打回修改',
-    TRANSFER: '转交',
-  } as const;
 
   return (
     <div>
@@ -228,15 +250,6 @@ export default function ApprovalWorkbench() {
                       <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(app.applicationId)}>
                         详情
                       </Button>
-                      <Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => openAction(app, 'APPROVE')}>
-                        通过
-                      </Button>
-                      <Button size="small" danger icon={<CloseOutlined />} onClick={() => openAction(app, 'REJECT')}>
-                        拒绝
-                      </Button>
-                      <Button size="small" icon={<RollbackOutlined />} onClick={() => openAction(app, 'RETURN')}>
-                        打回
-                      </Button>
                     </Space>
                   ),
                 },
@@ -246,42 +259,7 @@ export default function ApprovalWorkbench() {
         </Spin>
       </Card>
 
-      {/* 审批操作 Modal */}
-      <Modal
-        title={actionModal.app ? `${actionText[actionModal.action!]} - ${actionModal.app.organizerName}` : ''}
-        open={actionModal.open}
-        onCancel={() => setActionModal({ open: false })}
-        onOk={submitAction}
-        okText="确认"
-        cancelText="取消"
-        okButtonProps={{ danger: actionModal.action === 'REJECT' }}
-      >
-        <Form form={form} layout="vertical">
-          {(actionModal.action === 'REJECT' || actionModal.action === 'RETURN') && (
-            <Form.Item
-              label="原因"
-              name="comment"
-              rules={[{ required: true, message: '请填写原因' }, { max: 200, message: '≤200 字符' }]}
-            >
-              <TextArea rows={3} maxLength={200} showCount placeholder={`请说明 ${actionText[actionModal.action!]} 的原因`} />
-            </Form.Item>
-          )}
-          {actionModal.action === 'TRANSFER' && (
-            <Form.Item
-              label="转交给（用户 ID）"
-              name="transferTo"
-              rules={[{ required: true, message: '请填写目标用户 ID' }]}
-            >
-              <Input placeholder="例：USR-xxxx" />
-            </Form.Item>
-          )}
-          {actionModal.action === 'APPROVE' && (
-            <Form.Item label="备注（可选）" name="comment" rules={[{ max: 200 }]}>
-              <TextArea rows={2} maxLength={200} showCount placeholder="审批意见（≤200 字符）" />
-            </Form.Item>
-          )}
-        </Form>
-      </Modal>
+      {/* v1.3 Frank 17:43 反馈 Comment 3：删审批操作 Modal（决策移到 Drawer 内） */}
 
       {/* 详情 Drawer（v6 · 3 tab：申请原文 / AI 评分 / 审核日志 + AI 草拟意见） */}
       <Drawer
@@ -297,44 +275,66 @@ export default function ApprovalWorkbench() {
                   用共享组件 ApplicationDetailBody */}
               <ApplicationDetailBody data={detailDrawer.data} applicationId={detailDrawer.appId} />
 
-              {/* Frank 28 12:18 修复：AI 草拟按钮从独立 Card 改为直接放 #comment 附近（action modal 里）
-                  - 让草拟结果直接填到审批意见 textarea，可人工修改
-                  - 草拟时检测 form.comment 已有内容 → confirm 覆盖 */}
-              <div style={{ marginTop: 16, marginBottom: 8 }}>
-                <Button
-                  type="default"
-                  size="small"
-                  icon={<ThunderboltOutlined />}
-                  onClick={async () => {
-                    const existing = form.getFieldValue('comment') ?? '';
-                    const doDraft = async () => {
-                      try {
-                        const d = await adminApi.draftReview(detailDrawer.appId!);
-                        form.setFieldsValue({ comment: d.draft });
-                        message.success('已草拟到审批意见（可直接修改）');
-                      } catch {
-                        /* 拦截器已处理 */
-                      }
-                    };
-                    if (existing && String(existing).trim()) {
-                      Modal.confirm({
-                        title: '已有人工编辑的审批意见',
-                        content: '是否用 AI 草拟的意见覆盖？',
-                        okText: '覆盖',
-                        cancelText: '取消',
-                        onOk: doDraft,
-                      });
-                    } else {
-                      await doDraft();
-                    }
-                  }}
-                >
-                  AI 草拟审核意见
-                </Button>
-                <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
-                  点击后填到下方"通过/拒绝"弹窗的"审批意见"字段，可继续修改
-                </Text>
-              </div>
+              {/* v1.3 Frank 17:43 反馈 Comment 3：审批决策完整区（原 AI 草拟按钮 + Modal 内容合并到这里）
+                  - AI 草拟填到下方 textarea
+                  - 通过/拒绝/打回 3 个按钮直接调用 API（不再弹 Modal） */}
+              <Card
+                size="small"
+                style={{ marginTop: 16, background: '#F0F8FF' }}
+                title={<Space><ThunderboltOutlined /> 审批决策</Space>}
+              >
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  <Space>
+                    <Button
+                      type="default"
+                      size="small"
+                      icon={<ThunderboltOutlined />}
+                      onClick={handleDraftReview}
+                    >
+                      AI 草拟审核意见
+                    </Button>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      点击后填到下方"审批意见"字段，可继续修改
+                    </Text>
+                  </Space>
+                  <TextArea
+                    rows={3}
+                    maxLength={200}
+                    showCount
+                    value={drawerComment}
+                    onChange={(e) => setDrawerComment(e.target.value)}
+                    placeholder="审批意见（≤200 字符）· 拒绝/打回必填，通过可选"
+                  />
+                  <Space>
+                    <Button
+                      type="primary"
+                      size="small"
+                      icon={<CheckOutlined />}
+                      loading={submittingAction === 'APPROVE'}
+                      onClick={() => handleDecision('APPROVE')}
+                    >
+                      通过
+                    </Button>
+                    <Button
+                      danger
+                      size="small"
+                      icon={<CloseOutlined />}
+                      loading={submittingAction === 'REJECT'}
+                      onClick={() => handleDecision('REJECT')}
+                    >
+                      拒绝
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<RollbackOutlined />}
+                      loading={submittingAction === 'RETURN'}
+                      onClick={() => handleDecision('RETURN')}
+                    >
+                      打回
+                    </Button>
+                  </Space>
+                </Space>
+              </Card>
 
               {/* 分配志愿者（v6 · 仅 admin/operator） */}
               {(user?.role === 'ADMIN' || user?.role === 'OPERATOR') && (

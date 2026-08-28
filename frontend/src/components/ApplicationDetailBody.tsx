@@ -236,9 +236,9 @@ export default function ApplicationDetailBody({ data, applicationId }: Applicati
                     <Col xs={12} sm={8} md={8}><ScoreCard label="场地"   code="RC001" data={data.scoreBreakdown.RC001} max={20} /></Col>
                     <Col xs={12} sm={8} md={8}><ScoreCard label="招募"   code="RC002" data={data.scoreBreakdown.RC002} max={10} /></Col>
                     <Col xs={12} sm={8} md={8}><ScoreCard label="经验"   code="RC003" data={data.scoreBreakdown.RC003} max={25} /></Col>
-                    <Col xs={12} sm={8} md={8}><ScoreCard label="时间"   code="RC004" data={data.scoreBreakdown.RC004} max={15} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="时间"   code="RC004" data={data.scoreBreakdown.RC004} max={10} /></Col>
                     <Col xs={12} sm={8} md={8}><ScoreCard label="申请动机" code="RC005" data={data.scoreBreakdown.RC005} max={15} /></Col>
-                    <Col xs={12} sm={8} md={8}><ScoreCard label="参与者价值" code="RC006" data={data.scoreBreakdown.RC006} max={15} /></Col>
+                    <Col xs={12} sm={8} md={8}><ScoreCard label="参与者价值" code="RC006" data={data.scoreBreakdown.RC006} max={20} /></Col>
                   </Row>
                 </div>
               ) : (
