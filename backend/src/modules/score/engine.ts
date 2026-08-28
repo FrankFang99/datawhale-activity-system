@@ -43,9 +43,11 @@ export interface ScoreBreakdown {
   RC001: { score: number; max: 20; reason: string; input?: string };
   RC002: { score: number; max: 10; reason: string; count?: number };
   RC003: { score: number; max: 25; reason: string; hitKeywords?: string[]; length?: number };
-  RC004: { score: number; max: 15; reason: string; input?: string; dateCount?: number };
+  // Frank 28 12:30 反馈：时间维度满分从 15 改 10（"10 个日期拿满分"），5 分挪到 RC006
+  RC004: { score: number; max: 10; reason: string; input?: string; dateCount?: number };
   RC005: { score: number; max: 15; reason: string; hitKeywords?: string[]; length?: number };
-  RC006: { score: number; max: 15; reason: string; hitKeywords?: string[]; length?: number };
+  // Frank 28 12:30 反馈：参与者价值满分 15 改 20，从时间维度挪 5 分过来
+  RC006: { score: number; max: 20; reason: string; hitKeywords?: string[]; length?: number };
   total: number;
   grade: 'S' | 'A' | 'B' | 'C' | 'D';
   scoredAt: string;
@@ -144,31 +146,28 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
   };
 }
 
-// ===== RC004 时间合理性（v3 · Frank 27 16:42 反馈：1:1 严格）=====
+// ===== RC004 时间合理性（v3.2 · Frank 28 12:30 反馈：满分 15→10）=====
 // 规则：每个日期 1 分，封顶 10 分
 //   0 个 = 0
 //   1 个 = 1
-//   2 个 = 2
 //   ...
-//   10 个 = 10
-//   10+ 个 = 10（封顶）
-// 兼容：expectedDate（历史精确日期）= 1 分（按 1 个日期计）
+//   10 个 = 10（满分）
+//   10+ 个 = 10（封顶 = 满分）
+// 兼容：expectedDate（历史精确日期）= 1 分
 function scoreDate(input: ScoreInput): ScoreBreakdown['RC004'] {
   // 兼容历史：精确日期按 1 个日期计
-  // Frank 28 12:18 修复：只有当宽泛时间（expectedTimeRangeDateCount）也为空时才走精确日期分支，
-  // 否则 10 个宽泛日期会被精确日期 fallback 误判成 1 分
   const d = input.expectedDate;
   const dc = input.expectedTimeRangeDateCount ?? 0;
   if (d && dc === 0) {
-    return { score: 1, max: 15, reason: '已选 1 个候选日期（历史精确日期）', input: '1 个日期', dateCount: 1 };
+    return { score: 1, max: 10, reason: '已选 1 个候选日期（历史精确日期）', input: '1 个日期', dateCount: 1 };
   }
   if (dc === 0) {
-    return { score: 0, max: 15, reason: '未提供候选日期', input: '', dateCount: 0 };
+    return { score: 0, max: 10, reason: '未提供候选日期', input: '', dateCount: 0 };
   }
   if (dc >= 10) {
-    return { score: 10, max: 15, reason: `已选 ${dc} 个候选日期（每日期 1 分，已封顶 10）`, input: `${dc} 个日期`, dateCount: dc };
+    return { score: 10, max: 10, reason: `已选 ${dc} 个候选日期（每日期 1 分，已封顶 10）`, input: `${dc} 个日期`, dateCount: dc };
   }
-  return { score: dc, max: 15, reason: `已选 ${dc} 个候选日期（每日期 1 分）`, input: `${dc} 个日期`, dateCount: dc };
+  return { score: dc, max: 10, reason: `已选 ${dc} 个候选日期（每日期 1 分）`, input: `${dc} 个日期`, dateCount: dc };
 }
 
 // ===== RC005 申请动机（v3 · 关键词参考 v1 6 类拆 3 类）=====
@@ -220,17 +219,17 @@ function scoreMotivation(input: ScoreInput): ScoreBreakdown['RC005'] {
   };
 }
 
-// ===== RC006 参与者价值（v3 · 关键词参考 v1 6 类拆 3 类）=====
-// 社群(5) + 就业(4) + 工具(3) + 长度(3) = 15
+// ===== RC006 参与者价值（v3.2 · Frank 28 12:30 反馈：满分 15→20）=====
+// 社群(6) + 就业(5) + 工具(3) + 量化数据(3) + 资源对接(3) = 20
+// Frank 28 12:30：把时间维度腾出的 5 分加到参与者价值，扩展为 5 维关键词
 function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC006'] {
   const text = (input.participantValue ?? '').trim();
-  if (!text) return { score: 0, max: 15, reason: '未填写参与者价值' };
+  if (!text) return { score: 0, max: 20, reason: '未填写参与者价值' };
 
   const hits: string[] = [];
   const add = (cls: string, words: string[], inc: number) => {
     for (const w of words) {
       if (text.includes(w)) {
-        // Frank 28 12:18：记录真实命中的关键词
         hits.push(`${w}(${cls})`);
         return inc;
       }
@@ -239,33 +238,34 @@ function scoreParticipantValue(input: ScoreInput): ScoreBreakdown['RC006'] {
   };
 
   let score = 0;
-  score += add('社群建设', ['社群', '社区', '交流', '平台', '网络', '圈子'], 5);
-  score += add('就业指导', ['就业', '职业', '求职', '简历', '面试', '工作'], 4);
-  score += add('工具使用', ['工具', 'AI', '大模型', '提示词', 'Prompt', '应用'], 3);
-
-  const len = text.length;
-  if (len < 10) {
-    /* +0 */
-  } else if (len < 30) {
-    score += 1;
-  } else if (len < 60) {
-    score += 2;
-  } else {
+  // 社群建设 6 分（+1 关键类别，加"协会"等扩展词）
+  score += add('社群建设', ['社群', '社区', '协会', '平台', '网络', '圈子', '生态', '共学'], 6);
+  // 就业指导 5 分
+  score += add('就业指导', ['就业', '职业', '求职', '简历', '面试', '工作', '实习'], 5);
+  // 工具使用 3 分
+  score += add('工具使用', ['工具', 'AI', '大模型', '提示词', 'Prompt', '应用', 'Demo'], 3);
+  // 量化数据 3 分（"50+ 同学" 这种）
+  if (/\d+\s*(\+|人|同学|名|位|资源)|百人|千人/.test(text)) {
+    const m = text.match(/\d+\s*(\+|人|同学|名|位|资源)|百人|千人/);
+    hits.push(m ? `${m[0]}(量化数据)` : '量化数据');
     score += 3;
   }
+  // 资源对接 3 分
+  score += add('资源对接', ['资源', '对接', '联动', '合作', '导师', '客户', '路演'], 3);
 
-  if (hits.length >= 3 && len < 5) {
+  // 防刷
+  if (hits.length >= 3 && text.length < 5) {
     score = 0;
-    return { score: 0, max: 15, reason: '疑似刷分，已清零', hitKeywords: hits, length: len };
+    return { score: 0, max: 20, reason: '疑似刷分，已清零', hitKeywords: hits, length: text.length };
   }
 
-  const final = Math.min(score, 15);
+  const final = Math.min(score, 20);
   return {
     score: final,
-    max: 15,
-    reason: final >= 10 ? '参与者价值清晰' : '有一定参与者价值',
+    max: 20,
+    reason: final >= 15 ? '参与者价值清晰，资源丰富' : final >= 10 ? '有一定参与者价值' : '参与者价值描述较弱',
     hitKeywords: hits,
-    length: len,
+    length: text.length,
   };
 }
 

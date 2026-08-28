@@ -185,6 +185,7 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
       RC003: breakdown.RC003.reason,
       RC004: breakdown.RC004.reason,
       RC005: breakdown.RC005.reason,
+      RC006: breakdown.RC006.reason,  // Frank 28 12:30 修复：之前漏了 RC006
     }),
     submittedAt: now,
   });
