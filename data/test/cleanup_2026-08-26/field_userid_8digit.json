@@ -1,1 +1,0 @@
-{"name":"userId","type":"auto_number","style":{"rules":[{"type":"text","text":"NO."},{"type":"incremental_number","length":8}]}}
