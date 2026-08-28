@@ -1332,7 +1332,7 @@ function SubTaskCard({
         cancelText="取消"
         width={520}
       >
-        <Form form={submitForm} layout="vertical">
+        <Form form={submitForm} layout="vertical" requiredMark={false}>
           {/* v16.8 Frank 22:16 反馈 Comment 1：按 credSpec.proofCategories 动态渲染分类 Form.Item
               v1.9.19 Frank 28 21:27 反馈：4 个字段类型（text / timeRange / multiImage / url）按 category 名映射 */}
           {credSpec?.proofCategories && credSpec.proofCategories.length > 0 ? (
@@ -1340,15 +1340,11 @@ function SubTaskCard({
               const catType = inferProofCategoryType(cat);
               // v1.9.21 Frank 28 22:18 反馈：label 含"（可选）"的 category 不加红星
               // v1.9.23 Frank 28 22:43 反馈：antd required={false} 不可靠，强制刷新后红星还在
-              // v1.9.24 Frank 28 22:48 反馈：JSX label 也不生效（antd 内部仍加红星元素）
-              // → 终极方案：在 label JSX 里手动加红星 span（不依赖 antd 红星行为）
+              // → 改用 JSX label 自定义渲染（不依赖 antd 红星机制）
               const isOptional = isProofCategoryOptional(cat);
-              const labelNode = (
-                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                  {!isOptional && <span style={{ color: '#ff4d4f', marginRight: 4, lineHeight: 1 }}>*</span>}
-                  <span style={{ color: isOptional ? '#999' : 'inherit' }}>{cat}</span>
-                </span>
-              );
+              const labelNode = isOptional
+                ? <span style={{ color: '#999' }}>{cat}</span>
+                : cat;
               if (catType === 'text') {
                 // Frank 28 21:27 Comment 1：精确地址 = 填空题（Input）
                 return (

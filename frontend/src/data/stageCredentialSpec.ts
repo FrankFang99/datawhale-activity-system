@@ -332,7 +332,8 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
     whatToDo: [
       // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
       '拍摄横版高清照片（≥1 张）',
-      '视频可选（讲座/实操关键片段）',
+      // v1.9.25 Frank 28 22:58 反馈：视频标注"可选，需要和志愿者商量上传方式"
+      '视频（讲座/实操关键片段，可选，需要和志愿者商量上传方式）',
       '引导参与者在社媒发布作品 + 带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
       '[@Datawhale](https://www.datawhale.cn/) 官方账号',
     ],
