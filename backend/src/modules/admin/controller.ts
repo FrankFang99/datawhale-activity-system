@@ -208,7 +208,7 @@ router.get('/:id', authRequired, requireRole('OPERATOR', 'ADMIN', 'VOLUNTEER'), 
     if (records.length > 0) break;
   }
   if (records.length === 0) {
-    const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 500 });
+    const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
     records = items.filter((r: any) =>
       r.fields.applicationId === id ||
       r.fields.applicationNo === id ||

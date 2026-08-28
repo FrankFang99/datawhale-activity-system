@@ -439,8 +439,9 @@ router.get('/:id', authRequired, async (req: Request, res: Response) => {
     if (records.length > 0) break;
   }
   // 仍找不到：list 全表 + 内存过滤（兜底 100% 能找到）
+  // Frank 28 12:54 修复：lark-cli 1.0.88 --limit 最大 200，pageSize 500 报错
   if (records.length === 0) {
-    const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 500 });
+    const { items } = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
     records = items.filter((r: any) =>
       r.fields.applicationId === id ||
       r.fields.applicationNo === id ||
