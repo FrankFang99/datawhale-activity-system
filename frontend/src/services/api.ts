@@ -61,6 +61,8 @@ export interface Activity {
   series?: string;  // v4 修订：所属系列
   // v6：飞书群二维码（v1 是 URL，v2 走飞书上传）
   groupQrCode?: string;
+  // v1.9.15 Frank 28 18:36 反馈：子任务「双方最终确认」完成后写 confirmedAddress，活动页应优先用
+  confirmedAddress?: string;
   // v1.2 Frank 22:29：是否已确定组织者（false = 还没人申请通过 = 显示「申请成为组织者」按钮）
   hasOrganizer?: boolean;
   needOrganizer?: boolean;

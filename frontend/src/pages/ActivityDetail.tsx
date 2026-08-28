@@ -13,6 +13,7 @@ import { activityApi, participantApi, interestApi, materialApi, applicationApi, 
 import { authStore } from '../store/auth';
 import { STAGE_TEMPLATES_FRANK, canViewSubTasks, Stage, SubTask } from '../data/stageSubtasks';
 import { findCredentialSpec, getButtonType } from '../data/stageCredentialSpec';
+import ProofFileList from '../components/ProofFileList';
 
 // v1.5 Frank 28 09:31 反馈：把 proofHint 文字里的 markdown 超链接 [文字](URL) 解析为可点击 <a>
 // 也支持纯 URL（没 markdown 包装的）自动转链接
@@ -343,7 +344,8 @@ export default function ActivityDetail() {
               {activity.startDate} ~ {activity.endDate}
             </Descriptions.Item>
             <Descriptions.Item label={<><EnvironmentOutlined /> 地点</>}>
-              {activity.location}
+              {/* v1.9.15 Frank 28 18:36 反馈：子任务「双方最终确认」完成后写 confirmedAddress，活动页应该用新值 */}
+              {activity.confirmedAddress || activity.location}
             </Descriptions.Item>
             <Descriptions.Item label={<><TeamOutlined /> 规模</>}>
               最多 {activity.maxParticipants} 人 · 已报名 <Text strong style={{ color: '#3370FF' }}>{participantCount}</Text> 人
@@ -1183,65 +1185,9 @@ function SubTaskCard({
         </div>
       )}
 
-      {/* 凭证链接（如果有）· v16.7 Frank 21:19 Comment 1：多文件 + v16.8 Frank 22:16 分类显示 */}
-      {task.proofFile && (() => {
-        // 尝试解析 JSON 分类格式
-        let categorized: Record<string, string> | null = null;
-        try {
-          const parsed = JSON.parse(task.proofFile);
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            categorized = parsed;
-          }
-        } catch { /* 不是 JSON，按行分隔处理 */ }
-
-        if (categorized) {
-          // 分类显示
-          return (
-            <div style={{ marginBottom: 8, fontSize: 12 }}>
-              <div style={{ color: '#6B7280', marginBottom: 4 }}>📎 凭证（分类）：</div>
-              {Object.entries(categorized).map(([cat, urls]) => {
-                const lines = String(urls).split('\n').map((s) => s.trim()).filter(Boolean);
-                if (lines.length === 0) return null;
-                return (
-                  <div key={cat} style={{ marginLeft: 12, marginBottom: 6 }}>
-                    <div style={{ color: '#374151', fontWeight: 600, marginBottom: 2 }}>{cat}（{lines.length} 项）：</div>
-                    {lines.map((url, i) => (
-                      <div key={i} style={{ marginLeft: 16, marginBottom: 1 }}>
-                        {i + 1}. <a href={url} target="_blank" rel="noopener noreferrer">{url.length > 60 ? url.slice(0, 60) + '...' : url}</a>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-              {task.organizerSubmittedAt && (
-                <div style={{ color: '#999', marginTop: 4, fontSize: 11 }}>
-                  上传时间：{new Date(task.organizerSubmittedAt).toLocaleString('zh-CN')}
-                </div>
-              )}
-            </div>
-          );
-        }
-
-        // 普通多行（每行 1 个 URL）
-        const lines = task.proofFile.split('\n').map((s) => s.trim()).filter(Boolean);
-        return (
-          <div style={{ marginBottom: 8, fontSize: 12 }}>
-            <div style={{ color: '#6B7280', marginBottom: 4 }}>
-              📎 凭证（{lines.length} 项）：
-            </div>
-            {lines.map((url, i) => (
-              <div key={i} style={{ marginLeft: 16, marginBottom: 2 }}>
-                {i + 1}. <a href={url} target="_blank" rel="noopener noreferrer">{url.length > 60 ? url.slice(0, 60) + '...' : url}</a>
-              </div>
-            ))}
-            {task.organizerSubmittedAt && (
-              <div style={{ color: '#999', marginTop: 4, fontSize: 11 }}>
-                上传时间：{new Date(task.organizerSubmittedAt).toLocaleString('zh-CN')}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+      {/* 凭证链接（如果有）· v16.7 Frank 21:19 Comment 1：多文件 + v16.8 Frank 22:16 分类显示
+          v1.9.15 Frank 28 18:36 抽成 ProofFileList 组件（志愿者/运营审核 Modal 复用） */}
+      <ProofFileList proofFile={task.proofFile} uploadedAt={task.organizerSubmittedAt} />
 
       {/* v16.1 Frank 08:32 反馈：凭证规范块（"📋 需要做什么" + "✅ 通过标准"）— 核心信息 */}
       {credSpec && (
@@ -1432,7 +1378,8 @@ function SubTaskCard({
         </Form>
       </Modal>
 
-      {/* 志愿者审核 Modal — Frank 09:17 反馈加 UNCERTAIN（无法判断）按钮 */}
+      {/* 志愿者审核 Modal — Frank 09:17 反馈加 UNCERTAIN（无法判断）按钮
+          v1.9.15 Frank 28 18:36 顶部加 ProofFileList 让志愿者看到组织者上传的凭证后再决策 */}
       <Modal
         title={`志愿者审核 · ${task.subTaskName ?? task.title}`}
         open={reviewOpen}
@@ -1450,6 +1397,7 @@ function SubTaskCard({
         ]}
         width={520}
       >
+        <ProofFileList proofFile={task.proofFile} uploadedAt={task.organizerSubmittedAt} />
         <Form form={reviewForm} layout="vertical">
           <Form.Item name="reviewRemark" label="审核意见（REJECT/UNCERTAIN 时必填）" rules={[{ max: 500 }]}>
             <Input.TextArea rows={4} maxLength={500} showCount placeholder="如：证据充分/证据不足需补充..." />
@@ -1457,7 +1405,7 @@ function SubTaskCard({
         </Form>
       </Modal>
 
-      {/* 运营复核 Modal */}
+      {/* 运营复核 Modal — v1.9.15 Frank 28 18:36 顶部加 ProofFileList 让运营看到组织者凭证后再决策 */}
       <Modal
         title={`运营复核 · ${task.subTaskName ?? task.title}`}
         open={opReviewOpen}
@@ -1472,6 +1420,7 @@ function SubTaskCard({
         ]}
         width={520}
       >
+        <ProofFileList proofFile={task.proofFile} uploadedAt={task.organizerSubmittedAt} />
         <Form form={opReviewForm} layout="vertical">
           <Form.Item name="operatorReviewRemark" label="复核意见（REJECT 时必填）" rules={[{ max: 500 }]}>
             <Input.TextArea rows={4} maxLength={500} showCount placeholder="如：合规通过/不合规需重新提交..." />
