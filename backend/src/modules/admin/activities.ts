@@ -266,7 +266,8 @@ router.post('/:id/archive', authRequired, requireRole('ADMIN', 'OPERATOR'), asyn
 // DELETE /api/admin/activities/:id - 硬删除（Frank 28 14:39 反馈）
 // 级联删 5 张表：dw_activities / dw_applications / dw_stage_tasks / dw_messages / dw_reimbursements / dw_participants
 // ⚠️ 不可恢复 — 用归档（archive）保留可恢复性，硬删除只用于确认无用的测试活动
-router.delete('/:id', authRequired, requireRole('ADMIN'), async (req: Request, res: Response) => {
+// Frank 28 14:55 反馈：运营也要有删除权限（requireRole('ADMIN', 'OPERATOR')）
+router.delete('/:id', authRequired, requireRole('ADMIN', 'OPERATOR'), async (req: Request, res: Response) => {
   const { id } = req.params;
   const startedAt = Date.now();
   const summary = { activity: 0, applications: 0, stageTasks: 0, messages: 0, reimbursements: 0, participants: 0 };
