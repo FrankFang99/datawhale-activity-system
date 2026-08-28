@@ -715,9 +715,13 @@ function SubTaskCard({
     && task.reviewStatus !== 'APPROVED'
     && task.reviewStatus !== 'UNCERTAIN'
     && task.reviewStatus !== 'REJECTED';
-  // v16.8 Frank 22:16 反馈：APPROVED/REJECTED 后运营不能再复核
+  // v1.5 Frank 28 反馈：仅 UNCERTAIN 旁路才显示运营复核按钮
+  //  - 正常 2 步：志愿 APPROVE 任务已完成，运营无需复核
+  //  - 正常 2 步：志愿 REJECT 任务回退到 step1，运营无需复核
+  //  - UNCERTAIN 旁路：等运营介入，可以 APPROVE/REJECT
   const canOperatorReview =
     isAdminOp && show3Step && step1Done
+    && task.reviewStatus === 'UNCERTAIN'
     && task.operatorReviewStatus !== 'APPROVED'
     && task.operatorReviewStatus !== 'REJECTED';
 

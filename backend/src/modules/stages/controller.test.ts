@@ -72,7 +72,8 @@ describe('stages controller · 运营复核新接口（v10）', () => {
     const s = SRC();
     // UNCERTAIN 路由块内调 sendMessage
     const reviewIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/review['"]/);
-    const slice = s.slice(reviewIdx, reviewIdx + 6000);
+    // v1.5: stakeholder check 加长了 review 路由，slice 6000 → 10000
+    const slice = s.slice(reviewIdx, reviewIdx + 10000);
     expect(slice).toMatch(/sendMessage\s*\(/);
     // UNCERTAIN 分支包含 OPERATOR|ADMIN 过滤
     expect(slice).toMatch(/['"]OPERATOR['"]\s*\|\|\s*r\s*===\s*['"]ADMIN['"]/);
@@ -101,6 +102,45 @@ describe('stages controller · 运营复核新接口（v10）', () => {
     const routeIdx = s.search(/router\.post\(['"]\/stages\/:taskId\/operator-review['"]/);
     const slice = s.slice(routeIdx, routeIdx + 2500);
     expect(slice).toMatch(/打回需填写原因/);
+  });
+});
+
+describe('stages controller · v1.5 Frank 28 反馈：审核流程（仅 UNCERTAIN 旁路才需要运营复核）', () => {
+  const OP_ROUTE_RE = /router\.post\(['"]\/stages\/:taskId\/operator-review['"]/;
+
+  it('operator-review 路由：reviewStatus=APPROVED → 拒绝（任务已完成）', () => {
+    const s = SRC();
+    const routeIdx = s.search(OP_ROUTE_RE);
+    const slice = s.slice(routeIdx, routeIdx + 3000);
+    expect(slice).toMatch(/志愿已审核通过，任务已完成，无需运营复核/);
+  });
+
+  it('operator-review 路由：reviewStatus=REJECTED → 拒绝（任务已回退）', () => {
+    const s = SRC();
+    const routeIdx = s.search(OP_ROUTE_RE);
+    const slice = s.slice(routeIdx, routeIdx + 3000);
+    expect(slice).toMatch(/志愿已打回，任务已回退到 step1，无需运营复核/);
+  });
+
+  it('operator-review 路由：reviewStatus=UNCERTAIN → 允许（旁路）', () => {
+    const s = SRC();
+    const routeIdx = s.search(OP_ROUTE_RE);
+    const slice = s.slice(routeIdx, routeIdx + 3000);
+    // 注释 + 旁路条件都提到 UNCERTAIN
+    expect(slice).toMatch(/UNCERTAIN/);
+  });
+
+  it('operator-review APPROVE UNCERTAIN 时把 task 推到 COMPLETED + reviewStatus=APPROVED', () => {
+    const s = SRC();
+    const routeIdx = s.search(OP_ROUTE_RE);
+    const slice = s.slice(routeIdx, routeIdx + 3000);
+    // 找 updateRecord 块
+    const updateIdx = slice.search(/updateRecord.*t\.record_id,\s*\{[\s\S]*?operatorReviewerId/);
+    expect(updateIdx).toBeGreaterThan(0);
+    const updateSlice = slice.slice(updateIdx, updateIdx + 1500);
+    // 包含 push to COMPLETED + APPROVED
+    expect(updateSlice).toMatch(/status:\s*['"]COMPLETED['"]/);
+    expect(updateSlice).toMatch(/reviewStatus:\s*['"]APPROVED['"]/);
   });
 });
 

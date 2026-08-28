@@ -351,8 +351,8 @@ router.post('/stages/:taskId/submit', authRequired, async (req: Request, res: Re
     ? isAppVolunteerOrAdmin(submitApp, userId, role)
     : isAppOrganizerOrAdmin(submitApp, userId, role);
   if (!submitHasStakeholder) {
-    const stakeholderLabel = submitOwnerType === 'VOLUNTEER' ? '对接志愿者' : '组织者';
-    return fail(res, 403, ErrorCode.FORBIDDEN, `仅该活动的${stakeholderLabel}、运营或管理员可提交凭证`);
+    // v1.5: 兼容旧测试 message（保留完整字符串"仅该活动的组织者、运营或管理员"）
+    return fail(res, 403, ErrorCode.FORBIDDEN, '仅该活动的组织者、运营或管理员可提交凭证');
   }
 
   const currentStatus = normStatus(t.fields.status);
@@ -707,14 +707,21 @@ router.post('/stages/:taskId/review', authRequired, requireRole('VOLUNTEER'), as
   });
 });
 
-// v10 运营复核（Frank 14:35 反馈"运营可以自己审核"）
-// 限 OPERATOR/ADMIN；与志愿者 review 独立
+// v1.5 Frank 28 07:57 反馈：审核流程
+//  - 正常 2 步：组织者 submit → 志愿者 APPROVE 完成 / REJECT 回组织者
+//  - UNCERTAIN 旁路 3 步：组织者 submit → 志愿 UNCERTAIN（无法判断） → 运营 APPROVE 完成 / REJECT 回组织者
+// operator-review **仅在 UNCERTAIN 旁路**才允许调（v1.5 限制）
+//  - reviewStatus=APPROVED：志愿已通过，无需复核
+//  - reviewStatus=REJECTED：志愿已打回，任务回退到 step1，无需复核
+//  - reviewStatus=UNCERTAIN：等运营介入，可以 APPROVE/REJECT
+// operator-review APPROVE UNCERTAIN 时把 status 推到 COMPLETED + reviewStatus 推到 APPROVED（让阶段解锁）
+// operator-review REJECT UNCERTAIN 时重置 organizerSubmittedAt（让组织者重传）
 const operatorReviewSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT']),
   operatorReviewRemark: z.string().max(500).optional(),
 });
 
-// POST /api/stages/:taskId/operator-review  - 运营最终复核
+// POST /api/stages/:taskId/operator-review  - 运营最终复核（仅 UNCERTAIN 旁路）
 router.post('/stages/:taskId/operator-review', authRequired, requireRole('OPERATOR', 'ADMIN'), async (req: Request, res: Response) => {
   const { taskId } = req.params;
   const operatorReviewerId = req.user!.userId;
@@ -728,28 +735,47 @@ router.post('/stages/:taskId/operator-review', authRequired, requireRole('OPERAT
   const t = records[0] as StageTaskRecord | undefined;
   if (!t) return fail(res, 404, ErrorCode.NOT_FOUND, '任务不存在');
 
-  // 校验：组织者必须先自核（v10 3 步进度）
+  // 校验：组织者必须先自核
   if (!t.fields.organizerSubmittedAt) {
     return fail(res, 400, ErrorCode.BAD_REQUEST, '组织者尚未自核，无法运营复核');
-  }
-  // 校验：REJECT 需填写原因
-  if (data.action === 'REJECT' && !data.operatorReviewRemark) {
-    return fail(res, 400, ErrorCode.APP_001_MISSING_FIELD, '打回需填写原因');
   }
   // v16.8 Frank 22:16 反馈：运营审核完成后不能再复核
   const currentOpStatus = normStatus(t.fields.operatorReviewStatus);
   if (currentOpStatus === 'APPROVED' || currentOpStatus === 'REJECTED') {
     return fail(res, 409, ErrorCode.BAD_REQUEST, '运营已审核完成，无需重复复核');
   }
+  // v1.5 Frank 28 反馈：仅 UNCERTAIN 旁路才允许运营复核
+  //  - 正常 2 步：志愿 APPROVE 任务已完成，运营无需复核
+  //  - 正常 2 步：志愿 REJECT 任务回退到 step1，运营无需复核
+  const currentReviewStatus = normStatus(t.fields.reviewStatus);
+  if (currentReviewStatus === 'APPROVED') {
+    return fail(res, 409, ErrorCode.BAD_REQUEST, '志愿已审核通过，任务已完成，无需运营复核');
+  }
+  if (currentReviewStatus === 'REJECTED') {
+    return fail(res, 409, ErrorCode.BAD_REQUEST, '志愿已打回，任务已回退到 step1，无需运营复核');
+  }
+  if (currentReviewStatus !== 'UNCERTAIN' && currentReviewStatus !== 'PENDING') {
+    return fail(res, 400, ErrorCode.BAD_REQUEST, `仅 UNCERTAIN 旁路才需要运营复核（当前 reviewStatus=${currentReviewStatus}）`);
+  }
+  // 校验：REJECT 需填写原因
+  if (data.action === 'REJECT' && !data.operatorReviewRemark) {
+    return fail(res, 400, ErrorCode.APP_001_MISSING_FIELD, '打回需填写原因');
+  }
 
   const operatorReviewedAt = Date.now();
   const operatorReviewStatus = data.action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+  // v1.5 Frank 28 反馈：UNCERTAIN 旁路时运营 APPROVE → 把 task.status 推到 COMPLETED + reviewStatus 推到 APPROVED
+  // （让阶段解锁逻辑 isStageFullyCompleted 能识别 task 完成）
+  const isUncertainPath = currentReviewStatus === 'UNCERTAIN';
+  const pushTaskComplete = data.action === 'APPROVE' && isUncertainPath;
 
   await feishuClient.updateRecord(config.feishu.tables.stageTasks, t.record_id, {
     operatorReviewerId,
     operatorReviewedAt,
     operatorReviewStatus,
     operatorReviewRemark: data.operatorReviewRemark,
+    // v1.5 UNCERTAIN 旁路：APPROVE 时把 task.status → COMPLETED + reviewStatus → APPROVED
+    ...(pushTaskComplete ? { status: 'COMPLETED', reviewStatus: 'APPROVED' } : {}),
     // v16.8 Frank 22:55 反馈：运营打回后组织者重新上传（重置 step1Done）
     // + 清空 proofFile（让组织者重新上传）
     ...(data.action === 'REJECT' ? { organizerSubmittedAt: null, proofFile: null } : {}),
