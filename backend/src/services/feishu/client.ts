@@ -295,7 +295,7 @@ export async function searchRecords(
       '--search-field', fieldName,
       '--format', 'json',
     ]);
-    if (data.data && data.fields && data.record_id_list) {
+    if (data.data && data.data.length > 0 && data.fields && data.record_id_list) {
       return data.data.map((row, i) => {
         const fields: Record<string, any> = {};
         data.fields!.forEach((fname, j) => {
@@ -304,7 +304,14 @@ export async function searchRecords(
         return { record_id: data.record_id_list![i] ?? `rec_${i}`, fields };
       });
     }
-    return [];
+    // lark-cli 1.0.88 +record-search 索引延迟常返空数组（data.data = []）
+    // Frank 28 16:31：search 返空时 fallback listRecords + 内存过滤
+    const { items } = await listRecords(tableId, { pageSize: 200 });
+    return items.filter((r) => {
+      const v = r.fields[fieldName];
+      if (Array.isArray(v)) return v.includes(kw);
+      return String(v) === kw;
+    });
   } catch {
     // search 失败时 fallback list + 内存过滤
     const { items } = await listRecords(tableId, { pageSize: 200 });
