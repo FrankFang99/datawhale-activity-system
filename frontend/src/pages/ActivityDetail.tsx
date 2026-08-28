@@ -1339,16 +1339,20 @@ function SubTaskCard({
             credSpec.proofCategories.map((cat) => {
               const catType = inferProofCategoryType(cat);
               // v1.9.21 Frank 28 22:18 反馈：label 含"（可选）"的 category 不加红星
+              // v1.9.23 Frank 28 22:43 反馈：antd required={false} 不可靠，强制刷新后红星还在
+              // → 改用 JSX label 自定义渲染（不依赖 antd 红星机制）
               const isOptional = isProofCategoryOptional(cat);
+              const labelNode = isOptional
+                ? <span style={{ color: '#999' }}>{cat}</span>
+                : cat;
               if (catType === 'text') {
                 // Frank 28 21:27 Comment 1：精确地址 = 填空题（Input）
                 return (
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={cat}
+                      label={labelNode}
                       tooltip="精确到门牌号（填空题）"
-                      required={!isOptional}
                       rules={isOptional ? [] : [{ required: true, message: '请填写精确地址' }]}
                     >
                       <Input placeholder="如：清华大学教学楼 A501" maxLength={200} showCount />
@@ -1362,9 +1366,8 @@ function SubTaskCard({
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={cat}
+                      label={labelNode}
                       tooltip="下拉选择开始和结束时间"
-                      required={!isOptional}
                       rules={isOptional ? [] : [{
                         validator: async (_, v) => {
                           if (!Array.isArray(v) || v.length !== 2 || !v[0] || !v[1]) {
@@ -1389,9 +1392,8 @@ function SubTaskCard({
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={cat}
+                      label={labelNode}
                       tooltip="飞书文档链接（单个 URL）"
-                      required={!isOptional}
                       rules={isOptional ? [{
                         validator: async (_, v) => {
                           if (!v) return Promise.resolve();
@@ -1429,9 +1431,8 @@ function SubTaskCard({
                   <div key={cat}>
                     <Form.Item
                       name={`proofFile_${cat}`}
-                      label={cat}
+                      label={labelNode}
                       tooltip="每行 1 个图片 URL（点击下方「上传图片」可粘贴/拖拽多张）"
-                      required={!isOptional}
                       rules={isOptional ? [] : [{
                         validator: async (_, v) => {
                           const lines = String(v ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -1491,11 +1492,11 @@ function SubTaskCard({
                 <div key={cat}>
                   <Form.Item
                     name={`proofFile_${cat}`}
-                    label={cat}
+                    label={labelNode}
                     tooltip="每行 1 个 URL（飞书文档/网盘/截图）。点击下方「上传图片」按钮可粘贴/拖拽图片"
                     // v1.9.17 Frank 28 21:10 反馈：必填字段加红星（原 validator 只校验 URL 格式，不显示红星 + 不阻止空提交）
                     // v1.9.21 Frank 28 22:18：可选的 category 不加红星
-                    required={!isOptional}
+                    // v1.9.23 Frank 28 22:43：antd required={false} 不可靠，label 用 JSX 自定义
                     rules={isOptional ? [{
                       validator: async (_, v) => {
                         if (!v) return Promise.resolve();
