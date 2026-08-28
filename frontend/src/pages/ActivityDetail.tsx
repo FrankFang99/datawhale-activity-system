@@ -7,7 +7,7 @@ import {
 import {
   CalendarOutlined, EnvironmentOutlined, TeamOutlined, ArrowLeftOutlined,
   UserAddOutlined, CheckCircleOutlined, FileTextOutlined, ClockCircleOutlined,
-  CloudUploadOutlined, CloseCircleOutlined,
+  CloudUploadOutlined, CloseCircleOutlined, UnorderedListOutlined,
 } from '@ant-design/icons';
 import { activityApi, participantApi, interestApi, materialApi, applicationApi, stageApi, uploadApi, Material, Activity, StageTask } from '../services/api';
 import { authStore } from '../store/auth';
@@ -374,6 +374,58 @@ export default function ActivityDetail() {
           options={STAGES.map((s) => ({ label: `${s.title} ${s.desc}`, value: s.stage }))}
           style={{ marginBottom: 16 }}
         />
+
+        {/* v1.5 Frank 28 09:12 反馈：完整 5 阶段时间轴（公开显示所有 19 子任务）
+            公开页面（未登录 / PARTICIPANT / USER）也看得到全部阶段 + 子任务
+            模板数据来自 STAGE_TEMPLATES_FRANK（跟后端 SUBTASK_TEMPLATES 字符级一致）
+            - 不需要登录（不依赖 canViewSubTasks）
+            - 不显示操作按钮（上传凭证 / 审核）— 那是 stakeholder 权限
+            - 显示：stage 标题 + T-时间 + desc + 子任务列表（ownerType + 标题 + proofHint） */}
+        <Card
+          size="small"
+          style={{ marginBottom: 16 }}
+          title={
+            <Space>
+              <UnorderedListOutlined />
+              <span>阶段任务预览（公开版）</span>
+              <Tag color="blue">5 阶段 · 19 子任务</Tag>
+            </Space>
+          }
+        >
+          {STAGE_TEMPLATES_FRANK.map((s) => (
+            <div key={s.stage} style={{ marginBottom: 20 }}>
+              <Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
+                <Tag color="geekblue">{s.hint}</Tag>
+                {s.title}
+              </Title>
+              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 8 }}>{s.desc}</Paragraph>
+              {s.subTasks.map((t) => (
+                <div
+                  key={t.order}
+                  style={{
+                    marginBottom: 6,
+                    padding: '6px 10px',
+                    background: '#F5F7FA',
+                    borderRadius: 6,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                  }}
+                >
+                  <Tag color={t.ownerType === 'VOLUNTEER' ? 'blue' : t.ownerType === 'OPERATOR' ? 'orange' : 'green'} style={{ marginTop: 2 }}>
+                    {t.order}.{t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
+                  </Tag>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{t.name}</div>
+                    {t.proofHint && (
+                      <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{t.proofHint}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </Card>
 
         {/* Frank 27 20:18 反馈 Comment 1/2：删"阶段子任务模板预览" Card（重复，跟下面"阶段任务" Card 内容一样）
             子任务凭证规范 whatToDo/passCriteria 已在每个 SubTaskCard 内显示（line 1172-1194）*/}
