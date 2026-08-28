@@ -324,18 +324,21 @@ export const CREDENTIAL_SPECS: CredentialSpec[] = [
   {
     matchName: '采集现场素材（横版高清）',
     proofCategories: [
-      '横版高清照片（≥5 张，每环节至少 1 张）',
+      // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
+      '横版高清照片（≥1 张）',
       '视频（可选 · 讲座/实操关键片段）',
       '社媒截图/链接（参与者发布作品 #DatawhaleAI+X创造节）',
     ],
     whatToDo: [
-      '拍摄横版高清照片（每环节至少 1 张）',
+      // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
+      '拍摄横版高清照片（≥1 张）',
       '视频可选（讲座/实操关键片段）',
       '引导参与者在社媒发布作品 + 带话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/)',
       '[@Datawhale](https://www.datawhale.cn/) 官方账号',
     ],
     passCriteria: [
-      '素材链接 ≥5 个（照片 ≥5 + 视频可选）',
+      // v1.9.22 Frank 28 22:35 反馈："一张即可" — 改 ≥5 张为 ≥1 张
+      '素材链接 ≥1 个（照片 ≥1 + 视频可选）',
       '横版高清（≥1920×1080）',
       '话题 [#DatawhaleAI+X创造节](https://www.datawhale.cn/) + [@Datawhale](https://www.datawhale.cn/)',
     ],
