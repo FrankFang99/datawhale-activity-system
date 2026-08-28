@@ -14,6 +14,45 @@ import { authStore } from '../store/auth';
 import { STAGE_TEMPLATES_FRANK, canViewSubTasks, Stage, SubTask } from '../data/stageSubtasks';
 import { findCredentialSpec, getButtonType } from '../data/stageCredentialSpec';
 
+// v1.5 Frank 28 09:31 反馈：把 proofHint 文字里的 markdown 超链接 [文字](URL) 解析为可点击 <a>
+// 也支持纯 URL（没 markdown 包装的）自动转链接
+// 用于 stageSubtasks.ts proofHint（v1.3 恢复）和 stageCredentialSpec.ts whatToDo
+function renderTextWithLinks(text: string): React.ReactNode {
+  if (!text) return null;
+  const parts: React.ReactNode[] = [];
+  // 匹配 [文字](URL) 或纯 URL（http/https）
+  const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    if (match[1]) {
+      // markdown 格式 [文字](URL)
+      parts.push(
+        <a key={`link-${key++}`} href={match[2]} target="_blank" rel="noreferrer" style={{ color: '#1677ff' }}>
+          {match[1]}
+        </a>
+      );
+    } else {
+      // 纯 URL
+      const url = match[3];
+      parts.push(
+        <a key={`link-${key++}`} href={url} target="_blank" rel="noreferrer" style={{ color: '#1677ff' }}>
+          {url}
+        </a>
+      );
+    }
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? <>{parts}</> : text;
+}
+
 const { Title, Paragraph, Text } = Typography;
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -399,33 +438,59 @@ export default function ActivityDetail() {
               <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
                 {currentStageData.desc}
               </Paragraph>
-              {currentStageData.subTasks.map((t) => (
-                <div
-                  key={t.order}
-                  style={{
-                    marginBottom: 6,
-                    padding: '8px 12px',
-                    background: '#F5F7FA',
-                    borderRadius: 6,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 8,
-                  }}
-                >
-                  <Tag
-                    color={t.ownerType === 'VOLUNTEER' ? 'blue' : t.ownerType === 'OPERATOR' ? 'orange' : 'green'}
-                    style={{ marginTop: 2, minWidth: 88, textAlign: 'center' }}
+              {currentStageData.subTasks.map((t) => {
+                // v1.5 Frank 28 09:31：拼 stageCredentialSpec.ts whatToDo/passCriteria（含 markdown 超链接）
+                const credSpec = findCredentialSpec(t.name);
+                return (
+                  <div
+                    key={t.order}
+                    style={{
+                      marginBottom: 8,
+                      padding: '10px 12px',
+                      background: '#F5F7FA',
+                      borderRadius: 6,
+                    }}
                   >
-                    {t.order}.{t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
-                  </Tag>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: 13 }}>{t.name}</div>
-                    {t.proofHint && (
-                      <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{t.proofHint}</div>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: credSpec ? 8 : 0 }}>
+                      <Tag
+                        color={t.ownerType === 'VOLUNTEER' ? 'blue' : t.ownerType === 'OPERATOR' ? 'orange' : 'green'}
+                        style={{ marginTop: 2, minWidth: 88, textAlign: 'center' }}
+                      >
+                        {t.order}.{t.ownerType === 'VOLUNTEER' ? '志愿者' : t.ownerType === 'OPERATOR' ? '运营' : '组织者'}
+                      </Tag>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, fontSize: 13 }}>{t.name}</div>
+                        {t.proofHint && (
+                          <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+                            {renderTextWithLinks(t.proofHint)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* v1.5 Frank 28 09:31：显示凭证规范（v1.3 恢复的 19 子任务 whatToDo/passCriteria）含 markdown 超链接可点击 */}
+                    {credSpec && (
+                      <div style={{ marginLeft: 96, fontSize: 12, color: '#444', borderTop: '1px dashed #E5E7EB', paddingTop: 6 }}>
+                        {credSpec.whatToDo.length > 0 && (
+                          <div style={{ marginBottom: 4 }}>
+                            <Text strong style={{ fontSize: 12, color: '#666' }}>📋 怎么做：</Text>
+                            {credSpec.whatToDo.map((step, i) => (
+                              <div key={i} style={{ marginLeft: 8 }}>· {renderTextWithLinks(step)}</div>
+                            ))}
+                          </div>
+                        )}
+                        {credSpec.passCriteria.length > 0 && (
+                          <div>
+                            <Text strong style={{ fontSize: 12, color: '#666' }}>✅ 通过标准：</Text>
+                            {credSpec.passCriteria.map((c, i) => (
+                              <div key={i} style={{ marginLeft: 8 }}>· {renderTextWithLinks(c)}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </Card>
           );
         })()}
