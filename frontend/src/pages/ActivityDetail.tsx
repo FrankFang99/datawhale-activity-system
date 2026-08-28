@@ -414,32 +414,10 @@ export default function ActivityDetail() {
           style={{ marginBottom: 16 }}
         />
 
-        {/* v1.5 Frank 28 09:25 反馈：点 Segmented 哪个阶段 → 显示哪个阶段子任务
-            Frank 28 12:18 修复：去掉了 STAGE_TEMPLATES_FRANK 模板子任务渲染（与下面真实 stage_tasks Card 重复）
-            - 保留：阶段标题 + desc 描述（让没申请的人也知道这阶段做什么）
-            - 子任务只由下面 !isPending && canViewSubTasks(...) 条件块渲染（来自后端 stage_tasks 数据） */}
-        {(() => {
-          const currentStageData = STAGE_TEMPLATES_FRANK.find((s) => s.stage === selectedStage);
-          if (!currentStageData) return null;
-          return (
-            <Card
-              size="small"
-              style={{ marginBottom: 16, background: '#FAFCFF' }}
-              title={
-                <Space>
-                  <UnorderedListOutlined />
-                  <span>阶段概览 · {currentStageData.title}</span>
-                  <Tag color="blue">{currentStageData.hint}</Tag>
-                  <Tag color="geekblue">{currentStageData.subTasks.length} 子任务</Tag>
-                </Space>
-              }
-            >
-              <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 0 }}>
-                {currentStageData.desc}
-              </Paragraph>
-            </Card>
-          );
-        })()}
+        {/* Frank 28 13:13 反馈 Comment 1：删除整个"阶段概览" Card
+            - Frank 觉得冗余：和下面"阶段任务" Card 内容重复
+            - 子任务预览 + 描述由下面 !isPending && canViewSubTasks(...) 条件块渲染（来自后端 stage_tasks 数据）
+        */}
 
         {/* Frank 27 20:18 反馈 Comment 1/2：删"阶段子任务模板预览" Card（重复，跟下面"阶段任务" Card 内容一样）
             子任务凭证规范 whatToDo/passCriteria 已在每个 SubTaskCard 内显示（line 1172-1194）*/}
