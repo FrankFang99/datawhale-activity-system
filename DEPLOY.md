@@ -1,9 +1,11 @@
 # Datawhale 高校活动智能管理系统 · 生产环境部署指南
 
 > **读者**：Datawhale IT / 运维（主），Frank 了解进度（次）
-> **版本**：v1.0.0（2026-08-25）
-> **关联文档**：`README.md`（项目总览）/ `TODO.md`（待办事项）/ `PRD.md`（业务规则）
+> **版本**：v1.9.28（2026-08-29 · Vercel 一体化部署落地）
+> **关联文档**：`README.md`（项目总览）/ `TODO.md`（待办事项）/ `PRD.md`（业务规则）/ `HANDOFF.md`（Datawhale 交付与对接）
 > **交付方**：Frank Fang（frank-fangyz@139.com）
+
+> **v1.9.28 更新**：新增 §8 Vercel 一体化部署（v1.9.28 评估落地）—— Frank 一键部署 + Datawhale IT 后续运维
 
 ---
 
@@ -704,5 +706,110 @@ docker compose run --rm backend python3 scripts/migrate_base.py \
 
 ---
 
-**文档版本**：v1.0.0 · 2026-08-25
-**下次更新**：v1.1（接 SMTP 后） / v2.0（OCR + 飞书 IM 启用后）
+**文档版本**：v1.9.28 · 2026-08-29（Vercel 一体化部署落地）
+**下次更新**：v2.0（OCR + 飞书 IM 启用 + 飞书 Drive 真上传后）
+
+---
+
+## 8. Vercel 一体化部署（v1.9.28 落地）
+
+> **目标**：Frank 一键部署到 Vercel，Datawhale IT 后续运维
+> **耗时**：导入 + 环境变量 ~10-15 min，build + deploy ~3-5 min
+> **费用**：Vercel Hobby 免费（512MB Function 内存 / 100GB 带宽 / 月），Datawhale 演示流量足够
+
+### 8.1 为什么选 Vercel 一体化
+
+- **同域**：前端 / 后端都跑在 `*.vercel.app` 域下，无 CORS 烦恼
+- **单 pipeline**：1 次 git push = 自动 build + deploy，无需服务器
+- **冷启动可接受**：~250ms-2s（lark-cli spawn），v1 演示用足够
+- **无服务器运维**：Vercel 管 SSL / 域名 / CDN / 监控
+
+### 8.2 文件结构
+
+```
+项目根
+├── vercel.json              # Vercel 配置（build + functions + rewrites）
+├── api/
+│   └── index.ts             # Vercel Serverless Function（包装 express app）
+├── backend/                 # 后端源码（导出 app，Vercel 模式下不 listen）
+│   ├── src/index.ts         # 导出 app + `if (VERCEL !== '1')` 包裹 listen
+│   └── src/modules/upload/controller.ts  # multer memoryStorage + mock URL
+└── frontend/                # Vite 前端（Vercel build 走 default）
+```
+
+### 8.3 部署步骤（Frank / Datawhale IT 5 步）
+
+#### Step 1: Vercel 账号登录
+
+打开 https://vercel.com/new 用 GitHub 账号登录（推荐 FrankFang99）。
+
+#### Step 2: 导入 GitHub 仓库
+
+- 点 **"Add New Project"** → 选 **FrankFang99/datawhale-activity-system**
+- Vercel 自动检测到 `vercel.json` 配置
+- **Project Name** 填 `datawhale-activity-system`（或自定义）
+- **Framework Preset** 自动识别为 **Vite**（或保持默认 Other）
+
+#### Step 3: 配置环境变量（Project Settings → Environment Variables）
+
+必填（飞书 base + JWT + 飞书 App）：
+
+| Key | Value | Environment |
+|---|---|---|
+| `FEISHU_BASE_TOKEN` | `T3lJbRN7LaqdQqs3AlUchCxLnKb` | Production / Preview / Development |
+| `FEISHU_TABLE_USERS` | `tblI7XAVJsXh2lRz` | All |
+| `FEISHU_TABLE_ACTIVITIES` | `tblg4WP41rKbilJR` | All |
+| `FEISHU_TABLE_APPLICATIONS` | `tblZRjMNbwNCDHwq` | All |
+| `FEISHU_TABLE_STAGE_TASKS` | `tblw8ZI45cUslzXl` | All |
+| `FEISHU_TABLE_REIMBURSEMENTS` | `tblQLMHEAC6HcVZs` | All |
+| `FEISHU_TABLE_CHAT_LOGS` | `tblgLhFZO5TmQkPg` | All |
+| `FEISHU_TABLE_PARTICIPANTS` | `tbljAGe59BXIxRuw` | All |
+| `FEISHU_TABLE_INTERESTS` | (查 .env.example 当前值) | All |
+| `FEISHU_TABLE_MESSAGES` | `tblsfSU3cdkwOWWX` | All |
+| `FEISHU_TABLE_MATERIALS` | (查 .env.example 当前值) | All |
+| `FEISHU_TABLE_UNIVERSITIES` | (查 .env.example 当前值) | All |
+| `LARK_APP_ID` | `cli_aa82e11c78b81cbb` | All |
+| `LARK_APP_SECRET` | `TCXmQs9hKNyWtgX0FUWCdfIhCg6BnQGP` | All |
+| `JWT_SECRET` | (生成：`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`) | All |
+| `NOTIFY_TEST_MODE` | `true` | All |
+| `NOTIFY_DEFAULT_EMAIL` | `frank-fangyz@139.com` | All |
+
+**选填**（v1 演示模式可空）：
+- `LARK_ALERT_WEBHOOK_URL` / `LARK_ALERT_LEVEL` / `LARK_ALERT_ENABLED`（飞书告警）
+- `CORS_ORIGIN`（Vercel 一体化同域不需要 CORS，可留空）
+
+#### Step 4: 部署
+
+- 点 **Deploy**
+- Vercel 跑 `vercel.json` 的 `buildCommand`：`cd frontend && npm install && npm run build`
+- 前端 build 完，再把 `api/index.ts` + backend/src 编成 Serverless Function
+- 等待 ~3-5 min（首次会久一些，npm install ~1-2 min）
+
+#### Step 5: 验证
+
+- 访问 `https://datawhale-activity-system.vercel.app/`
+- 期望：活动大厅加载（3 张活动卡片）→ 登录演示账号 → 5 阶段任务能跑通
+- **如果 lark-cli 报错**（Vercel Functions logs）：飞书 base 读不到 → 改 fetch 直连飞书 OpenAPI（v1.9.29 计划）
+
+### 8.4 已知限制（v1.9.28）
+
+- **文件上传是 mock 版本**：返回 picsum 占位图 URL，**不存真实文件**到飞书 Drive。5 阶段复盘时看不到真实凭证图
+- **lark-cli 1.0.91 在 Vercel Serverless 中可能 hang**：之前 v1.7 踩过 Node spawn 兼容问题（v1.9.91 缓解但未彻底）。如果部署后飞书 base 读不到，需要改 fetch 直连
+- **冷启动 250ms-2s**：lark-cli spawn 慢，演示可接受
+- **Vercel Function body 4.5MB 限制**：演示版上传限制 1MB（multer memoryStorage 限制）
+- **预先存在的 25 个 tsc errors**（不是我改动引入的，8-25 交付时就在）：Vercel 用 esbuild 跳过 type check，部署能跑
+
+### 8.5 后续优化（v2）
+
+- **改飞书 Drive 上传**：v2 接飞书 OpenAPI 文件上传 → 拿 file_token → 存 dw_stage_tasks.proofFile（单文件 1GB 限制）
+- **改 fetch 直连飞书**：v1.9.29 计划，去 lark-cli 1.0.91 spawn 兼容问题
+- **接企业域名**：Vercel Domains 配 `datawhale.cn/activity/` 子路径（需要 DNS 配置）
+- **CI/CD**：Vercel GitHub 集成已自动，每次 push 触发 build + preview deployment
+
+### 8.6 监控 + 排错
+
+- **Vercel Dashboard → Project → Functions**：看每个 Serverless Function 的执行日志
+- **Vercel Dashboard → Project → Deployments**：看每次部署的 build log
+- **运行时错误**：`/api/*` 路由报错 → Vercel Functions logs → 找 stack trace
+
+---
