@@ -1379,6 +1379,37 @@ function SubTaskCard({
                   </div>
                 );
               }
+              if (catType === 'singleUrl') {
+                // Frank 28 21:41 Comment 1：PPT = 飞书文档链接（单 URL Input，不是多行 TextArea）
+                return (
+                  <div key={cat}>
+                    <Form.Item
+                      name={`proofFile_${cat}`}
+                      label={cat}
+                      tooltip="飞书文档链接（单个 URL）"
+                      rules={[
+                        { required: true, message: `请填写 ${cat} 链接` },
+                        {
+                          validator: async (_, v) => {
+                            if (!v) return Promise.resolve();
+                            // v16.9 Frank 13:10：URL 验证接受完整 URL（http/https）或本地相对路径（/uploads/）
+                            if (!/^(https?:\/\/|\/uploads\/)/.test(String(v).trim())) {
+                              return Promise.reject(new Error('URL 格式错误（需 http/https 或 /uploads/ 开头）'));
+                            }
+                            return Promise.resolve();
+                          },
+                        },
+                      ]}
+                    >
+                      <Input
+                        placeholder="https://datawhaler.feishu.cn/wiki/..."
+                        maxLength={500}
+                        showCount
+                      />
+                    </Form.Item>
+                  </div>
+                );
+              }
               if (catType === 'multiImage') {
                 // Frank 28 21:27 Comment 3：现场图片 ≥3 张 + 5 项设备 checkbox
                 return (

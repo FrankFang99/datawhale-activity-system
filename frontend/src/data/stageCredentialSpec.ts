@@ -448,25 +448,28 @@ export function getButtonType(
 // ============== v1.9.19 Frank 28 21:27 反馈：proofCategories 字段类型多态 ==============
 
 /**
- * 4 种字段类型：
+ * 5 种字段类型：
  *  - 'text'：填空题（Input）— Frank 说"精确地址是填空题"
  *  - 'timeRange'：时间区间下拉（TimePicker.RangePicker）— Frank 说"几点到几点的下拉选择"
  *  - 'multiImage'：多图上传（Upload multiple + ≥N 张验证）
- *  - 'url'：默认 URL TextArea + URL 格式验证
+ *  - 'singleUrl'：单个 URL（Input + URL 格式验证）— Frank 28 21:41 说"PPT 应该是单个飞书文档链接"
+ *  - 'url'：默认 URL TextArea（多行） + URL 格式验证
  */
-export type ProofCategoryType = 'text' | 'timeRange' | 'multiImage' | 'url';
+export type ProofCategoryType = 'text' | 'timeRange' | 'multiImage' | 'singleUrl' | 'url';
 
 /**
- * 按 proofCategories 字符串精确匹配 type。Frank 28 21:27 反馈：
+ * 按 proofCategories 字符串精确匹配 type。Frank 28 21:27/21:41 反馈：
  *  - '精确地址（必填，填空 · 精确到门牌号）' → text
  *  - '使用时段（必填 · 几点到几点的下拉选择）' → timeRange
  *  - '现场图片（必上传 · 至少 3 张，含设备/桌椅/网络/入口）' → multiImage
+ *  - 'PPT（飞书文档链接 · 更新本站点内容）' → singleUrl（不是多行 TextArea）
  *  - 其他 → url（保持原 TextArea + URL 验证）
  */
 const PROOF_CATEGORY_TYPE_MAP: Record<string, ProofCategoryType> = {
   '精确地址（必填，填空 · 精确到门牌号）': 'text',
   '使用时段（必填 · 几点到几点的下拉选择）': 'timeRange',
   '现场图片（必上传 · 至少 3 张，含设备/桌椅/网络/入口）': 'multiImage',
+  'PPT（飞书文档链接 · 更新本站点内容）': 'singleUrl',
 };
 
 export function inferProofCategoryType(cat: string): ProofCategoryType {
