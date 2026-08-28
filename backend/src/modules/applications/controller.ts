@@ -76,9 +76,12 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
   // }
 
   // 3. 重复申请检查（v7 调纯函数 + 飞书查询）
-  const allApps = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
+  // Frank 28 09:38 反馈：lark-cli 偶发 hang → 串行 6+ 次飞书调用累积 90s+ 超时
+  // 修复：把下面 §5.5 dispatch 也需要的 listRecords 提前到这里，1 次共用
+  const allAppsResp = await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 });
+  const allApps = allAppsResp.items as ApplicationRecord[];
   const dup = findDuplicateApplication(
-    allApps.items as ApplicationRecord[],
+    allApps,
     userId,
     data.activityId
   );
@@ -118,17 +121,17 @@ router.post('/submit', authRequired, async (req: Request, res: Response) => {
 
   // 5.5 同校多申请者分流（B.1 完整版 v9 · PRD §5.3.5 US-O13）
   //   同活动 + 同城市 + 已有 CONFIRMED 别人 → 自动派生 ASSISTANT
-  const allAppsForDispatch = (await feishuClient.listRecords(config.feishu.tables.applications, { pageSize: 200 })).items as ApplicationRecord[];
+  // Frank 28 09:38 修复：复用上面 §3 查到的 allApps（不再二次 listRecords），省 1 次飞书调用
   const applicantRole: ApplicantRole = detectApplicantRole(
     { userId, activityId: data.activityId, city: data.location },
-    allAppsForDispatch,
+    allApps,
     data.location
   );
 
   // 5.6 找已有主组织者姓名（ASSISTANT 时站内消息用）
   let existingOrganizerName: string | undefined;
   if (applicantRole === 'ASSISTANT') {
-    const existing = allAppsForDispatch.find(
+    const existing = allApps.find(
       (x) =>
         x.fields.activityId === data.activityId &&
         x.fields.userId !== userId &&

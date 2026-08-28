@@ -20,7 +20,7 @@
  * 注意：v1 数据量小 OK；v2 优化可改直连 HTTP。
  */
 
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { config } from '../../config';
 
@@ -28,6 +28,46 @@ const execFileAsync = promisify(execFile);
 
 const LARK_NODE = process.env.LARK_NODE_PATH || 'C:\\Users\\15088\\.trae-cn\\binaries\\node\\versions\\24.13.0\\node.exe';
 const LARK_RUN_JS = process.env.LARK_RUN_JS_PATH || 'C:\\Users\\15088\\.trae-cn\\binaries\\node\\versions\\24.13.0\\node_modules\\@larksuite\\cli\\scripts\\run.js';
+
+// Frank 28 10:30 修复：lark-cli run.js 在 dev server Node spawn 时卡 30s+ 等 stdin EOF
+// （execFile 默认 pipe stdin 但不主动 end，导致 lark-cli 永远等 stdin close）
+// 改用 spawn + 显式 child.stdin.end() 立即关 stdin
+function runLarkSpawn<T = any>(args: string[], timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(LARK_NODE, [LARK_RUN_JS, ...args], {
+      windowsHide: true,
+      env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
+      // ★ 关键：stdin ignore（不 pipe，避免 lark-cli 等 stdin EOF）
+      // 之前 pipe 时 lark-cli 30s+ 不返回
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (d) => { stdout += d.toString('utf8'); });
+    child.stderr?.on('data', (d) => { stderr += d.toString('utf8'); });
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL'); } catch {}
+      reject(new FeishuApiError(`lark-cli spawn timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+    child.on('error', (err) => { clearTimeout(timer); reject(new FeishuApiError(`lark-cli spawn error: ${err.message}`)); });
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      if (code !== 0) {
+        return reject(new FeishuApiError(`lark-cli exit ${code}: ${stderr.slice(0, 200)}`));
+      }
+      let result: LarkResult<T>;
+      try {
+        result = JSON.parse(stdout);
+      } catch {
+        return reject(new FeishuApiError(`lark-cli 返回非 JSON：${stdout.slice(0, 200)}`));
+      }
+      if (!result.ok) {
+        return reject(new FeishuApiError(result.error?.message ?? 'unknown lark-cli error', result.error?.code));
+      }
+      resolve(result.data as T);
+    });
+  });
+}
 
 export interface LarkResult<T = any> {
   ok: boolean;
@@ -49,31 +89,14 @@ export class FeishuApiError extends Error {
   }
 }
 
+// Frank 28 09:38 反馈：/apply/:activityId 提交申请 90s+ 超时
+// Frank 28 10:30 修复：lark-cli 1.0.88 run.js 在 dev server Node spawn 时卡 30s+ 等 stdin EOF
+// 改用 spawn + 显式 child.stdin.end() 立即关 stdin
+const LARK_TIMEOUT_MS = 30000;
+const LARK_RETRY_TIMES = 0;
+
 async function runLark<T = any>(args: string[]): Promise<T> {
-  try {
-    const { stdout } = await execFileAsync(LARK_NODE, [LARK_RUN_JS, ...args], {
-      maxBuffer: 10 * 1024 * 1024,
-      windowsHide: true,
-      timeout: 60000,  // lark-cli 1.0.88 偶尔 hang，60s 兜底
-      env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
-    });
-    let result: LarkResult<T>;
-    try {
-      result = JSON.parse(stdout);
-    } catch {
-      throw new FeishuApiError(`lark-cli 返回非 JSON：${stdout.slice(0, 200)}`);
-    }
-    if (!result.ok) {
-      throw new FeishuApiError(
-        result.error?.message ?? 'unknown lark-cli error',
-        result.error?.code
-      );
-    }
-    return result.data as T;
-  } catch (err: any) {
-    if (err instanceof FeishuApiError) throw err;
-    throw new FeishuApiError(`lark-cli call failed: ${err.message ?? err}`);
-  }
+  return runLarkSpawn<T>(args, LARK_TIMEOUT_MS);
 }
 
 // ===== CellValue 转换 =====
