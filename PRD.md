@@ -1206,11 +1206,12 @@ Datawhale 面向全国高校开展 AI+X 创造节、学习沙龙、算法大赛�
 
 **输入（提交申请）**：
 
-> **v3 修订（用户原话 2026-08-18）**：
-> - **基础信息 1-7 问** + 段提示 + **9-14 问**（撤回第 8 问"预期活动人数"——按 Frank 8-15/8-17 决定，问卷不为难申请者；预期参与人数由志愿者在 INTENT 阶段与组织者私聊确认）
-> - 段提示"以下信息请认真填写，涉及申请是否通过。" 放在**第 7 问后面**
-> - 第 9 问 = `venueStatus`，**改回原版措辞**"**是否有预备场地**"
-> - 加 `expectedDate`（活动日期）作为基础信息第 7 问
+> **v1.9 修订（v1.9.13 ~ v1.9.14 Frank 27 12:50 / 14:12 反馈）**：
+> - 字段数从 v3 的 14 字段精简为 **13 字段**（删 `schoolOrOrg` 字段联动 + `expectedTimeWindow` 时间窗文本；合并 `expectedDate` 为 `expectedTimeRange`）
+> - 字段名重命名：`identityStatus` → `applicantIdentity` / `city` → `currentCity` / `expectedDate` → `expectedTimeRange`
+> - **`experience` 改必填**（v1.9 Frank 27 14:12 反馈："活动经历改必填"）
+> - 段提示"以下信息请认真填写，涉及申请是否通过。" 放在基础信息后
+> - 评估字段：v1.9 保留 `venueStatus` / `recruitChannel` / `motivation` / `participantValue` / `experience`，对应 §5.1 5 维评分
 
 | # | 字段 | 类型 | 必填 | 约束 | 备注 |
 |---|------|------|------|------|------|
@@ -1218,27 +1219,22 @@ Datawhale 面向全国高校开展 AI+X 创造节、学习沙龙、算法大赛�
 | 2 | organizerName | string | ✓ | 1-20 字符 | 您的姓名 |
 | 3 | organizerPhone | string | ✓ | 11 位手机号 | **基础信息：手机** |
 | 4 | organizerEmail | string | ✓ | 邮箱格式 | **基础信息：邮箱** |
-| 5 | city | string | ✓ | 现居城市 | **省→市级联**下拉 |
-| 6 | identityStatus | enum | ✓ | **单选** | 在校 / 在职 / 创业中 / 自由职业 / 其他 |
-| 7 | schoolOrOrg | string | 条件必填 | 字段联动 | 学校（在校）/ 单位（在职/创业中）/ 自由职业（不填）/ 其他（可选文本） |
-| 8 | expectedDate | date | ✓ | **≥ 今天 + 7 天** | 活动日期（基础信息最后 1 问） |
+| 5 | applicantIdentity | enum | ✓ | **单选** | 在校 / 在职 / 自由职业 / 其他 |
+| 6 | currentCity | string | ✓ | 现居城市 | 文本输入，≤50 字符 |
+| 7 | location | string | ✓ | 活动地点 | 模糊地点（保留给报名者了解），≤100 字符 |
 
 > **以下信息请认真填写，涉及申请是否通过。**
 
 | # | 字段 | 类型 | 必填 | 约束 | 备注 |
 |---|------|------|------|------|------|
+| 8 | expectedTimeRange | string | ✓ | 时间窗文本 | 宽泛时间段（月份/季度，可日期 join）<br/>"您计划在哪个时间段落地活动？"（如"5月30日~6月20日"），≤500 字符 |
 | 9 | venueStatus | enum | ✓ | **单选** | "**是否有预备场地**" — 已确定 / 有潜在 / 暂无 |
 | 10 | recruitChannel | multi-enum | ✓ | **多选** | 5 个选项（社群/公众号/高校社团/企业园区/暂无） |
 | 11 | motivation | string | ✓ | ≤500 字符 | "您为什么想参与 AI+X 创造节共创？" |
 | 12 | participantValue | string | ✓ | ≤500 字符 | "您希望通过本活动，给参与者带来什么价值？" |
-| 13 | experience | string | ✗ | ≤500 字符 | "介绍您组织过的活动经历" |
-| 14 | expectedTimeWindow | string | ✗ | 时间窗文本 | "预备落地的时间"（如"5月30日~6月20日"） |
+| 13 | experience | string | ✓ | ≤500 字符 | "介绍您组织过的活动经历"（**v1.9 改必填**，对应 RC-003） |
 
-**字段联动**：`schoolOrOrg` 字段的必填逻辑由 `identityStatus` 决定——
-- `在校` → 必填，下拉选择学校（支持搜索）
-- `在职` / `创业中` → 必填，下拉选择工作单位（支持搜索）
-- `自由职业` → 不填
-- `其他` → 可选文本补充（非必填）
+**字段联动**（**v1.9 简化**）：删 v3 的 `schoolOrOrg` 字段联动逻辑（v1.9 直接用 `applicantIdentity` 区分 + `location` 填活动地点，不再单独问"学校/单位"——简化申请者负担）
 
 **提交后行为**（v2 设计）：
 1. **API 响应 + 跳转**：API 返回 200 后，**前端自动跳转到进度页**（URL 携带 applicationId）
@@ -1255,12 +1251,12 @@ Datawhale 面向全国高校开展 AI+X 创造节、学习沙龙、算法大赛�
 > **设计原则**：
 > - 字段来源：飞书 ailc.datawhale.cn 实际报名问卷（用户手写摘录，存于 `data/test/AI+X创造节活动组织者申请问卷.md`）+ 用户 2026-08-17 v2 迭代意见（加基础信息手机/邮箱 + 改场地问题措辞 + 提交后行为重设计）
 > - **5 维评分映射留待 §5.1 业务对齐**（8月第3周会议）：当前不在本表写 RC-xxx 映射
-> - `expectedTimeWindow` 是**时间窗文本**，由 §5.1 RC-004 时间合理性规则解析（**与学期/假期冲突的赋分规则待对齐**）
-> - `city` 字段需要前端**级联选择器**支持（先选省份后选城市）
-> - `expectedDate`（活动日期）必须 ≥ 今天 + 7 天（v3 新增字段，与 §10 AC2.3 校验一致）
+> - `expectedTimeRange` 是**时间窗文本**（v1.9 替代 v3 的 `expectedTimeWindow` + `expectedDate`，宽泛时间如"5月30日~6月20日"），由 §5.1 RC-004 时间合理性规则解析（**与学期/假期冲突的赋分规则待对齐**）
+> - `currentCity` 字段**不需要**前端级联选择器（v1.9 改自由文本，≤50 字符）
+> - `expectedDate`（历史 datetime 字段）保留但 **v1.9 存 null**（飞书 base datetime 必填，宽泛时间用 `expectedTimeRange`）；v1.9 不强制具体日期校验
 > - `venueStatus` 措辞**改回原版**"是否有预备场地"——单选枚举（已确定 / 有潜在 / 暂无）；**预期参与人数不放在问卷里**，由后续志愿者接触通过的申请者时确认
 > - **测试数据限制**：现有 11 条脱敏数据**没有"是否通过"标签**且样本量少，5 维评分阈值/权重需业务对齐后定稿
-> - 用户原话"问卷有提升空间，等 AI 评审标准对齐时再说"：**当前字段为 v2 暂行版**
+> - 用户原话"问卷有提升空间，等 AI 评审标准对齐时再说"：**当前字段为 v1.9 暂行版**
 
 **输出（提交成功）**：
 
@@ -2017,11 +2013,11 @@ Datawhale 面向全国高校开展 AI+X 创造节、学习沙龙、算法大赛�
 |---------|---------|----------|------|---------|
 | RC-001 场地确认 | 是否有可承接的场地 | venueStatus | ✓ | 单选枚举（已确定/有潜在/暂无） |
 | RC-002 招募能力 | 是否有本地招募渠道 | recruitChannel | ✓ | **多选**枚举（社群/公众号/高校社团/企业/暂无） |
-| RC-003 组织经验 | 介绍您组织过的活动经历 | experience | ✗ | 关键词加权 + 文本长度（见 §5.1.6） |
-| RC-004 时间合理性 | 预备落地的时间 | expectedTimeWindow | ✗ | 文本解析为日期，与活动周期比对（见 §5.1.7） |
+| RC-003 组织经验 | 介绍您组织过的活动经历 | experience | **✓**（v1.9 改必填） | 关键词加权 + 文本长度（见 §5.1.6） |
+| RC-004 时间合理性 | 预备落地的时间 | expectedTimeRange | ✓ | 文本解析为日期，与活动周期比对（见 §5.1.7） |
 | RC-005 活动价值 | 参与动机 + 参与者价值 | motivation + participantValue | ✓ | 两字段关键词加权 + 文本长度综合（见 §5.1.8） |
 
-> **数据模型影响**：需在 dw_applications 新增 `venueStatus`（单选：已确定/有潜在/暂无）与 `recruitChannel`（**多选**：5 选多——社群/公众号/高校社团/企业园区/暂无）两个字段，并同步加入 4.1.4 申请表单。
+> **数据模型影响**：需在 dw_applications 新增 `venueStatus`（单选：已确定/有潜在/暂无）、`recruitChannel`（**多选**：5 选多——社群/公众号/高校社团/企业园区/暂无）、`expectedTimeRange`（string，≤500，可日期 join）三个字段，并同步加入 4.1.4 申请表单。
 
 #### 5.1.3 等级划分与处理
 
@@ -2134,15 +2130,11 @@ Datawhale 面向全国高校开展 AI+X 创造节、学习沙龙、算法大赛�
 >   - 例：slot 候选 = ["开学前两周（8月底）", "国庆假期", "11 月中旬", "12 月初", "寒假（1-2 月）", "春季学期中（3-5 月）", "暑假（7-8 月）"]
 >   - 多选语义：申请者勾选**所有可以接受的时间区间**，多选 = 灵活度高 → 得分更高（如选 1 个 slot → 5 分；选 2-3 个 → 10 分；选 ≥4 个 → 15 分）
 >   - 此建议**待 Datawhale 业务对齐**后定稿；与"与学期/假期冲突的赋分规则"合并讨论
-> - 字段口径不一致（建议 Frank 拍板统一）：
->   - §4.1.4 v3 申请表单字段为 `expectedTimeWindow`（时间窗文本，14 字段尾）
->   - §5.1.2 字段映射映射到 `expectedTimeWindow`
->   - §5.1.7 当前触发条件写的是 `expectedDate`（**字段名错位**，对齐时一并改）
->   - 如改多选 slot，字段类型从 `string` 改为 `multi-enum`；`expectedTimeWindow` 字段可保留作"具体时间窗备注"或删除
+> - **v1.9 字段统一**：申请表单字段名 `expectedTimeWindow` → `expectedTimeRange`（string，≤500，可日期 join）；§5.1.2 + §4.1.4 同步
 > - **与学期/假期冲突的赋分规则**待 Datawhale 业务会议对齐（计划 8月第3周）
 > - v1 临时方案：仅按"是否能解析为日期"赋分（见下表），**不判断冲突**；对齐后本节整体重写
 
-- **触发条件**：申请提交，读取 expectedDate 字段
+- **触发条件**：申请提交，读取 `expectedTimeRange` 字段
 - **执行逻辑**：解析日期文本，与申请关联活动的周期 [dw_activities.startDate, dw_activities.endDate] 比对
 
 | 解析结果 | 得分 | 评分理由模板 |
@@ -2168,7 +2160,7 @@ Datawhale 面向全国高校开展 AI+X 创造节、学习沙龙、算法大赛�
 - 字段为空 → 0 分，理由"未填写活动时间"
 - 日期解析异常（如"2026-13-45"）→ 0 分，记录 Badcase
 
-**数据影响**：读 dw_applications.expectedDate、dw_activities.startDate/endDate；写 scoreBreakdown.RC004
+**数据影响**：读 `dw_applications.expectedTimeRange`（v1.9 新增）+ `dw_applications.expectedDate`（v1.9 兼容字段，存 null）+ `dw_activities.startDate/endDate`；写 scoreBreakdown.RC004
 
 #### 5.1.8 RC-005 活动价值（20 分）
 
@@ -2465,7 +2457,7 @@ stateDiagram-v2
 #### 5.4.1 阶段任务总览
 - **触发时机**：申请状态 SCREENING → CONFIRMED（运营 APPROVE 通过或 S/A 级自动通过）时，**后端自动**按本节模板初始化 5 阶段 19 条子任务（不再需要运营手动点"初始化"按钮），同步触发用户角色升级（USER/PARTICIPANT → ORGANIZER，详见 §2.1）
 - **执行频率**：每个通过的申请创建一次，共 **5 阶段 19 条子任务**（INTENT 4 + RECRUIT 4 + PREPARE 5 + EXECUTE 3 + REVIEW 3）
-- **时间基准 T**：T = 申请 expectedDate（审核通过后与活动 startDate 对齐）
+- **时间基准 T**：T = 申请 expectedDate（审核通过后与活动 startDate 对齐；v1.9 expectedDate 兼容字段，新逻辑用 `expectedTimeRange` 解析宽泛时间）
 - **数据来源**：dw_applications.expectedDate、dw_activities
 - **输出结果**：dw_stage_tasks 19 条记录，初始 status=PENDING（INTENT 阶段为 IN_PROGRESS，其余 PENDING）
 - **解锁规则**：前一阶段**所有子任务** COMPLETED → 解锁下一阶段（INTENT→RECRUIT→PREPARE→EXECUTE→REVIEW）
@@ -3255,10 +3247,13 @@ flowchart TD
 | organizerName | 文本 | ✓ | 组织者姓名 |
 | organizerPhone | 电话 | ✓ | 联系电话 |
 | organizerEmail | 邮箱 | ✓ | 联系邮箱 |
-| expectedDate | 日期 | ✓ | 预期活动日期（≥今天+7天） |
+| **applicantIdentity**（**v1.9 改名**） | 单选 | ✓ | 在校/在职/自由职业/其他（原 `identityStatus`，v1.9 简化枚举：删"创业中"合并到"在职"） |
+| **currentCity**（**v1.9 改名**） | 文本 | ✓ | 现居城市（≤50 字符，原 `city` 字段；v1.9 不需要省→市级联） |
+| expectedDate | 日期 | ✗ | **v1.9 兼容字段**（历史 datetime，飞书 base 必填，v1.9 存 null）；新逻辑用 `expectedTimeRange` |
+| **expectedTimeRange**（**v1.9 新增**） | 文本 | ✓ | 计划落地时间窗（≤500 字符，月份/季度/可日期 join）→ RC-004 |
 | location | 文本 | ✓ | 活动地点（≤100 字符） |
 | motivation | 文本 | ✓ | 申请动机（≤500 字符）→ RC-005 |
-| experience | 文本 | ✗ | 历史经验（≤500 字符）→ RC-003 |
+| experience | 文本 | **✓**（v1.9 改必填） | 历史经验（≤500 字符）→ RC-003 |
 | resources | 文本 | ✗ | 合作资源（≤200 字符） |
 | venueStatus | 单选 | ✓ | 已确定/有潜在/暂无 → RC-001 ⚠️ 新增 |
 | recruitChannel | 多选 | ✓ | 5 选多：社群/公众号/高校社团/企业园区/暂无 → RC-002 ⚠️ 新增 |
@@ -3269,6 +3264,7 @@ flowchart TD
 | scoreDetails | 文本 | ✗ | JSON 评分理由（5 维） |
 | volunteerId | 关联→用户表 | ✗ | 分配的志愿者，索引（志愿者负载查询） |
 | assignedAt | 日期 | ✗ | 分配时间 |
+| **applicantRole**（**v2 新增**·2026-08-21） | 单选 | ✗ | **同校多申请者分流角色**（§5.3.5）：PRIMARY（最终组织者）/ ASSISTANT（助教）；v1 走纯函数 detectApplicantRole 自动写入 |
 | excellentOrganizer | 文本 | ✗ | **v3 新增**：志愿者"推荐优秀"标记（Y/N + 推荐理由/评语）；由志愿者在 REVIEW 阶段填写（**附加动作，不影响主流程**）；运营**仅作兜底**（v4 修订），可覆盖志愿者的 Y/N 做最终确认 |
 | **assistantForApplicationId** | 关联→申请表 | ✗ | **v2 新增**：同校多申请者分流后，助教关联的主申请 ID（§5.3.5）；如本申请转助教，此字段指向最终组织者的申请 ID |
 | **decidedBy** | 关联→用户表 | ✗ | **v2 新增**：分流决定人 userId（志愿者 / 运营）；同校多申请者最终选谁，由该字段记录决策人 |
@@ -3630,16 +3626,25 @@ BASE_PATH=/activity
 
 ### AC6 5 阶段进度
 
+> **v1.9 修订**：5 阶段共 **19 子任务**（INTENT 4 + RECRUIT 4 + PREPARE 5 + EXECUTE 3 + REVIEW 3，原 22 子任务精简，详见 §5.4.3）
+>
 > **v4 修订（与 US-V4 v4 + §5.4 v4 + §5.3.5 v2 同步 · 用户原话 2026-08-20）**：5 阶段 = 确认意向-对外招募-现场筹备-活动执行-活动复盘；每阶段都是"**组织者提交 → 志愿者审核**"（5 阶段统一志愿者审核）；REVIEW 阶段**运营默认不介入**，仅在志愿者求助/争议/超时/严重违规时介入。**新增 3 条验收用例**：同校合并 / 助教转化 / 运营兜底触发。
+>
+> **v1.9.18 新增 lock 逻辑**：上一阶段子任务**没全完成** → 下一阶段子任务按钮 `disabled` + 顶部 lock banner（"上一阶段「XX」未全部完成"）
+>
+> **v1.9.27 全部 Tab**：`selectedStage='all'` 模式按阶段分组渲染所有 19 子任务（PARTICIPANT 等不可操作角色可看完整工作流）
 
 | 用例 | 步骤 | 预期结果 | 通过标准 |
 |------|------|---------|---------|
-| AC6.1 任务创建 | 申请审批通过 | 自动创建 5 阶段任务（INTENT/RECRUIT/PREPARE/EXECUTE/REVIEW） | dw_stage_tasks 新增 5 条 |
+| AC6.1 任务创建 | 申请审批通过 | **后端自动**初始化 5 阶段 19 子任务（CONFIRMED 触发，不再需运营手动点初始化） | dw_stage_tasks 新增 19 条 |
 | AC6.2 INTENT 加飞书好友 | 志愿者进入 INTENT 阶段 | 飞书 IM 好友关系 + 飞书日历登记 | 24h 内完成，超时申请进入 CANCELLED |
 | AC6.3 组织者提交 | 组织者上传任务凭证 + 点击"提交审核" | 凭证保存至飞书 Drive，任务置 IN_PROGRESS，`submittedAt` 写入 | proofFile 不为空 |
 | AC6.4 志愿者审核通过 | 志愿者点击"通过"+ 填写审核意见 | `status=COMPLETED`, `reviewStatus=APPROVED`, `reviewerId`+`completedAt` 写入 | 进度条前进 + 触发 EVT-016 |
 | AC6.5 志愿者审核打回 | 志愿者点击"打回"+ 填写原因 | `reviewStatus=REJECTED`, 组织者收到 EVT-017 | 任务保持 IN_PROGRESS + `reviewRemark` 记录 |
 | AC6.6 阶段解锁 | 当前阶段所有子任务 COMPLETED | 自动解锁下一阶段 PENDING→IN_PROGRESS | dw_stage_tasks 新增主任务 |
+| **AC6.6.1 5 阶段 lock 逻辑**（**v1.9.18 新增**） | 上一阶段子任务未全完成 | 下一阶段子任务按钮 `disabled` + 顶部 lock banner | UI 显示 lock banner："上一阶段「XX」未全部完成" |
+| **AC6.6.2 5 阶段 Tab "全部"**（**v1.9.27 新增**） | 在活动详情页点 "📋 全部 5 阶段" Tab | 按阶段分组渲染所有 19 子任务 | `selectedStage='all'` 模式生效；PARTICIPANT 角色可看完整工作流（按钮不显示但可看） |
+| **AC6.6.3 凭证字段类型**（**v1.9.19 新增**） | PREPARE-1 上传 3 类凭证 | 精确地址（Input 填空）+ 使用时段（TimePicker.RangePicker）+ 现场图片（Upload ≥3 张 + 5 项设备 Checkbox） | `proofFile` JSON 序列化正确，5 项设备 Checkbox 全选 |
 | AC6.7 REVIEW 阶段志愿者审核 | 志愿者完成审核 | 检查 `reviewRemark`（好+不好都有）+ 选 `excellentOrganizer=Y/N` | reviewRemark 非空 + excellentOrganizer 已填 |
 | AC6.8 REVIEW 阶段志愿者审核通过（v4 默认路径） | 志愿者完成审核 + 提交 | **无需运营确认** → 申请进入 `REVIEW_CONFIRMED` | 触发 EVT-019 + `excellentOrganizer` 写入 |
 | AC6.9 REVIEW 阶段运营兜底确认（v4 fallback） | 运营在 `/api/admin/applications/review-confirm` 操作（带 `triggerReason`） | 申请进入 COMPLETED 或打回志愿者重审 | triggerReason 必填 + 触发 EVT-019 或 EVT-020 |
