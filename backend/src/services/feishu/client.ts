@@ -32,13 +32,27 @@ const LARK_RUN_JS = process.env.LARK_RUN_JS_PATH || 'C:\\Users\\15088\\.trae-cn\
 // Frank 28 10:30 修复：lark-cli run.js 在 dev server Node spawn 时卡 30s+ 等 stdin EOF
 // （execFile 默认 pipe stdin 但不主动 end，导致 lark-cli 永远等 stdin close）
 // 改用 spawn + 显式 child.stdin.end() 立即关 stdin
+// Frank 28 10:50 调试：submit 60s 超时，list mine 1.2s OK，定位具体哪步慢
+const TRACE_LOG = 'D:\\Learning\\AI\\Datawhale\\backend\\logs\\feishu.log';
+const fsTrace = require('fs');
+const pathTrace = require('path');
+try { fsTrace.mkdirSync(pathTrace.dirname(TRACE_LOG), { recursive: true }); } catch {}
+function traceWrite(label: string, table: string) {
+  const ts = new Date().toISOString();
+  try { fsTrace.appendFileSync(TRACE_LOG, `[${ts}] ${label} ${table}\n`); } catch {}
+}
+
 function runLarkSpawn<T = any>(args: string[], timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
+    // 找 table id
+    const ti = args.indexOf('--table-id');
+    const tableId = ti >= 0 ? args[ti + 1] : '?';
+    const cmdLabel = `${args[0]} ${args[1]} ${tableId}`;
+    const start = Date.now();
+    traceWrite('START', cmdLabel);
     const child = spawn(LARK_NODE, [LARK_RUN_JS, ...args], {
       windowsHide: true,
       env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
-      // ★ 关键：stdin ignore（不 pipe，避免 lark-cli 等 stdin EOF）
-      // 之前 pipe 时 lark-cli 30s+ 不返回
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -47,23 +61,29 @@ function runLarkSpawn<T = any>(args: string[], timeoutMs: number): Promise<T> {
     child.stderr?.on('data', (d) => { stderr += d.toString('utf8'); });
     const timer = setTimeout(() => {
       try { child.kill('SIGKILL'); } catch {}
+      traceWrite(`TIMEOUT ${Date.now() - start}ms`, cmdLabel);
       reject(new FeishuApiError(`lark-cli spawn timeout after ${timeoutMs}ms`));
     }, timeoutMs);
-    child.on('error', (err) => { clearTimeout(timer); reject(new FeishuApiError(`lark-cli spawn error: ${err.message}`)); });
+    child.on('error', (err) => { clearTimeout(timer); traceWrite(`ERROR ${Date.now() - start}ms ${err.message?.slice(0, 50)}`, cmdLabel); reject(new FeishuApiError(`lark-cli spawn error: ${err.message}`)); });
     child.on('exit', (code) => {
       clearTimeout(timer);
+      const ms = Date.now() - start;
       if (code !== 0) {
+        traceWrite(`EXIT_NONZERO ${ms}ms code=${code}`, cmdLabel);
         return reject(new FeishuApiError(`lark-cli exit ${code}: ${stderr.slice(0, 200)}`));
       }
       let result: LarkResult<T>;
       try {
         result = JSON.parse(stdout);
       } catch {
+        traceWrite(`NONJSON ${ms}ms stdout=${stdout.slice(0, 100)}`, cmdLabel);
         return reject(new FeishuApiError(`lark-cli 返回非 JSON：${stdout.slice(0, 200)}`));
       }
       if (!result.ok) {
+        traceWrite(`API_ERR ${ms}ms ${result.error?.message?.slice(0, 50)}`, cmdLabel);
         return reject(new FeishuApiError(result.error?.message ?? 'unknown lark-cli error', result.error?.code));
       }
+      traceWrite(`OK ${ms}ms`, cmdLabel);
       resolve(result.data as T);
     });
   });
