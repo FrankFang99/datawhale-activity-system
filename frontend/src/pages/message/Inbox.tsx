@@ -22,6 +22,12 @@ const TYPE_META: Record<string, { label: string; color: string }> = {
   SYSTEM:               { label: '系统通知', color: 'default' },
 };
 
+// v1.9.26 Frank 28 23:18 反馈：志愿者申请运营介入（UNCERTAIN）通知用黄色标记 + 置顶
+// 后端 stages/controller.ts UNCERTAIN 分支 3 个通知的 title 都有 "志愿者无法判断" 关键字
+function isUncertainMsg(m: any): boolean {
+  return typeof m?.title === 'string' && m.title.includes('无法判断');
+}
+
 function formatTime(t?: number) {
   if (!t) return '';
   const d = new Date(t);
@@ -87,6 +93,8 @@ export default function Inbox() {
   };
 
   const filtered = filter === 'unread' ? list.filter((m) => !m.read) : list;
+  // v1.9.26 Frank 28 23:18 反馈：UNCERTAIN（志愿者无法判断）通知置顶
+  const sorted = [...filtered].sort((a, b) => Number(isUncertainMsg(b)) - Number(isUncertainMsg(a)));
   const unreadCount = list.filter((m) => !m.read).length;
 
   return (
@@ -121,24 +129,30 @@ export default function Inbox() {
           <Empty description={filter === 'unread' ? '没有未读消息' : '暂无消息'} />
         ) : (
           <List
-            dataSource={filtered}
+            dataSource={sorted}
             renderItem={(m) => {
               const type = TYPE_META[m.type] ?? { label: m.type, color: 'default' };
+              const uncertain = isUncertainMsg(m);
               return (
                 <List.Item
                   style={{
                     cursor: 'pointer',
-                    background: m.read ? '#fff' : '#F0F7FF',
+                    // v1.9.26 Frank 28 23:18：UNCERTAIN 通知背景浅黄
+                    background: uncertain ? '#FFFBE6' : (m.read ? '#fff' : '#F0F7FF'),
                     padding: '12px 16px',
                     borderRadius: 8,
                     marginBottom: 8,
-                    border: m.read ? '1px solid #f0f0f0' : '1px solid #91caff',
+                    border: uncertain ? '1px solid #FFE58F' : (m.read ? '1px solid #f0f0f0' : '1px solid #91caff'),
                   }}
                   onClick={() => handleClick(m)}
                 >
                   <List.Item.Meta
                     avatar={
-                      m.read ? (
+                      uncertain ? (
+                        <Badge dot color="gold">
+                          <BellOutlined style={{ fontSize: 24, color: '#D48806' }} />
+                        </Badge>
+                      ) : m.read ? (
                         <BellOutlined style={{ fontSize: 24, color: '#9CA3AF' }} />
                       ) : (
                         <Badge dot>
@@ -148,8 +162,9 @@ export default function Inbox() {
                     }
                     title={
                       <Space>
-                        <Text strong={!m.read}>{m.title}</Text>
-                        <Tag color={type.color}>{type.label}</Tag>
+                        {/* v1.9.26 Frank 28 23:18：UNCERTAIN 通知标题用黄色高亮 */}
+                        <Text strong={!m.read} style={uncertain ? { color: '#D48806' } : undefined}>{m.title}</Text>
+                        <Tag color={uncertain ? 'gold' : type.color}>{type.label}</Tag>
                         {m.link && <LinkOutlined style={{ color: '#9CA3AF' }} />}
                       </Space>
                     }
