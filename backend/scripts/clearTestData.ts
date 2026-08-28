@@ -1,6 +1,8 @@
 /**
- * 清空 Datawhale 业务数据（保留 dw_users + dw_messages）
+ * 清空 Datawhale 业务数据（保留 dw_users + dw_messages + dw_stage_tasks）
  * Frank 28 08:16 反馈："申请啥的清空，从头测试，今天要交"
+ * Frank 28 13:38 反馈："以后重测不要清空 5 阶段表相应设置"
+ *   → 保留 dw_stage_tasks（5 阶段 19 个子任务的 status / reviewStatus / operatorReviewStatus 等进度）
  *
  * 用法：cd backend && npx tsx scripts/clearTestData.ts
  */
@@ -10,9 +12,9 @@ const BASE_TOKEN = 'T3lJbRN7LaqdQqs3AlUchCxLnKb';
 const TABLES = {
   activities: 'tblg4WP41rKbilJR',
   applications: 'tblZRjMNbwNCDHwq',
-  stageTasks: 'tblw8ZI45cUslzXl',
+  // Frank 28 13:38：不删 stageTasks（保留 5 阶段 19 个子任务的设置）
   messages: 'tblsfSU3cdkwOWWX',
-  // 不删：dw_users（演示账号）
+  // 不删：dw_users（演示账号）、dw_stage_tasks（5 阶段子任务）
 };
 
 function runLark(args: string[]): any {
