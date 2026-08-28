@@ -45,12 +45,11 @@ export interface ApplicationDetailBodyProps {
     resources?: string;
     participantValue?: string;
     scoreBreakdown?: any;
-  };
-  // Frank 28 12:18 反馈 Comment 4：传 applicationId 给 AI 评分 👎 按钮用
-  applicationId?: string;
     auditLog?: any[];
     volunteerId?: string;
   };
+  // Frank 28 12:18 反馈 Comment 4：传 applicationId 给 AI 评分 👎 按钮用
+  applicationId?: string;
 }
 
 const GRADE_DISPLAY: Record<string, { label: string; color: string }> = {
