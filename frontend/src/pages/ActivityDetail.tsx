@@ -785,6 +785,9 @@ function SubTaskCard({
   const [submitOpen, setSubmitOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [opReviewOpen, setOpReviewOpen] = useState(false);
+  // v1.9.17 Frank 28 21:10 反馈：必填字段加红星，conditional required 用 intent 跟踪
+  const [reviewIntent, setReviewIntent] = useState<'APPROVE' | 'REJECT' | 'UNCERTAIN' | null>(null);
+  const [opReviewIntent, setOpReviewIntent] = useState<'APPROVE' | 'REJECT' | null>(null);
   // v16.6 双方确认（无 Modal）+ 填空表单（Comment 4）
   const [confirmSubmitting, setConfirmSubmitting] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -1138,7 +1141,7 @@ function SubTaskCard({
             type="primary"
             size="small"
             icon={<CheckCircleOutlined style={{ fontSize: 14 }} />}
-            onClick={() => setReviewOpen(true)}
+            onClick={() => { setReviewOpen(true); setReviewIntent(null); }}
             style={{ fontSize: 13, fontWeight: 600 }}
           >
             志愿者审核
@@ -1150,7 +1153,7 @@ function SubTaskCard({
             ghost
             size="small"
             icon={<CheckCircleOutlined style={{ fontSize: 14 }} />}
-            onClick={() => setOpReviewOpen(true)}
+            onClick={() => { setOpReviewOpen(true); setOpReviewIntent(null); }}
             style={{ fontSize: 13, fontWeight: 600 }}
           >
             运营复核
@@ -1290,7 +1293,9 @@ function SubTaskCard({
                   name={`proofFile_${cat}`}
                   label={cat}
                   tooltip="每行 1 个 URL（飞书文档/网盘/截图）。点击下方「上传图片」按钮可粘贴/拖拽图片"
+                  // v1.9.17 Frank 28 21:10 反馈：必填字段加红星（原 validator 只校验 URL 格式，不显示红星 + 不阻止空提交）
                   rules={[
+                    { required: true, message: `请填写 ${cat} 凭证 URL` },
                     {
                       validator: async (_, v) => {
                         if (!v) return Promise.resolve();
@@ -1379,19 +1384,20 @@ function SubTaskCard({
       </Modal>
 
       {/* 志愿者审核 Modal — Frank 09:17 反馈加 UNCERTAIN（无法判断）按钮
-          v1.9.15 Frank 28 18:36 顶部加 ProofFileList 让志愿者看到组织者上传的凭证后再决策 */}
+          v1.9.15 Frank 28 18:36 顶部加 ProofFileList 让志愿者看到组织者上传的凭证后再决策
+          v1.9.17 Frank 28 21:10 反馈：必填字段加红星，REJECT/UNCERTAIN 时 reviewRemark 必填 */}
       <Modal
         title={`志愿者审核 · ${task.subTaskName ?? task.title}`}
         open={reviewOpen}
-        onCancel={() => setReviewOpen(false)}
+        onCancel={() => { setReviewOpen(false); setReviewIntent(null); }}
         footer={[
-          <Button key="reject" danger size="middle" onClick={() => handleReview('REJECT')} loading={reviewing}>
+          <Button key="reject" danger size="middle" onClick={() => { setReviewIntent('REJECT'); handleReview('REJECT'); }} loading={reviewing}>
             ✗ 打回评论
           </Button>,
-          <Button key="uncertain" size="middle" onClick={() => handleReview('UNCERTAIN')} loading={reviewing}>
+          <Button key="uncertain" size="middle" onClick={() => { setReviewIntent('UNCERTAIN'); handleReview('UNCERTAIN'); }} loading={reviewing}>
             ? 无法判断（请求运营介入）
           </Button>,
-          <Button key="approve" type="primary" size="middle" onClick={() => handleReview('APPROVE')} loading={reviewing}>
+          <Button key="approve" type="primary" size="middle" onClick={() => { setReviewIntent('APPROVE'); handleReview('APPROVE'); }} loading={reviewing}>
             ✓ 审核通过
           </Button>,
         ]}
@@ -1399,22 +1405,39 @@ function SubTaskCard({
       >
         <ProofFileList proofFile={task.proofFile} uploadedAt={task.organizerSubmittedAt} />
         <Form form={reviewForm} layout="vertical">
-          <Form.Item name="reviewRemark" label="审核意见（REJECT/UNCERTAIN 时必填）" rules={[{ max: 500 }]}>
+          <Form.Item
+            name="reviewRemark"
+            label="审核意见（REJECT/UNCERTAIN 时必填）"
+            // v1.9.17 动态 required：REJECT/UNCERTAIN 时显示红星
+            rules={[
+              { max: 500 },
+              {
+                validator: async (_, v) => {
+                  if ((reviewIntent === 'REJECT' || reviewIntent === 'UNCERTAIN') && !String(v ?? '').trim()) {
+                    return Promise.reject(new Error(reviewIntent === 'REJECT' ? '打回必须填写意见' : '无法判断必须填写原因'));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+            required={reviewIntent === 'REJECT' || reviewIntent === 'UNCERTAIN'}
+          >
             <Input.TextArea rows={4} maxLength={500} showCount placeholder="如：证据充分/证据不足需补充..." />
           </Form.Item>
         </Form>
       </Modal>
 
-      {/* 运营复核 Modal — v1.9.15 Frank 28 18:36 顶部加 ProofFileList 让运营看到组织者凭证后再决策 */}
+      {/* 运营复核 Modal — v1.9.15 Frank 28 18:36 顶部加 ProofFileList 让运营看到组织者凭证后再决策
+          v1.9.17 Frank 28 21:10 反馈：必填字段加红星，REJECT 时 operatorReviewRemark 必填 */}
       <Modal
         title={`运营复核 · ${task.subTaskName ?? task.title}`}
         open={opReviewOpen}
-        onCancel={() => setOpReviewOpen(false)}
+        onCancel={() => { setOpReviewOpen(false); setOpReviewIntent(null); }}
         footer={[
-          <Button key="reject" danger size="middle" onClick={() => handleOpReview('REJECT')} loading={opReviewing}>
+          <Button key="reject" danger size="middle" onClick={() => { setOpReviewIntent('REJECT'); handleOpReview('REJECT'); }} loading={opReviewing}>
             ✗ 打回评论
           </Button>,
-          <Button key="approve" type="primary" size="middle" onClick={() => handleOpReview('APPROVE')} loading={opReviewing}>
+          <Button key="approve" type="primary" size="middle" onClick={() => { setOpReviewIntent('APPROVE'); handleOpReview('APPROVE'); }} loading={opReviewing}>
             ✓ 复核通过
           </Button>,
         ]}
@@ -1422,7 +1445,23 @@ function SubTaskCard({
       >
         <ProofFileList proofFile={task.proofFile} uploadedAt={task.organizerSubmittedAt} />
         <Form form={opReviewForm} layout="vertical">
-          <Form.Item name="operatorReviewRemark" label="复核意见（REJECT 时必填）" rules={[{ max: 500 }]}>
+          <Form.Item
+            name="operatorReviewRemark"
+            label="复核意见（REJECT 时必填）"
+            // v1.9.17 动态 required：REJECT 时显示红星
+            rules={[
+              { max: 500 },
+              {
+                validator: async (_, v) => {
+                  if (opReviewIntent === 'REJECT' && !String(v ?? '').trim()) {
+                    return Promise.reject(new Error('打回必须填写意见'));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+            required={opReviewIntent === 'REJECT'}
+          >
             <Input.TextArea rows={4} maxLength={500} showCount placeholder="如：合规通过/不合规需重新提交..." />
           </Form.Item>
         </Form>

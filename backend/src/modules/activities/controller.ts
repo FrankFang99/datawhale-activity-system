@@ -109,8 +109,10 @@ function serialize(a: ActivityRecord, detail = false, effective: string = normSt
     rawStatus: normStatus(a), // 保留原始 status 字段供调试
     statusDisplay: STATUS_DISPLAY[effective] ?? effective,
     series: a.fields.series ?? '',
-    startDate: start ? new Date(start).toISOString().slice(0, 10) : null,
-    endDate: end ? new Date(end).toISOString().slice(0, 10) : null,
+    // v1.9.17 Frank 28 21:10 反馈：toISOString 走 UTC，北京时间 2026-09-15 00:00 被切成 2026-09-14（少 8h）
+    // 改用 Asia/Shanghai 时区格式化（en-CA locale 返回 YYYY-MM-DD 格式）
+    startDate: start ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(start)) : null,
+    endDate: end ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(end)) : null,
     location: a.fields.location ?? '',
     // Frank #4：精确时间 + 地址（组织者确认后才填）
     startTime: a.fields.startTime ?? '',
