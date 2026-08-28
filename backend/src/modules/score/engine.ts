@@ -105,11 +105,14 @@ function scoreExperience(input: ScoreInput): ScoreBreakdown['RC003'] {
   };
 
   let score = 0;
-  score += add('组织行为', ['组织过', '举办过', '主办', '承办', '牵头'], 8);
-  score += add('多场经验', ['多场', '多次', '数场', '系列活动', '连续'], 5);
-  score += add('Datawhale 经验', ['Datawhale', 'DW', '数据鲸'], 4);
-  if (/\d+\s*(人|名|参与者|\+|余)|百人|千人/.test(text)) {
-    const m = text.match(/\d+\s*(人|名|参与者|\+|余)|百人|千人/);
+  // Frank 28 12:50 放宽：单字"组织/举办"也算（之前 3 字"组织过/举办过"过严了）
+  score += add('组织行为', ['组织', '组织过', '举办', '举办过', '主办', '承办', '牵头'], 8);
+  // 加"分享"扩展词让"3 次分享"命中
+  score += add('多场经验', ['多场', '多次', '数场', '系列活动', '连续', '分享'], 5);
+  // Datawhale 经验 4→5（增强 Datawhale 生态参与权重）
+  score += add('Datawhale 经验', ['Datawhale', 'DW', '数据鲸'], 5);
+  if (/\d+\s*(人|名|参与者|\+|余|次|场)|百人|千人/.test(text)) {
+    const m = text.match(/\d+\s*(人|名|参与者|\+|余|次|场)|百人|千人/);
     hits.push(m ? `${m[0]}(规模数据)` : '规模数据');
     score += 3;
   }

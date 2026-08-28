@@ -81,8 +81,8 @@ describe('RC003 组织经验（25 分 · 不变）', () => {
     }));
     // 组织行为(+8) + 多场(+5) + Datawhale(+4) + 规模数据(+3) + 长度≥60(+3) = 23
     expect(r.RC003.score).toBeGreaterThanOrEqual(20);
-    // Frank 28 12:18：hitKeywords 改为 "命中词(分类)" 格式
-    expect(r.RC003.hitKeywords).toContain('组织过(组织行为)');
+    // Frank 28 12:50：组织行为关键词扩展（含单字"组织"），"组织过"是子串也会匹配到 "组织"
+    expect(r.RC003.hitKeywords).toContain('组织(组织行为)');
     expect(r.RC003.hitKeywords).toContain('多场(多场经验)');
     expect(r.RC003.hitKeywords).toContain('Datawhale(Datawhale 经验)');
   });
@@ -109,8 +109,8 @@ describe('RC003 组织经验（25 分 · 不变）', () => {
     const r = scoreApplication(baseInput({
       experience: '作为社长，组织过 5 场 AI 社团活动',
     }));
-    // Frank 28 12:18：hitKeywords 改为 "命中词(分类)" 格式
-    expect(r.RC003.hitKeywords).toContain('组织过(组织行为)');
+    // Frank 28 12:50：组织行为关键词扩展，"组织过"子串会先命中"组织"
+    expect(r.RC003.hitKeywords).toContain('组织(组织行为)');
     expect(r.RC003.hitKeywords).toContain('社长(负责人角色)');
   });
   it('截断到 25', () => {
