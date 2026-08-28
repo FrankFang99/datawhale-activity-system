@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card, Button, Tag, Spin, Descriptions, Typography, Segmented, Empty, message, Alert, Space, Modal, Form, Input,
-  DatePicker, TimePicker, InputNumber, Upload,
+  DatePicker, TimePicker, InputNumber, Upload, Checkbox,
 } from 'antd';
 import {
   CalendarOutlined, EnvironmentOutlined, TeamOutlined, ArrowLeftOutlined,
@@ -12,7 +12,7 @@ import {
 import { activityApi, participantApi, interestApi, materialApi, applicationApi, stageApi, uploadApi, Material, Activity, StageTask } from '../services/api';
 import { authStore } from '../store/auth';
 import { STAGE_TEMPLATES_FRANK, canViewSubTasks, Stage, SubTask } from '../data/stageSubtasks';
-import { findCredentialSpec, getButtonType } from '../data/stageCredentialSpec';
+import { findCredentialSpec, getButtonType, inferProofCategoryType, VENUE_EQUIPMENT_ITEMS } from '../data/stageCredentialSpec';
 import ProofFileList from '../components/ProofFileList';
 
 // v1.5 Frank 28 09:31 反馈：把 proofHint 文字里的 markdown 超链接 [文字](URL) 解析为可点击 <a>
@@ -944,12 +944,32 @@ function SubTaskCard({
     setSubmitting(true);
     try {
       // v16.8 Frank 22:16 反馈 Comment 1：按 credSpec.proofCategories 合并分类
+      // v1.9.19 Frank 28 21:27 反馈：4 种字段类型（text/timeRange/multiImage/url）按 category 映射
       let proofFileValue = v.proofFile;
       if (credSpec?.proofCategories && credSpec.proofCategories.length > 0) {
         const categorized: Record<string, string> = {};
         for (const cat of credSpec.proofCategories) {
           const val = v[`proofFile_${cat}`];
-          if (val && String(val).trim()) categorized[cat] = String(val).trim();
+          if (val === undefined || val === null) continue;
+          const catType = inferProofCategoryType(cat);
+          if (catType === 'timeRange') {
+            // TimePicker.RangePicker 返回 [dayjs, dayjs] → 序列化为 "HH:mm-HH:mm"
+            if (Array.isArray(val) && val.length === 2 && val[0] && val[1]) {
+              const start = (val[0] as any).format('HH:mm');
+              const end = (val[1] as any).format('HH:mm');
+              categorized[cat] = `${start}-${end}`;
+            }
+          } else if (catType === 'multiImage') {
+            // TextArea 的多行 URL + 5 项设备 checklist 拼成单字段
+            const lines = String(val).split('\n').map((s) => s.trim()).filter(Boolean);
+            const equip = v[`proofFile_equipment`];
+            const equipStr = Array.isArray(equip) && equip.length > 0 ? JSON.stringify(equip) : '';
+            categorized[cat] = lines.join('\n') + (equipStr ? `\n[equipment]:${equipStr}` : '');
+          } else {
+            // text / url：直接转字符串
+            const str = String(val).trim();
+            if (str) categorized[cat] = str;
+          }
         }
         proofFileValue = JSON.stringify(categorized);
       }
@@ -1313,52 +1333,158 @@ function SubTaskCard({
         width={520}
       >
         <Form form={submitForm} layout="vertical">
-          {/* v16.8 Frank 22:16 反馈 Comment 1：按 credSpec.proofCategories 动态渲染分类 Form.Item */}
+          {/* v16.8 Frank 22:16 反馈 Comment 1：按 credSpec.proofCategories 动态渲染分类 Form.Item
+              v1.9.19 Frank 28 21:27 反馈：4 个字段类型（text / timeRange / multiImage / url）按 category 名映射 */}
           {credSpec?.proofCategories && credSpec.proofCategories.length > 0 ? (
-            credSpec.proofCategories.map((cat) => (
-              <div key={cat}>
-                <Form.Item
-                  name={`proofFile_${cat}`}
-                  label={cat}
-                  tooltip="每行 1 个 URL（飞书文档/网盘/截图）。点击下方「上传图片」按钮可粘贴/拖拽图片"
-                  // v1.9.17 Frank 28 21:10 反馈：必填字段加红星（原 validator 只校验 URL 格式，不显示红星 + 不阻止空提交）
-                  rules={[
-                    { required: true, message: `请填写 ${cat} 凭证 URL` },
-                    {
-                      validator: async (_, v) => {
-                        if (!v) return Promise.resolve();
-                        const lines = String(v).split('\n').map((s: string) => s.trim()).filter(Boolean);
-                        for (const line of lines) {
-                          // v16.9 Frank 13:10：URL 验证接受完整 URL（http/https）或本地相对路径（/uploads/）
-                          if (!/^(https?:\/\/|\/uploads\/)/.test(line)) {
-                            return Promise.reject(new Error(`URL 格式错误：${line.slice(0, 50)}`));
+            credSpec.proofCategories.map((cat) => {
+              const catType = inferProofCategoryType(cat);
+              if (catType === 'text') {
+                // Frank 28 21:27 Comment 1：精确地址 = 填空题（Input）
+                return (
+                  <div key={cat}>
+                    <Form.Item
+                      name={`proofFile_${cat}`}
+                      label={cat}
+                      tooltip="精确到门牌号（填空题）"
+                      rules={[{ required: true, message: '请填写精确地址' }]}
+                    >
+                      <Input placeholder="如：清华大学教学楼 A501" maxLength={200} showCount />
+                    </Form.Item>
+                  </div>
+                );
+              }
+              if (catType === 'timeRange') {
+                // Frank 28 21:27 Comment 2：使用时段 = 几点到几点的下拉选择
+                return (
+                  <div key={cat}>
+                    <Form.Item
+                      name={`proofFile_${cat}`}
+                      label={cat}
+                      tooltip="下拉选择开始和结束时间"
+                      rules={[{
+                        validator: async (_, v) => {
+                          if (!Array.isArray(v) || v.length !== 2 || !v[0] || !v[1]) {
+                            return Promise.reject(new Error('请选择使用时段'));
                           }
-                        }
-                        return Promise.resolve();
+                          return Promise.resolve();
+                        },
+                      }]}
+                    >
+                      <TimePicker.RangePicker
+                        format="HH:mm"
+                        placeholder={['开始', '结束']}
+                        style={{ width: '100%' }}
+                      />
+                    </Form.Item>
+                  </div>
+                );
+              }
+              if (catType === 'multiImage') {
+                // Frank 28 21:27 Comment 3：现场图片 ≥3 张 + 5 项设备 checkbox
+                return (
+                  <div key={cat}>
+                    <Form.Item
+                      name={`proofFile_${cat}`}
+                      label={cat}
+                      tooltip="每行 1 个图片 URL（点击下方「上传图片」可粘贴/拖拽多张）"
+                      rules={[{
+                        validator: async (_, v) => {
+                          const lines = String(v ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
+                          if (lines.length < 3) {
+                            return Promise.reject(new Error(`至少上传 3 张图片（当前 ${lines.length} 张）`));
+                          }
+                          return Promise.resolve();
+                        },
+                      }]}
+                    >
+                      <Input.TextArea
+                        rows={3}
+                        maxLength={5000}
+                        showCount
+                        placeholder="https://example.com/file1.png&#10;https://example.com/file2.png&#10;https://example.com/file3.png"
+                      />
+                    </Form.Item>
+                    <Upload
+                      accept="image/*"
+                      multiple
+                      showUploadList={false}
+                      beforeUpload={async (file) => {
+                        await handleUploadImage(file, `proofFile_${cat}`);
+                        return false;  // 阻止 antd 默认上传
+                      }}
+                    >
+                      <Button size="small" icon={<CloudUploadOutlined />}>📎 上传图片（粘贴/拖拽，可多选）</Button>
+                    </Upload>
+                    {/* Frank 28 21:27 Comment 3：5 项设备 checklist 必填 */}
+                    <Form.Item
+                      name={`proofFile_equipment`}
+                      label="现场设备 checklist（必填 · 5 项都要有）"
+                      tooltip="Frank：需要保证有投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅"
+                      rules={[{
+                        validator: async (_, v) => {
+                          if (!Array.isArray(v) || v.length < VENUE_EQUIPMENT_ITEMS.length) {
+                            return Promise.reject(new Error(`5 项设备都要勾选（当前 ${Array.isArray(v) ? v.length : 0} / ${VENUE_EQUIPMENT_ITEMS.length}）`));
+                          }
+                          return Promise.resolve();
+                        },
+                      }]}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Checkbox.Group style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {VENUE_EQUIPMENT_ITEMS.map((item) => (
+                          <Checkbox key={item.key} value={item.key}>{item.label}</Checkbox>
+                        ))}
+                      </Checkbox.Group>
+                    </Form.Item>
+                  </div>
+                );
+              }
+              // 默认 'url'：URL TextArea + URL 验证
+              return (
+                <div key={cat}>
+                  <Form.Item
+                    name={`proofFile_${cat}`}
+                    label={cat}
+                    tooltip="每行 1 个 URL（飞书文档/网盘/截图）。点击下方「上传图片」按钮可粘贴/拖拽图片"
+                    // v1.9.17 Frank 28 21:10 反馈：必填字段加红星（原 validator 只校验 URL 格式，不显示红星 + 不阻止空提交）
+                    rules={[
+                      { required: true, message: `请填写 ${cat} 凭证 URL` },
+                      {
+                        validator: async (_, v) => {
+                          if (!v) return Promise.resolve();
+                          const lines = String(v).split('\n').map((s: string) => s.trim()).filter(Boolean);
+                          for (const line of lines) {
+                            // v16.9 Frank 13:10：URL 验证接受完整 URL（http/https）或本地相对路径（/uploads/）
+                            if (!/^(https?:\/\/|\/uploads\/)/.test(line)) {
+                              return Promise.reject(new Error(`URL 格式错误：${line.slice(0, 50)}`));
+                            }
+                          }
+                          return Promise.resolve();
+                        },
                       },
-                    },
-                  ]}
-                >
-                  <Input.TextArea
-                    rows={3}
-                    maxLength={2000}
-                    showCount
-                    placeholder="https://example.com/file1.png&#10;https://example.com/file2.png"
-                  />
-                </Form.Item>
-                {/* v16.8 Frank 9:04 反馈：图片上传（customRequest 调后端，URL 追加到字段） */}
-                <Upload
-                  accept="image/*"
-                  showUploadList={false}
-                  beforeUpload={async (file) => {
-                    await handleUploadImage(file, `proofFile_${cat}`);
-                    return false;  // 阻止 antd 默认上传
-                  }}
-                >
-                  <Button size="small" icon={<CloudUploadOutlined />}>📎 上传图片（粘贴/拖拽）</Button>
-                </Upload>
-              </div>
-            ))
+                    ]}
+                  >
+                    <Input.TextArea
+                      rows={3}
+                      maxLength={2000}
+                      showCount
+                      placeholder="https://example.com/file1.png&#10;https://example.com/file2.png"
+                    />
+                  </Form.Item>
+                  {/* v16.8 Frank 9:04 反馈：图片上传（customRequest 调后端，URL 追加到字段） */}
+                  <Upload
+                    accept="image/*"
+                    showUploadList={false}
+                    beforeUpload={async (file) => {
+                      await handleUploadImage(file, `proofFile_${cat}`);
+                      return false;  // 阻止 antd 默认上传
+                    }}
+                  >
+                    <Button size="small" icon={<CloudUploadOutlined />}>📎 上传图片（粘贴/拖拽）</Button>
+                  </Upload>
+                </div>
+              );
+            })
           ) : (
             <div>
               <Form.Item

@@ -33,6 +33,16 @@ export interface CredentialSpec {
    */
   proofCategories?: string[];
   /**
+   * v1.9.19 Frank 28 21:27 反馈：proofCategories 字段类型多态
+   *  - 未设：按 proofCategoryType 默认 'url'（TextArea + URL 验证）
+   *  - 设了：按 category 名字查 PROOF_CATEGORY_TYPE_MAP 决定 Form 控件
+   *    · 'text'：填空题（Input）
+   *    · 'timeRange'：时间区间下拉（TimePicker.RangePicker）
+   *    · 'multiImage'：多图上传（Upload + ≥N 张验证）
+   *  - 例：'确认场地并上传场地信息' → 精确地址(text) + 使用时段(timeRange) + 现场图片(multiImage)
+   */
+  proofCategoryTypes?: Record<string, 'text' | 'timeRange' | 'multiImage' | 'url'>;
+  /**
    * v1.2 Frank 27 #6：proofType 字段在数据中不填
    * - 留 type 是为了 TS 兼容（SubTaskCard 还能引用 credSpec?.proofType）
    * - 数据不填 → spec.proofType === 'image' 全是 false → 全走默认「上传凭证 + 自核」路径
@@ -434,3 +444,44 @@ export function getButtonType(
   // image: 其余 11 个子任务（默认走"上传凭证 + 自核"）
   return 'image';
 }
+
+// ============== v1.9.19 Frank 28 21:27 反馈：proofCategories 字段类型多态 ==============
+
+/**
+ * 4 种字段类型：
+ *  - 'text'：填空题（Input）— Frank 说"精确地址是填空题"
+ *  - 'timeRange'：时间区间下拉（TimePicker.RangePicker）— Frank 说"几点到几点的下拉选择"
+ *  - 'multiImage'：多图上传（Upload multiple + ≥N 张验证）
+ *  - 'url'：默认 URL TextArea + URL 格式验证
+ */
+export type ProofCategoryType = 'text' | 'timeRange' | 'multiImage' | 'url';
+
+/**
+ * 按 proofCategories 字符串精确匹配 type。Frank 28 21:27 反馈：
+ *  - '精确地址（必填，填空 · 精确到门牌号）' → text
+ *  - '使用时段（必填 · 几点到几点的下拉选择）' → timeRange
+ *  - '现场图片（必上传 · 至少 3 张，含设备/桌椅/网络/入口）' → multiImage
+ *  - 其他 → url（保持原 TextArea + URL 验证）
+ */
+const PROOF_CATEGORY_TYPE_MAP: Record<string, ProofCategoryType> = {
+  '精确地址（必填，填空 · 精确到门牌号）': 'text',
+  '使用时段（必填 · 几点到几点的下拉选择）': 'timeRange',
+  '现场图片（必上传 · 至少 3 张，含设备/桌椅/网络/入口）': 'multiImage',
+};
+
+export function inferProofCategoryType(cat: string): ProofCategoryType {
+  return PROOF_CATEGORY_TYPE_MAP[cat] ?? 'url';
+}
+
+/**
+ * v1.9.19 Frank 28 21:27 反馈：现场图片 5 项设备 checklist
+ *  - "需要保证有投影设备 + 稳定网络 + 话筒 + 电源 + 桌椅"
+ *  - 这 5 项做成 Checkbox 必填（Frank "保证有"），提交时拼成 JSON 存 proofFile 同 key 下
+ */
+export const VENUE_EQUIPMENT_ITEMS = [
+  { key: 'projector', label: '投影设备' },
+  { key: 'network', label: '稳定网络' },
+  { key: 'mic', label: '话筒' },
+  { key: 'power', label: '电源' },
+  { key: 'desk', label: '桌椅' },
+] as const;
