@@ -52,7 +52,15 @@ const normStatus = (s: any): string => (Array.isArray(s) ? String(s[0] ?? '') : 
 router.post('/submit', authRequired, async (req: Request, res: Response) => {
   const userId = req.user!.userId;
   const userEmail = req.user!.email;
-  const data = APPLICATION_SCHEMA.parse(req.body);
+  // Frank 28 11:25 修复：async 函数抛 ZodError 不会 next()，express 等 30s timeout
+  // 改用 safeParse + 立即 return 400
+  const parsed = APPLICATION_SCHEMA.safeParse(req.body);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return fail(res, 400, ErrorCode.BAD_REQUEST,
+      `${firstIssue.path.join('.')}: ${firstIssue.message}`);
+  }
+  const data = parsed.data;
 
   // 1. 活动校验（v7 调纯函数）
   const acts = await feishuClient.searchRecords(

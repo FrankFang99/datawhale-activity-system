@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 飞书多维表格（Base）客户端
  *
  * 切片 1 策略：通过 lark-cli 子进程调个人版飞书 API。
@@ -20,74 +20,17 @@
  * 注意：v1 数据量小 OK；v2 优化可改直连 HTTP。
  */
 
-import { execFile, spawn } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { config } from '../../config';
 
 const execFileAsync = promisify(execFile);
 
-const LARK_NODE = process.env.LARK_NODE_PATH || 'C:\\Users\\15088\\.trae-cn\\binaries\\node\\versions\\24.13.0\\node.exe';
-const LARK_RUN_JS = process.env.LARK_RUN_JS_PATH || 'C:\\Users\\15088\\.trae-cn\\binaries\\node\\versions\\24.13.0\\node_modules\\@larksuite\\cli\\scripts\\run.js';
-
-// Frank 28 10:30 修复：lark-cli run.js 在 dev server Node spawn 时卡 30s+ 等 stdin EOF
-// （execFile 默认 pipe stdin 但不主动 end，导致 lark-cli 永远等 stdin close）
-// 改用 spawn + 显式 child.stdin.end() 立即关 stdin
-// Frank 28 10:50 调试：submit 60s 超时，list mine 1.2s OK，定位具体哪步慢
-const TRACE_LOG = 'D:\\Learning\\AI\\Datawhale\\backend\\logs\\feishu.log';
-const fsTrace = require('fs');
-const pathTrace = require('path');
-try { fsTrace.mkdirSync(pathTrace.dirname(TRACE_LOG), { recursive: true }); } catch {}
-function traceWrite(label: string, table: string) {
-  const ts = new Date().toISOString();
-  try { fsTrace.appendFileSync(TRACE_LOG, `[${ts}] ${label} ${table}\n`); } catch {}
-}
-
-function runLarkSpawn<T = any>(args: string[], timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    // 找 table id
-    const ti = args.indexOf('--table-id');
-    const tableId = ti >= 0 ? args[ti + 1] : '?';
-    const cmdLabel = `${args[0]} ${args[1]} ${tableId}`;
-    const start = Date.now();
-    traceWrite('START', cmdLabel);
-    const child = spawn(LARK_NODE, [LARK_RUN_JS, ...args], {
-      windowsHide: true,
-      env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout?.on('data', (d) => { stdout += d.toString('utf8'); });
-    child.stderr?.on('data', (d) => { stderr += d.toString('utf8'); });
-    const timer = setTimeout(() => {
-      try { child.kill('SIGKILL'); } catch {}
-      traceWrite(`TIMEOUT ${Date.now() - start}ms`, cmdLabel);
-      reject(new FeishuApiError(`lark-cli spawn timeout after ${timeoutMs}ms`));
-    }, timeoutMs);
-    child.on('error', (err) => { clearTimeout(timer); traceWrite(`ERROR ${Date.now() - start}ms ${err.message?.slice(0, 50)}`, cmdLabel); reject(new FeishuApiError(`lark-cli spawn error: ${err.message}`)); });
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      const ms = Date.now() - start;
-      if (code !== 0) {
-        traceWrite(`EXIT_NONZERO ${ms}ms code=${code}`, cmdLabel);
-        return reject(new FeishuApiError(`lark-cli exit ${code}: ${stderr.slice(0, 200)}`));
-      }
-      let result: LarkResult<T>;
-      try {
-        result = JSON.parse(stdout);
-      } catch {
-        traceWrite(`NONJSON ${ms}ms stdout=${stdout.slice(0, 100)}`, cmdLabel);
-        return reject(new FeishuApiError(`lark-cli 返回非 JSON：${stdout.slice(0, 200)}`));
-      }
-      if (!result.ok) {
-        traceWrite(`API_ERR ${ms}ms ${result.error?.message?.slice(0, 50)}`, cmdLabel);
-        return reject(new FeishuApiError(result.error?.message ?? 'unknown lark-cli error', result.error?.code));
-      }
-      traceWrite(`OK ${ms}ms`, cmdLabel);
-      resolve(result.data as T);
-    });
-  });
-}
+// Frank 28 10:58 修：lark-cli run.js (scripts/run.js) 内部用 `execFileSync(bin, args, { stdio: 'inherit' })`
+// dev server 是 detached hidden 进程，stdin/stdout 不可用 → 子进程写 stdout 阻塞 30s+ → 触发 timeout
+// 修法：直接调 lark-cli.exe（48MB 真 binary），不通过 run.js wrapper（避免 stdio inherit 阻塞）
+const LARK_CLI = process.env.LARK_CLI_PATH
+  || 'C:\\Users\\15088\\.trae-cn\\binaries\\node\\versions\\24.13.0\\node_modules\\@larksuite\\cli\\bin\\lark-cli.exe';
 
 export interface LarkResult<T = any> {
   ok: boolean;
@@ -109,14 +52,48 @@ export class FeishuApiError extends Error {
   }
 }
 
-// Frank 28 09:38 反馈：/apply/:activityId 提交申请 90s+ 超时
-// Frank 28 10:30 修复：lark-cli 1.0.88 run.js 在 dev server Node spawn 时卡 30s+ 等 stdin EOF
-// 改用 spawn + 显式 child.stdin.end() 立即关 stdin
-const LARK_TIMEOUT_MS = 30000;
-const LARK_RETRY_TIMES = 0;
+// Frank 28 11:08 调试：submit 30s 超时，加 file trace 看哪步慢
+const TRACE_LOG = 'D:\\Learning\\AI\\Datawhale\\backend\\logs\\feishu.log';
+const fsTrace = require('fs');
+const pathTrace = require('path');
+try { fsTrace.mkdirSync(pathTrace.dirname(TRACE_LOG), { recursive: true }); } catch {}
+function traceWrite(label: string, table: string, ms: number, extra: string) {
+  const ts = new Date().toISOString();
+  try { fsTrace.appendFileSync(TRACE_LOG, `[${ts}] ${label} ${table} ${ms}ms ${extra}\n`); } catch {}
+}
 
 async function runLark<T = any>(args: string[]): Promise<T> {
-  return runLarkSpawn<T>(args, LARK_TIMEOUT_MS);
+  const ti = args.indexOf('--table-id');
+  const tableId = ti >= 0 ? args[ti + 1] : '?';
+  const start = Date.now();
+  try {
+    const { stdout } = await execFileAsync(LARK_CLI, args, {
+      maxBuffer: 10 * 1024 * 1024,
+      windowsHide: true,
+      timeout: 30000,
+      env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
+    });
+    const ms = Date.now() - start;
+    traceWrite('OK', tableId, ms, args[1]);
+    let result: LarkResult<T>;
+    try {
+      result = JSON.parse(stdout);
+    } catch {
+      throw new FeishuApiError(`lark-cli 返回非 JSON：${stdout.slice(0, 200)}`);
+    }
+    if (!result.ok) {
+      throw new FeishuApiError(
+        result.error?.message ?? 'unknown lark-cli error',
+        result.error?.code
+      );
+    }
+    return result.data as T;
+  } catch (err: any) {
+    const ms = Date.now() - start;
+    traceWrite('FAIL', tableId, ms, err.message?.slice(0, 100));
+    if (err instanceof FeishuApiError) throw err;
+    throw new FeishuApiError(`lark-cli call failed: ${err.message ?? err}`);
+  }
 }
 
 // ===== CellValue 转换 =====
@@ -371,3 +348,4 @@ export const feishuClient = {
   searchRecords,
   deleteRecord,
 };
+
