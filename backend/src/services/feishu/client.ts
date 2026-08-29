@@ -22,15 +22,28 @@
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import * as path from 'path';
 import { config } from '../../config';
 
 const execFileAsync = promisify(execFile);
 
-// Frank 28 10:58 修：lark-cli run.js (scripts/run.js) 内部用 `execFileSync(bin, args, { stdio: 'inherit' })`
-// dev server 是 detached hidden 进程，stdin/stdout 不可用 → 子进程写 stdout 阻塞 30s+ → 触发 timeout
-// 修法：直接调 lark-cli.exe（48MB 真 binary），不通过 run.js wrapper（避免 stdio inherit 阻塞）
-const LARK_CLI = process.env.LARK_CLI_PATH
-  || 'C:\\Users\\15088\\.trae-cn\\binaries\\node\\versions\\24.13.0\\node_modules\\@larksuite\\cli\\bin\\lark-cli.exe';
+// v1.9.30 修复：跨平台 lark-cli 路径
+// - dev (Windows): 顶层 node_modules/@larksuite/cli/bin/lark-cli（npm install 顶层）
+// - Netlify (Linux): 同上路径（esbuild bundle 时能 resolve）
+// - 兼容：LARK_CLI_PATH env 可覆盖（CI / Docker / 自定义）
+// 历史：v1.9.28 硬编码到 'C:\\Users\\15088\\.trae-cn\\...' Windows 路径
+//   Netlify Linux 容器找不到 → 502（v1.9.29 部署教训）
+function resolveLarkCliPath(): string {
+  if (process.env.LARK_CLI_PATH) return process.env.LARK_CLI_PATH;
+  try {
+    // 直接 resolve bin 路径（@larksuite/cli/bin/lark-cli）
+    // require.resolve 跨平台（Linux/Windows 都 work）
+    return require.resolve('@larksuite/cli/bin/lark-cli');
+  } catch (e) {
+    throw new Error('lark-cli 找不到：未安装 @larksuite/cli 或 LARK_CLI_PATH 未设');
+  }
+}
+const LARK_CLI = resolveLarkCliPath();
 
 export interface LarkResult<T = any> {
   ok: boolean;
