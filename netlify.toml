@@ -8,7 +8,12 @@
 # 5. Deploy
 
 [build]
-  command = "cd frontend && npm install && npm run build"
+  # Netlify 一体化部署（v1.9.29 修复）
+  # 1. 顶层 npm install 装 backend 依赖（serverless-http / express / multer / zod 等）
+  # 2. cd frontend + npm install 装 frontend 依赖（Vite + React + AntD）
+  # 3. frontend npm run build（Vite build）
+  # 4. Netlify 自动打包 netlify/functions/ 为 Serverless Function
+  command = "npm install && cd frontend && npm install && npm run build"
   publish = "frontend/dist"
   functions = "netlify/functions"
 

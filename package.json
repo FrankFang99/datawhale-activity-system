@@ -1,0 +1,20 @@
+{
+  "name": "datawhale-activity-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Datawhale 高校活动智能管理系统 - Netlify 一体化部署顶层 package.json（v1.9.29）",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@netlify/functions": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
+    "serverless-http": "^4.0.0",
+    "zod": "^3.23.8"
+  }
+}
