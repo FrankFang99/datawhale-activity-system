@@ -303,19 +303,20 @@ python scripts/setup_dw_universities.py       # 高校 + 多校区 campusList
 
 ---
 
-## 8. 部署状态（v1.9.28 评估暂缓）
+## 8. 部署状态（v1.9.29 Netlify 一体化落地）
 
 - **8-25 交付包**：`v1-delivery.zip` 0.52 MB / 126 文件（已可上传）
-- **v1.9.28 GitHub Pages 评估**：纯 GitHub Pages 不可行（backend 是 Express + JWT + 飞书 base 代理）
-- **候选方案**：
-  - 方案 A：Vercel Serverless Function (backend) + GitHub Pages (frontend) + 飞书 base
-  - 方案 B：Vercel 一体化（前后端都 Vercel Serverless Functions）
-- **关键约束**：Vercel Function body 4.5MB 限制 + 无持久 fs + CORS + 飞书字段 5 万字符
-- **文件上传方案**待选：A base64 飞书 / B 飞书 Drive / C Vercel KV
-- **评估时间 + 代码改造约 1.5-2h**
-- **Frank 决策**："看样子挺复杂的"——先做项目总结 + 文档整理，部署待后续
+- **v1.9.28 GitHub Pages 评估**：纯 GitHub Pages 不可行（backend 是 Express + JWT + 飞书 base 代理，必须有 serverless 后端）
+- **v1.9.28 Vercel 评估**：需要手机号验证（+86 收不到）
+- **v1.9.29 Netlify 一体化落地**：
+  - **为什么选 Netlify**：不要手机号（Frank 已有 Netlify 账号已验证）+ GitHub OAuth + 100GB free + serverless-http wrap express 1-1.5h 改造
+  - **关键约束**：Netlify Function body 6MB 限制 + 无持久 fs + 冷启动 250ms-2s
+  - **文件上传是 mock 版本**：演示版 picsum 占位图 URL，**v2 改飞书 Drive**
+  - **lark-cli 1.0.91 在 Netlify Functions 可能 hang**：如果飞书 base 读不到，**v1.9.30 改 fetch 直连**
+- **部署步骤**：5 步（Netlify Dashboard → Add new site → Import GitHub → 配 17 个 env → Deploy），详见 `DEPLOY.md` §8.3
+- **演示 URL**：`https://datawhale-activity-system.netlify.app/`（Netlify 部署后）
 
-详细部署方案见 `DEPLOY.md`（v1.0.0）+ 未来需更新为 Vercel 方案
+详细部署方案见 `DEPLOY.md` §8（v1.9.29 Netlify 版）
 
 ---
 

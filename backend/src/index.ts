@@ -95,9 +95,10 @@ app.use((_req, res) => {
 // 错误处理
 app.use(errorHandler);
 
-// Vercel 部署时不 listen（Serverless Function 接管），dev 模式才 listen
+// Vercel / Netlify Serverless 部署时不 listen（Function 接管），dev 模式才 listen
+// 检测 3 个常见 serverless runtime env：VERCEL / NETLIFY / AWS_LAMBDA_FUNCTION_NAME
 const port = config.port;
-if (process.env.VERCEL !== '1') {
+if (!process.env.VERCEL && !process.env.NETLIFY && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
   app.listen(port, () => {
     console.log(`\n🚀 Datawhale backend running at http://localhost:${port}`);
   console.log(`   GET  /api/health`);

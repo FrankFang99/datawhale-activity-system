@@ -1,0 +1,55 @@
+# Datawhale 高校活动智能管理系统 · Netlify 部署配置（v1.9.29）
+#
+# 部署步骤（详见 DEPLOY.md §8.3）：
+# 1. Netlify Dashboard → Add new site → Import from Git
+# 2. 选 FrankFang99/datawhale-activity-system
+# 3. Build command + Publish directory 自动从本文件读取
+# 4. Site settings → Environment variables 填 13 个 env
+# 5. Deploy
+
+[build]
+  command = "cd frontend && npm install && npm run build"
+  publish = "frontend/dist"
+  functions = "netlify/functions"
+
+[functions]
+  # 用 esbuild 打包（比 zip 启动快，~250ms）
+  node_bundler = "esbuild"
+  # 单个 Function 内存 1024MB
+  [functions."*"]
+    memory = 1024
+    timeout = 30
+
+# SPA fallback：所有非 /api/* 路径 → /index.html（让 React Router 处理）
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 静态资源 cache 1 年
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Netlify 环境变量文档（VITE_DEPLOY_BASE=/ 表示 Netlify 根路径）
+[build.environment]
+  VITE_DEPLOY_BASE = "/"
