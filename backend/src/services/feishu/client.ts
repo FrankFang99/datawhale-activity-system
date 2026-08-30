@@ -1,50 +1,113 @@
 ﻿/**
  * 飞书多维表格（Base）客户端
  *
- * 切片 1 策略：通过 lark-cli 子进程调个人版飞书 API。
- * lark-cli 1.0.88 命令约定：
- * - 写：`+record-upsert`（无 --record-id 即 create），参数 `--json {"field": value}` 直接是字段 map
- * - 批量写：`+record-batch-create`，参数 `--json {"create_records":[...]}` 数组
- * - 读：`+record-list`（返回 data.data 2D 数组 + fields[] + record_id_list[]）+ `--format json`
- * - 搜索：`+record-search --keyword <kw> --search-field <fieldName> --format json`
+ * v1.9.30 修复 3：改 fetch 直连飞书 OpenAPI，移除 lark-cli 子进程依赖
  *
- * 关键 CellValue 规约：
+ * 历史：
+ * - v1.9.28 硬编码 lark-cli Windows 路径 → Netlify 502
+ * - v1.9.29 改 require.resolve 跨平台
+ * - v1.9.30 fix1 改 scripts/run.js 入口（仍依赖 binary spawn）
+ * - v1.9.30 fix2（本版）改 fetch + tenant_access_token 缓存，零 subprocess
+ *
+ * 设计：
+ * - 鉴权：tenant_access_token (client_credentials 模式)，in-memory 缓存 2h
+ * - API base: https://open.feishu.cn/open-apis
+ * - 关键 endpoint:
+ *   - list:    GET  /bitable/v1/apps/{baseToken}/tables/{tableId}/records
+ *   - get:     GET  /bitable/v1/apps/{baseToken}/tables/{tableId}/records/{recordId}
+ *   - create:  POST /bitable/v1/apps/{baseToken}/tables/{tableId}/records
+ *   - batch:   POST /bitable/v1/apps/{baseToken}/tables/{tableId}/records/batch_create
+ *   - update:  PUT  /bitable/v1/apps/{baseToken}/tables/{tableId}/records/{recordId}
+ *   - delete:  DELETE /bitable/v1/apps/{baseToken}/tables/{tableId}/records/{recordId}?ignore_consistency_check=true
+ *   - search:  POST /bitable/v1/apps/{baseToken}/tables/{tableId}/records/search
+ * - 写权限要求：app 必须在飞书后台被加为 base 协作者（可编辑）。
+ *   个人版（Frank 测试用）app 即可，无需企业版 OAuth。
+ *
+ * CellValue 规约（与原 lark-cli 版一致）：
  * - text: "string"
  * - number: 12.5
  * - select 单选: ["Option Name"]
  * - select 多选: ["A", "B"]
- * - datetime: "2026-08-20" 或 ms timestamp?
+ * - datetime: "2026-08-20" 或 ms timestamp
  * - checkbox: true / false
  * - auto_number / created_at / updated_at / formula: 系统字段，不可写
- *
- * 注意：v1 数据量小 OK；v2 优化可改直连 HTTP。
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import * as path from 'path';
 import { config } from '../../config';
 
-const execFileAsync = promisify(execFile);
+// ===== Tenant Access Token 缓存 =====
 
-// v1.9.30 修复：跨平台 lark-cli 路径
-// - dev (Windows): 顶层 node_modules/@larksuite/cli/bin/lark-cli（npm install 顶层）
-// - Netlify (Linux): 同上路径（esbuild bundle 时能 resolve）
-// - 兼容：LARK_CLI_PATH env 可覆盖（CI / Docker / 自定义）
-// 历史：v1.9.28 硬编码到 'C:\\Users\\15088\\.trae-cn\\...' Windows 路径
-//   Netlify Linux 容器找不到 → 502（v1.9.29 部署教训）
-function resolveLarkCliPath(): string {
-  if (process.env.LARK_CLI_PATH) return process.env.LARK_CLI_PATH;
-  try {
-    // v1.9.30 修复 2：调 scripts/run.js（package.json 声明的真正 bin 入口）
-    // 跨平台（Windows + Linux + macOS 都 work）
-    // run.js 内部 spawn lark-cli binary（postinstall 装的）
-    return require.resolve('@larksuite/cli/scripts/run.js');
-  } catch (e) {
-    throw new Error('lark-cli 找不到：未安装 @larksuite/cli 或 LARK_CLI_PATH 未设');
-  }
+interface TokenCache {
+  token: string;
+  expiresAt: number;
 }
-const LARK_CLI = resolveLarkCliPath();
+let tokenCache: TokenCache | null = null;
+const TOKEN_TTL_MS = 2 * 60 * 60 * 1000; // 2h（飞书官方 2h TTL）
+const TOKEN_REFRESH_MARGIN_MS = 5 * 60 * 1000; // 提前 5min 刷新
+
+const FEISHU_API_BASE = 'https://open.feishu.cn/open-apis';
+
+function getAppCredentials(): { appId: string; appSecret: string } {
+  const appId = process.env.LARK_APP_ID;
+  const appSecret = process.env.LARK_APP_SECRET;
+  if (!appId || !appSecret) {
+    throw new Error(
+      'LARK_APP_ID / LARK_APP_SECRET 未设置（dev 看 backend/.env，Netlify 看 Environment variables）'
+    );
+  }
+  return { appId, appSecret };
+}
+
+async function fetchTenantAccessToken(): Promise<string> {
+  const { appId, appSecret } = getAppCredentials();
+  const res = await fetch(`${FEISHU_API_BASE}/auth/v3/tenant_access_token/internal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  if (!res.ok) {
+    throw new FeishuApiError(`fetch tenant_access_token HTTP ${res.status}: ${await res.text()}`);
+  }
+  const json: any = await res.json();
+  if (json.code !== 0) {
+    throw new FeishuApiError(
+      `fetch tenant_access_token failed: code=${json.code} msg=${json.msg}`,
+      String(json.code)
+    );
+  }
+  return json.tenant_access_token as string;
+}
+
+async function getTenantAccessToken(): Promise<string> {
+  const now = Date.now();
+  if (tokenCache && tokenCache.expiresAt - TOKEN_REFRESH_MARGIN_MS > now) {
+    return tokenCache.token;
+  }
+  const token = await fetchTenantAccessToken();
+  tokenCache = {
+    token,
+    expiresAt: now + TOKEN_TTL_MS,
+  };
+  return token;
+}
+
+// 仅供测试用：重置 token 缓存
+export function _resetTokenCacheForTest(): void {
+  tokenCache = null;
+}
+
+// ===== Trace 日志（dev 模式 debug 用，Netlify 上 silent fail） =====
+
+const TRACE_LOG = 'D:\\Learning\\AI\\Datawhale\\backend\\logs\\feishu.log';
+const fsTrace = require('fs');
+const pathTrace = require('path');
+try { fsTrace.mkdirSync(pathTrace.dirname(TRACE_LOG), { recursive: true }); } catch {}
+function traceWrite(label: string, tableId: string, ms: number, extra: string): void {
+  const ts = new Date().toISOString();
+  try { fsTrace.appendFileSync(TRACE_LOG, `[${ts}] ${label} ${tableId} ${ms}ms ${extra}\n`); } catch {}
+}
+
+// ===== 公共类型 =====
 
 export interface LarkResult<T = any> {
   ok: boolean;
@@ -66,52 +129,58 @@ export class FeishuApiError extends Error {
   }
 }
 
-// Frank 28 11:08 调试：submit 30s 超时，加 file trace 看哪步慢
-const TRACE_LOG = 'D:\\Learning\\AI\\Datawhale\\backend\\logs\\feishu.log';
-const fsTrace = require('fs');
-const pathTrace = require('path');
-try { fsTrace.mkdirSync(pathTrace.dirname(TRACE_LOG), { recursive: true }); } catch {}
-function traceWrite(label: string, table: string, ms: number, extra: string) {
-  const ts = new Date().toISOString();
-  try { fsTrace.appendFileSync(TRACE_LOG, `[${ts}] ${label} ${table} ${ms}ms ${extra}\n`); } catch {}
+// ===== 飞书 OpenAPI 统一封装 =====
+
+interface FeishuOpenApiResponse<T = any> {
+  code: number;
+  msg: string;
+  data: T;
 }
 
-async function runLark<T = any>(args: string[]): Promise<T> {
-  const ti = args.indexOf('--table-id');
-  const tableId = ti >= 0 ? args[ti + 1] : '?';
+async function feishuFetch<T = any>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: any,
+  tableId: string = '?'
+): Promise<T> {
   const start = Date.now();
+  let token: string;
   try {
-    const { stdout } = await execFileAsync(LARK_CLI, args, {
-      maxBuffer: 10 * 1024 * 1024,
-      windowsHide: true,
-      timeout: 30000,
-      env: { ...process.env, LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8' },
-    });
-    const ms = Date.now() - start;
-    traceWrite('OK', tableId, ms, args[1]);
-    let result: LarkResult<T>;
-    try {
-      result = JSON.parse(stdout);
-    } catch {
-      throw new FeishuApiError(`lark-cli 返回非 JSON：${stdout.slice(0, 200)}`);
-    }
-    if (!result.ok) {
-      throw new FeishuApiError(
-        result.error?.message ?? 'unknown lark-cli error',
-        result.error?.code
-      );
-    }
-    return result.data as T;
+    token = await getTenantAccessToken();
   } catch (err: any) {
     const ms = Date.now() - start;
-    traceWrite('FAIL', tableId, ms, err.message?.slice(0, 100));
-    if (err instanceof FeishuApiError) throw err;
-    throw new FeishuApiError(`lark-cli call failed: ${err.message ?? err}`);
+    traceWrite('FAIL-AUTH', tableId, ms, err.message?.slice(0, 100));
+    throw err;
   }
+  const url = `${FEISHU_API_BASE}${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=utf-8',
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  const ms = Date.now() - start;
+  if (!res.ok) {
+    const text = await res.text();
+    traceWrite('FAIL-HTTP', tableId, ms, `${res.status} ${text.slice(0, 100)}`);
+    throw new FeishuApiError(`飞书 API HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
+  const json: FeishuOpenApiResponse<T> = await res.json();
+  if (json.code !== 0) {
+    traceWrite('FAIL-CODE', tableId, ms, `${json.code} ${json.msg.slice(0, 80)}`);
+    throw new FeishuApiError(
+      `飞书 API code=${json.code}: ${json.msg}`,
+      String(json.code)
+    );
+  }
+  traceWrite('OK', tableId, ms, `${method} ${path.split('?')[0]}`);
+  return json.data;
 }
 
 // ===== CellValue 转换 =====
-// 飞书 select 字段必须是数组 ["Option"] 形式；text 是字符串；datetime 需要 RFC3339 字符串
+
 const SELECT_FIELDS = [
   'status', 'role', 'venueStatus', 'grade', 'stage', 'reviewStatus',
 ];
@@ -131,8 +200,6 @@ export function normalizeFieldValue(fieldName: string, value: any): any {
     if (typeof value === 'number' && value > 0) {
       d = new Date(value);
     } else if (typeof value === 'string' && value.length > 0) {
-      // 飞书 datetime 返回 ISO 字符串或数字字符串
-      // 防止"字符串 + 数字"被 JS 拼接成怪物
       const asNum = Number(value);
       d = !isNaN(asNum) && asNum > 0 ? new Date(asNum) : new Date(value);
       if (isNaN(d.getTime())) d = null;
@@ -160,90 +227,65 @@ export function normalizeFieldValue(fieldName: string, value: any): any {
   if (MULTI_SELECT_FIELDS.includes(fieldName)) {
     return Array.isArray(value) ? value : [value];
   }
-  // text/email/phone: 字符串 OK
-  // number: 数字 OK
-  // checkbox: 布尔 OK
   return value;
 }
 
-// ===== Records =====
+// ===== 飞书 records 响应 → LarkRecord 转换 =====
+
+interface FeishuListResponse {
+  items: Array<{ record_id: string; fields: Record<string, any> }>;
+  total: number;
+  has_more: boolean;
+  page_token?: string;
+}
+
+function recordsFromFeishuItems(items: FeishuListResponse['items']): LarkRecord[] {
+  return items.map((it) => ({ record_id: it.record_id, fields: it.fields ?? {} }));
+}
+
+// ===== Records CRUD =====
 
 export async function listRecords(
   tableId: string,
   options: { pageSize?: number } = {}
 ): Promise<{ items: LarkRecord[]; total: number }> {
-  const args = [
-    'base', '+record-list',
-    '--base-token', config.feishu.baseToken,
-    '--table-id', tableId,
-    '--as', 'user',
-    '--format', 'json',
-  ];
-  if (options.pageSize) args.push('--limit', String(options.pageSize));
-  const data = await runLark<{
-    data?: any[][];
-    fields?: string[];
-    record_id_list?: string[];
-  }>(args);
-
-  // lark-cli 1.0.88 +format json 返回：
-  // data.data: 2D 数组 [[val1, val2, ...], ...]
-  // data.fields: ["activityId", "coverImage", ...]
-  // data.record_id_list: ["rec_xxx", ...]
-  if (data.data && Array.isArray(data.data) && data.fields && data.record_id_list) {
-    const records: LarkRecord[] = data.data.map((row, i) => {
-      const fields: Record<string, any> = {};
-      data.fields!.forEach((fname, j) => {
-        fields[fname] = row[j];
-      });
-      return { record_id: data.record_id_list![i] ?? `rec_${i}`, fields };
-    });
-    return { items: records, total: records.length };
-  }
-  return { items: [], total: 0 };
+  const pageSize = options.pageSize ?? 200;
+  // 飞书 list 限制 page_size 1-500（与 lark-cli pageSize 1-200 不同，OpenAPI 允许更大）
+  const data = await feishuFetch<FeishuListResponse>(
+    'GET',
+    `/bitable/v1/apps/${config.feishu.baseToken}/tables/${tableId}/records?page_size=${pageSize}`,
+    undefined,
+    tableId
+  );
+  const items = recordsFromFeishuItems(data.items ?? []);
+  return { items, total: data.total ?? items.length };
 }
 
 export async function getRecord(tableId: string, recordId: string): Promise<LarkRecord> {
-  const data = await runLark<{ record: LarkRecord }>([
-    'base', '+record-get',
-    '--base-token', config.feishu.baseToken,
-    '--table-id', tableId,
-    '--record-id', recordId,
-    '--as', 'user',
-    '--format', 'json',
-  ]);
-  return data.record;
+  const data = await feishuFetch<{ record: { record_id: string; fields: Record<string, any> } }>(
+    'GET',
+    `/bitable/v1/apps/${config.feishu.baseToken}/tables/${tableId}/records/${recordId}?with_shared_url=false&automatic_fields=false`,
+    undefined,
+    tableId
+  );
+  return { record_id: data.record.record_id, fields: data.record.fields ?? {} };
 }
 
 export async function createRecord(tableId: string, fields: Record<string, any>): Promise<string> {
-  // 用 +record-upsert（无 --record-id 即 create）
-  // 字段值归一化
   const normalized: Record<string, any> = {};
   for (const [k, v] of Object.entries(fields)) {
     normalized[k] = normalizeFieldValue(k, v);
   }
-  const data = await runLark<{
-    created?: boolean;
-    record?: { record_id_list?: string[]; record_id?: string };
-    record_id_list?: string[];
-  }>([
-    'base', '+record-upsert',
-    '--base-token', config.feishu.baseToken,
-    '--table-id', tableId,
-    '--json', JSON.stringify(normalized),
-    '--as', 'user',
-    '--format', 'json',
-  ]);
-  // 1.0.88 返回：data.record.record_id_list[0] 或 data.record_id_list[0]
-  const id =
-    data.record?.record_id_list?.[0] ??
-    data.record?.record_id ??
-    data.record_id_list?.[0] ??
-    (data as any).record_id;
-  if (!id) {
+  const data = await feishuFetch<{ record: { record_id: string } }>(
+    'POST',
+    `/bitable/v1/apps/${config.feishu.baseToken}/tables/${tableId}/records?user_id_type=open_id`,
+    { fields: normalized },
+    tableId
+  );
+  if (!data.record?.record_id) {
     throw new FeishuApiError(`createRecord 返回无 record_id: ${JSON.stringify(data)}`);
   }
-  return id;
+  return data.record.record_id;
 }
 
 export async function batchCreateRecords(
@@ -255,17 +297,15 @@ export async function batchCreateRecords(
     for (const [k, v] of Object.entries(fields)) {
       n[k] = normalizeFieldValue(k, v);
     }
-    return n;
+    return { fields: n };
   });
-  const data = await runLark<{ record_id_list: string[] }>([
-    'base', '+record-batch-create',
-    '--base-token', config.feishu.baseToken,
-    '--table-id', tableId,
-    '--json', JSON.stringify({ create_records: normalized }),
-    '--as', 'user',
-    '--format', 'json',
-  ]);
-  return { recordIds: data.record_id_list ?? [] };
+  const data = await feishuFetch<{ records: Array<{ record_id: string }> }>(
+    'POST',
+    `/bitable/v1/apps/${config.feishu.baseToken}/tables/${tableId}/records/batch_create?user_id_type=open_id`,
+    { records: normalized },
+    tableId
+  );
+  return { recordIds: (data.records ?? []).map((r) => r.record_id) };
 }
 
 export async function updateRecord(
@@ -277,15 +317,12 @@ export async function updateRecord(
   for (const [k, v] of Object.entries(fields)) {
     normalized[k] = normalizeFieldValue(k, v);
   }
-  await runLark([
-    'base', '+record-upsert',
-    '--base-token', config.feishu.baseToken,
-    '--table-id', tableId,
-    '--record-id', recordId,
-    '--json', JSON.stringify(normalized),
-    '--as', 'user',
-    '--format', 'json',
-  ]);
+  await feishuFetch(
+    'PUT',
+    `/bitable/v1/apps/${config.feishu.baseToken}/tables/${tableId}/records/${recordId}?user_id_type=open_id`,
+    { fields: normalized },
+    tableId
+  );
 }
 
 export async function searchRecords(
@@ -293,66 +330,33 @@ export async function searchRecords(
   fieldName: string,
   value: any
 ): Promise<LarkRecord[]> {
-  // 用 +record-search：keyword + search-field
-  // 飞书 keyword 是字符串，所以 value 必须是 string
+  // 飞书 OpenAPI search 接口要 operator + value 组合（不支持简单 keyword 匹配）
+  // 简化：list + 内存过滤（与原 lark-cli fallback 模式一致）
+  // lark-cli 1.0.88 +record-search 索引延迟常返空数组；新方案统一走 list + 内存过滤
   const kw = String(value);
-  try {
-    const data = await runLark<{
-      data?: any[][];
-      fields?: string[];
-      record_id_list?: string[];
-    }>([
-      'base', '+record-search',
-      '--base-token', config.feishu.baseToken,
-      '--table-id', tableId,
-      '--keyword', kw,
-      '--search-field', fieldName,
-      '--format', 'json',
-    ]);
-    if (data.data && data.data.length > 0 && data.fields && data.record_id_list) {
-      return data.data.map((row, i) => {
-        const fields: Record<string, any> = {};
-        data.fields!.forEach((fname, j) => {
-          fields[fname] = row[j];
-        });
-        return { record_id: data.record_id_list![i] ?? `rec_${i}`, fields };
-      });
-    }
-    // lark-cli 1.0.88 +record-search 索引延迟常返空数组（data.data = []）
-    // Frank 28 16:31：search 返空时 fallback listRecords + 内存过滤
-    const { items } = await listRecords(tableId, { pageSize: 200 });
-    return items.filter((r) => {
-      const v = r.fields[fieldName];
-      if (Array.isArray(v)) return v.includes(kw);
-      return String(v) === kw;
-    });
-  } catch {
-    // search 失败时 fallback list + 内存过滤
-    const { items } = await listRecords(tableId, { pageSize: 200 });
-    return items.filter((r) => {
-      const v = r.fields[fieldName];
-      if (Array.isArray(v)) return v.includes(kw);
-      return String(v) === kw;
-    });
-  }
+  const { items } = await listRecords(tableId, { pageSize: 500 });
+  return items.filter((r) => {
+    const v = r.fields[fieldName];
+    if (Array.isArray(v)) return v.includes(kw);
+    if (v === null || v === undefined) return false;
+    return String(v) === kw;
+  });
 }
 
 /**
- * 删 1 条记录（v12 数据迁移用）
+ * 删 1 条记录
  * @param tableId 表 ID
- * @param recordId 飞书 record_id（recvsXXX）
+ * @param recordId 飞书 record_id（recXXX 格式）
  * @returns boolean 是否成功
  */
 export async function deleteRecord(tableId: string, recordId: string): Promise<boolean> {
   try {
-    await runLark<any>([
-      'base', '+record-delete',
-      '--base-token', config.feishu.baseToken,
-      '--table-id', tableId,
-      '--record-id', recordId,
-      '--yes',  // 跳过确认
-      '--as', 'user',
-    ]);
+    await feishuFetch(
+      'DELETE',
+      `/bitable/v1/apps/${config.feishu.baseToken}/tables/${tableId}/records/${recordId}?ignore_consistency_check=true`,
+      undefined,
+      tableId
+    );
     return true;
   } catch (e) {
     console.error('[deleteRecord] failed', { tableId, recordId, e });
@@ -369,4 +373,3 @@ export const feishuClient = {
   searchRecords,
   deleteRecord,
 };
-
