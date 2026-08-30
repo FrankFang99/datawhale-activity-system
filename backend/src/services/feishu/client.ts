@@ -36,9 +36,10 @@ const execFileAsync = promisify(execFile);
 function resolveLarkCliPath(): string {
   if (process.env.LARK_CLI_PATH) return process.env.LARK_CLI_PATH;
   try {
-    // 直接 resolve bin 路径（@larksuite/cli/bin/lark-cli）
-    // require.resolve 跨平台（Linux/Windows 都 work）
-    return require.resolve('@larksuite/cli/bin/lark-cli');
+    // v1.9.30 修复 2：调 scripts/run.js（package.json 声明的真正 bin 入口）
+    // 跨平台（Windows + Linux + macOS 都 work）
+    // run.js 内部 spawn lark-cli binary（postinstall 装的）
+    return require.resolve('@larksuite/cli/scripts/run.js');
   } catch (e) {
     throw new Error('lark-cli 找不到：未安装 @larksuite/cli 或 LARK_CLI_PATH 未设');
   }
